@@ -1,0 +1,75 @@
+group simple;
+
+<!
+
+A struct has the following fields:
+
+name - single : The name of the struct.  Must begin with an upper-case letter.
+fields - multi : The fields in the struct.  Order counts.
+
+
+A field has the following structure:
+
+name - single : The name of the field.  Must begin with a lower-case letter.
+type - single : The type of the field.  Must be a valid type.
+pad  - optional : If set, this field is padding.  Must be set to the bytes of
+         padding desired.
+list - optional : If set, this field is a list.  Must be set to the name
+         of the field which will store the length of this list.
+listRef - optional : If set, this field determines the length of a list
+         field.  Must be set to the name of the field whose length this measures.
+
+!>
+
+Struct() ::= <<
+data <it.name> = Mk<it.name> {
+        <it.fields:FieldS(it.name)>
+     }
+
+<SerializeS(it)>
+
+<DeserializeS(it)>
+
+
+>>
+
+FieldS(tyname) ::= <<<if(it.listRef)><elseif(it.pad)><elseif(it.name)><it.name>_<tyname> :: <TypeS(it)>, <endif>>>
+
+SerializeS(typ) ::= <<
+instance Serialize <typ.name> where
+  serialize bo a = do {
+      <typ.fields:SerializeFieldS(typ.name)>
+     }
+>>
+
+SerializeFieldS(tyname) ::= <<
+   <if(it.pad)>
+      putSkip <it.pad>;
+   <elseif(it.listRef)>
+      serialize bo ((genericLength $ <it.listRef>_<tyname> a$) :: <it.type>);
+   <else>
+      serialize bo $ <it.name>_<tyname> a;
+   <endif>
+>>
+
+TypeS(field) ::= <<<if(field.list)>[<field.type>]<else><field.type><endif>>>
+
+
+DeserializeS(typ) ::= <<
+instance Deserialize <typ.name> where
+  deserialize bo a = do {
+       <typ.fields:DeserializeFieldS()>
+
+       return $ <ConstructS(typ)>;
+      }
+
+ConstructS(typ) ::= <<Mk<typ.name> <typ.fields:{<if(it.pad)><elseif(it.listRef)><else>x_<it.name> <endif>}>
+
+DeserializeFieldS() ::= <<
+     <if(it.pad)>
+        skip <it.pad>;
+     <elseif(it.list)>
+        x_<it.name> \<- deserializeList bo x_<it.list>;
+     <else>
+        x_<it.name> \<- deserialize bo;
+     <endif>>>
