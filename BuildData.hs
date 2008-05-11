@@ -38,14 +38,14 @@ instance Monoid BuildData where
 applyBuildData :: BuildData -> HsModule -> BuildResult
 applyBuildData (BuildData
                 (Endo fmod)
-                (Endo fevent)
-                (Endo freq)
-                (Endo ferr)) mod
+                eventMap
+                reqMap
+                errMap) mod
     = BuildResult
        (fmod mod)
-       (fevent mempty)
-       (freq mempty)
-       (ferr mempty)
+       eventMap
+       reqMap
+       errMap
 
 -- |The completed HsModule, along with the other data we'll want to use to
 -- further add to the module.

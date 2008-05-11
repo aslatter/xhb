@@ -2,6 +2,7 @@ module Proto where
 
 import Types
 import HaskellCombinators
+import BuildData
 
 import Language.Haskell.Syntax
 import Language.Haskell.Pretty
@@ -9,24 +10,50 @@ import Language.Haskell.Pretty
 import Control.Monad.State
 import Data.Char
 
-newtype Builder a = MkBuilder a
-type Build = Builder ()
-
 conPrefix = ("Mk" ++)
 modulePrefix =  ("XCB.Gen." ++)
 
 accessor :: String -> String -> String
 accessor field typ = field ++ "_" ++ typ
 
+----- Builder monad details
+type Builder = Writer BuildData
+type Build = Builder ()
+
+-- |Execute the modification of the module under build.
+modifyModule :: (HsModule -> HsModule) -> Build
+modifyModule = tell . buildHsModule
+
+-- |Call this after building an event type.
+-- It logs the event opcode, and eventually adds it to the module-level
+-- event variant type.
+logEvent :: EventName -> Int -> Build
+logEvent name code = tell $ buildEvent name code
+
+-- |Call this after building a request type.
+-- It logs the request opcode, and eventually adds it to the module-level
+-- request variant type.
+logRequest :: RequestName -> Int -> Bool -> Build
+logRequest name code hasReply = tell $ buildRequest name code hasReply
+
+-- |Call this after building a request type.
+-- It logs the request opcode, and eventually adds it to the module-level
+-- error variant type.
+logError :: ErrorName -> Int -> Build
+logError name code = tell $ buildError name code
+
 runBuilder :: String -> Builder a -> (a, HsModule)
-runBuilder name = undefined
+runBuilder name bldr =
+    let (x,bdata) = runWriter bldr
+        BuildResult mod _ _ _ = applyBuildData bdata (mkModule (modulePrefix name))
+    in (x, mod)
 
 runBuild :: String -> Build -> HsModule
 runBuild = snd . runBuilder
 
 prettyBuild :: String -> Build -> String
 prettyBuild name bld = prettyPrint $ runBuild name bld
-
+-----
 
 xDecl :: XDecl -> Build
 xDecl (XidType name) = do
@@ -44,27 +71,29 @@ xDecl (XRequest name opcode fields resp) = do
   declareStruct name fields
   exportType name
   -- declare instances or serialize/deserialize?
-  case resp of
-    Nothing -> return ()
+  hasReply <- case resp of
+    Nothing -> return False
     Just rFields -> do
               let rName = (name ++ "Reply")
               declareStruct rName rFields
               exportType rName
               -- declare instances of serialize/deserialize?
+              return True
+  logRequest name opcode hasReply
 
 xImport :: String -> Build
-xImport = modify . addImport . mkImport . modulePrefix . ensureUpper
+xImport = modifyModule . addImport . mkImport . modulePrefix . ensureUpper
 
 ensureUpper :: String -> String
 ensureUpper [] = []
 ensureUpper (x:xs) = (toUpper x) : xs
 
 typeDecl :: String -> String -> Build
-typeDecl nm tp = modify . addDecl $
+typeDecl nm tp = modifyModule . addDecl $
   mkTypeDecl nm [] (mkTyCon tp)
 
 declareStruct :: String -> [StructElem] -> Build
-declareStruct name fields = modify . addDecl $
+declareStruct name fields = modifyModule . addDecl $
   mkDataDecl
    []
    name
@@ -88,7 +117,7 @@ declareStruct name fields = modify . addDecl $
 -- Assumes the standard prefix is used for the
 -- newtype data constructor.
 instanceXid :: String -> Build
-instanceXid tyname = modify . addDecl $
+instanceXid tyname = modifyModule . addDecl $
    mkInstDecl
     []
     (mkUnQName "XidLike")
@@ -106,7 +135,7 @@ simpleNewtype :: String   -- typename
               -> [String] -- derived typeclass instances
               -> Build
 simpleNewtype name typ cls =
-    modify $
+    modifyModule $
     addDecl $
     mkNewtype
      []
@@ -118,8 +147,8 @@ simpleNewtype name typ cls =
 -- |Export the named type without exporting constructors.
 -- Should be usable for type synonyms as well.
 exportTypeAbs :: String -> Build
-exportTypeAbs = modify . addExport . HsEAbs . mkUnQName
+exportTypeAbs = modifyModule . addExport . HsEAbs . mkUnQName
 
 -- |Export the named type/thing non-abstractly
 exportType :: String -> Build
-exportType = modify . addExport . HsEThingAll . mkUnQName
+exportType = modifyModule . addExport . HsEThingAll . mkUnQName

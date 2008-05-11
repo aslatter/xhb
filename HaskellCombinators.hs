@@ -35,7 +35,7 @@ testDecls = [mkTypeSig "testfun" [] (HsTyFun (mkTyCon "Int") (mkTyCon "Int"))
 
 -- Wrappers around things in Language.Haskell.Syntax
 -- L.H.S is designed to be used as a result of parsing.
--- As I'm going in the other direction, I'd like somehting
+-- As I'm going in the other direction, I'd like something
 -- slightly simpler.
 --
 -- For example, most of the time I'll be using identifiers instead
