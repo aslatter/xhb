@@ -3,12 +3,13 @@
 module Shared where
 
 import Data.Binary.Put
-import Data.Bianry.Get
+import Data.Binary.Get
 
 import Control.Monad
 
 -- |Byte-ordering.
-data BO = BE | LE
+data BO = BE \0o102
+        | LE \0o154
  deriving (Show, Ord, Eq)
 
 type CARD8  = Word8
@@ -20,11 +21,23 @@ type INT16 = Int16
 newtype Xid = MkXid Word32
  deriving (Eq, Ord, Show, Serialize, Deserialize)
 
+class FromXid a where
+    fromXid :: Xid -> a
+
+instance FromXid Xid where
+    fromXid = id
+
 {-
   I really don't know what endianness any
   of this should be, so I'm going to parameterize
   over byte-ordering.
  -}
+
+data Config = MkConfig {byteorder :: BO
+                       ,image_byteorder :: BO
+                       }
+
+
 
 class Serialize a where
     serialize :: BO -> a -> Put
@@ -58,6 +71,10 @@ instance Serialize Word32
 
 instance Deserialize Word32
     deserialize = pairBO (getWord32be, getWord32le)
+
+instance Serialize BO where
+    serialize _ BE = putWord8 \0o102
+    serialize _ LE = putWord8 \0o154
 
 pairBO :: (a,a) -> BO -> a
 pairBO t BE = fst t
