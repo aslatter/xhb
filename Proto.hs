@@ -45,8 +45,40 @@ logError name code = tell $ buildError name code
 runBuilder :: String -> Builder a -> (a, HsModule)
 runBuilder name bldr =
     let (x,bdata) = runWriter bldr
-        BuildResult mod _ _ _ = applyBuildData bdata (mkModule (modulePrefix name))
-    in (x, mod)
+        BuildResult mod mapEvent mapReq mapErr = applyBuildData bdata (mkModule (modulePrefix name))
+        mod' = mkEventType name mapEvent . mkRequestType name mapReq . mkErrorType name mapErr $ mod
+    in (x, mod')
+
+mkEventType :: String -- Module name
+            -> Map EventName Int
+            -> HsModule
+            -> HsModule
+mkEventType name map = 
+    let tyName = name ++ "Event"
+        toCodeFnDec = undefined -- function mapping an event to it's code
+        toCodeFnTyp = undefined -- type signature for function
+        eventTypDec = undefined -- declaration of biggun event
+        eventDeser  = undefined -- action in the Get monad , which when given an int decodes the event
+        eventSer    = undefined -- action in Put, which serializes the event.
+    in id
+
+{-
+   'eventDeser' and 'eventSer' need more information on how the event opcode
+   is sent down the wire for X."
+-}
+
+mkRequestType :: String -- Module name
+              -> Map RequestName (Int,Bool)
+              -> HsModule
+              -> HsModule
+mkRequestType name map = id
+
+mkErrorType :: String -- Module name
+            -> Map ErrorName Int
+            -> HsModule
+            -> HsModule
+mkErrorType name map = id
+
 
 runBuild :: String -> Build -> HsModule
 runBuild = snd . runBuilder
