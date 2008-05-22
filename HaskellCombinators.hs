@@ -90,7 +90,7 @@ mkUnQName = UnQual . HsIdent
 mkPVar :: String -> HsPat
 mkPVar = HsPVar . HsIdent
 
-mkTyVar :: String -> Type
+mkTyVar :: String -> HsType
 mkTyVar = HsTyVar . HsIdent
 
 mkDataDecl :: HsContext -> String -> [String] -> [HsConDecl] -> [HsQName] -> HsDecl

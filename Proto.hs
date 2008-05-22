@@ -7,8 +7,9 @@ import BuildData
 import Language.Haskell.Syntax
 import Language.Haskell.Pretty
 
-import Control.Monad.State
+import Control.Monad.Writer
 import Data.Char
+import qualified Data.Map as M
 
 conPrefix = ("Mk" ++)
 modulePrefix =  ("XCB.Gen." ++)
@@ -50,7 +51,7 @@ runBuilder name bldr =
     in (x, mod')
 
 mkEventType :: String -- Module name
-            -> Map EventName Int
+            -> M.Map EventName Int
             -> HsModule
             -> HsModule
 mkEventType name map = 
@@ -68,20 +69,20 @@ mkEventType name map =
 -}
 
 mkRequestType :: String -- Module name
-              -> Map RequestName (Int,Bool)
+              -> M.Map RequestName (Int,Bool)
               -> HsModule
               -> HsModule
 mkRequestType name map = id
 
 mkErrorType :: String -- Module name
-            -> Map ErrorName Int
+            -> M.Map ErrorName Int
             -> HsModule
             -> HsModule
 mkErrorType name map = id
 
 
 runBuild :: String -> Build -> HsModule
-runBuild = snd . runBuilder
+runBuild name bld= snd $ runBuilder name bld
 
 prettyBuild :: String -> Build -> String
 prettyBuild name bld = prettyPrint $ runBuild name bld
