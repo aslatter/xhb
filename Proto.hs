@@ -54,13 +54,24 @@ mkEventType :: String -- Module name
             -> M.Map EventName Int
             -> HsModule
             -> HsModule
-mkEventType name map = 
+mkEventType name namesMap = 
+
     let tyName = name ++ "Event"
-        toCodeFnDec = undefined -- function mapping an event to it's code
+
+        toCodeFnDec = HsFunBind $ map go $ M.toList namesMap
+            where go (typName, code) = 
+                      let cons = typName -- the super-type uses the base typenames as constructors
+                          result = mkNumLit $ fromIntegral code
+                      in mkConsMatch "toEventCode" cons result
+
         toCodeFnTyp = undefined -- type signature for function
+
         eventTypDec = undefined -- declaration of biggun event
+
         eventDeser  = undefined -- action in the Get monad , which when given an int decodes the event
+
         eventSer    = undefined -- action in Put, which serializes the event.
+
     in id
 
 {-

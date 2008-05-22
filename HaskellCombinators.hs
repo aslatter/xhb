@@ -60,6 +60,22 @@ mkSimpleFun :: String  -- |name
 mkSimpleFun name args rhs = HsFunBind
      [HsMatch dummLoc (HsIdent name) args (HsUnGuardedRhs rhs) []]
 
+-- |Makes an choice in a function which returns
+-- a value based soley on the input constructor
+mkConsMatch :: String -- |Function name
+            -> String -- |Constructor name
+            -> HsExp -- |Result expression
+            -> HsMatch
+mkConsMatch fName cons res
+    = HsMatch
+       dummLoc
+       (HsIdent fName)
+       [HsPRec (mkUnQName cons) []]
+       (HsUnGuardedRhs res)
+       [] -- empty "where" clause
+
+mkNumLit :: Integer -> HsExp
+mkNumLit = HsLit . HsInt
 
 mkNewtype :: HsContext
           -> String    -- |name
