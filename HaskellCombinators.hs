@@ -1,14 +1,5 @@
 module HaskellCombinators
-{-
-    (module Language.Haskell.Syntax
-    ,module Language.Haskell.Pretty
-    ,mkModule
-    ,addExport
-    ,addImport
-    ,addDecl
-    ,mkImport
-    )
--}
+
     where
 
 import Language.Haskell.Syntax
@@ -47,8 +38,14 @@ dummLoc = SrcLoc "dummy location" 0 0
 mkImport str = HsImportDecl dummLoc (Module str) False Nothing Nothing
 
 mkTypeSig var context typ = HsTypeSig dummLoc [HsIdent var] (HsQualType context typ)
+
 mkTyCon = HsTyCon . UnQual . HsIdent
 
+mkExportAbs :: String -> HsExportSpec
+mkExportAbs = HsEAbs . mkUnQName
+
+mkExportAll :: String -> HsExportSpec
+mkExportAll = HsEThingAll . mkUnQName
 
 mkTypeDecl :: String -> [String] -> HsType -> HsDecl
 mkTypeDecl nm args ty = HsTypeDecl dummLoc (HsIdent nm) (map HsIdent args) ty

@@ -58,21 +58,39 @@ mkEventType name namesMap =
 
     let tyName = name ++ "Event"
 
+        -- Function mapping a module event to its event code
+        toCodeFunName = "toEventCode"
+        toCodeFnTyp = mkTypeSig toCodeFunName [] (HsTyFun (mkTyCon tyName) (mkTyCon "Int"))
         toCodeFnDec = HsFunBind $ map go $ M.toList namesMap
             where go (typName, code) = 
                       let cons = typName -- the super-type uses the base typenames as constructors
                           result = mkNumLit $ fromIntegral code
-                      in mkConsMatch "toEventCode" cons result
+                      in mkConsMatch toCodeFunName cons result
 
-        toCodeFnTyp = undefined -- type signature for function
+        -- Type of any event in this module
+        eventTypDec = mkDataDecl [] tyName [] dataCons []
+            where dataCons :: [HsConDecl]
+                  dataCons = map f $ M.keys namesMap
 
-        eventTypDec = undefined -- declaration of biggun event
+                  f :: String -> HsConDecl
+                  f eventTyName = mkCon eventTyName [HsUnBangedTy $ mkTyCon eventTyName]
 
-        eventDeser  = undefined -- action in the Get monad , which when given an int decodes the event
+        eventExports :: [HsExportSpec]
+        eventExports = [mkExportAll tyName
+                       ,mkExportAbs toCodeFunName
+                       ]
+                        
 
-        eventSer    = undefined -- action in Put, which serializes the event.
+        eventDeser  = undefined -- action in Get, deserialization
+        eventSer    = undefined -- action in Put, serialization
 
-    in id
+    in appMany (map addExport eventExports)
+           . addDecl eventTypDec
+           . addDecl toCodeFnTyp
+           . addDecl toCodeFnDec
+
+appMany :: [a -> a] -> (a -> a)
+appMany = foldr (.) id
 
 {-
    'eventDeser' and 'eventSer' need more information on how the event opcode
@@ -191,8 +209,18 @@ simpleNewtype name typ cls =
 -- |Export the named type without exporting constructors.
 -- Should be usable for type synonyms as well.
 exportTypeAbs :: String -> Build
-exportTypeAbs = modifyModule . addExport . HsEAbs . mkUnQName
+exportTypeAbs = modifyModule . addExport . mkExportAbs
 
 -- |Export the named type/thing non-abstractly
 exportType :: String -> Build
-exportType = modifyModule . addExport . HsEThingAll . mkUnQName
+exportType = modifyModule . addExport . mkExportAll
+
+
+-- Random utiltiy functions
+
+swap :: (a,b) -> (b,a)
+swap (a,b) = (b,a)
+
+twist :: (Ord a, Ord b) => M.Map a b -> M.Map b a
+twist = M.fromList . map swap . M.toList
+
