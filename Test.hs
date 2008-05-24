@@ -22,6 +22,8 @@ test_xdecs = [XidType "ATOM"
              ,screenStruct
              ,XImport "xproto"
              ,XImport "xfiles"
+             ,testEvent
+             ,testEvent2
              ]
 
 
@@ -57,3 +59,14 @@ screenStruct = XStruct "SCREEN"
                ,List "allowed_depths" "DEPTH" "allowed_depths_len"
                ]
 
+testEvent = XEvent "MyEvent" 23
+            [SField "screen" "SCREEN"
+            ,SField "x" "INT16"
+            ,SField "y" "INT16"
+            ]
+
+testEvent2 = XEvent "MyOtherEvent" 24
+             [SField "rect" "RECTANGLE"
+             ,SField "left" "POINT"
+             ,SField "right" "POINT"
+             ]
