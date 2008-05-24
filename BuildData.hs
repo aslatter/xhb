@@ -30,7 +30,7 @@ instance Monoid BuildData where
     mempty = BuildData mempty mempty mempty mempty
     (BuildData a b c d) `mappend` (BuildData a' b' c' d')
         = BuildData
-          (a `mappend` a')
+          (a' `mappend` a)
           (b `mappend` b')
           (c `mappend` c')
           (d `mappend` d')
