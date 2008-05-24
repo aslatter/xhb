@@ -1,7 +1,9 @@
 module Types where
 
+{- Commenting out until I have XML parsing working
 import Text.XML.HaXml.Types
  hiding (Name)
+-}
 
 import qualified Data.List as L
 import Control.Monad
@@ -35,6 +37,8 @@ data UnionElem = UnionElem Type
 
 data EnumElem = EnumElem Name Int
 
+
+{- Commenting out in public until I have somehting going
 
 fromElem :: Element i -> XHeader
 fromElem el|el `named` "xcb" =
@@ -84,4 +88,6 @@ extractDecls (Elem _ _ cnt) = foldr xdecls [] cnt
      |elem `named` "typedef" = typdef elem : xs
      |elem `named` "event" = event elem : xs
      |elem `named` "eventcopt" = eventcopy elem cnt : xs
+-}
+
 -}
