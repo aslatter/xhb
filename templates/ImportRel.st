@@ -1,2 +1,0 @@
-import $basename$.$it$
-$!comment!$
