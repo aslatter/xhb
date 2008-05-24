@@ -1,4 +1,3 @@
-module Test where
 
 import Proto
 import Types
