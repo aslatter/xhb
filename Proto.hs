@@ -150,6 +150,15 @@ xDecl (XRequest name opcode fields resp) = do
               -- declare instances of serialize/deserialize?
               return True
   logRequest name opcode hasReply
+xDecl (XEvent name opcode fields) = do
+  declareStruct name fields
+  exportType name
+  logEvent name opcode
+xDecl (XError name opcode fields) = do
+  declareStruct name fields
+  exportType name
+  logError name opcode
+
 
 xImport :: String -> Build
 xImport = modifyModule . addImport . mkImport . modulePrefix . ensureUpper

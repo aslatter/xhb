@@ -16,6 +16,7 @@ data XDecl = XStruct  Name [StructElem]
            | XidUnion  Name [UnionElem]
            | XEnum [EnumElem]
            | XImport Name
+           | XError Name Int [StructElem] -- check to make sure
 
 data StructElem = Pad Int
                 | ListSize Name Type String
