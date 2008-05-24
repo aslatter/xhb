@@ -46,10 +46,18 @@ logError name code = tell $ buildError name code
 runBuilder :: String -> Builder a -> (a, HsModule)
 runBuilder name bldr =
     let (x,bdata) = runWriter bldr
-        BuildResult mod mapEvent mapReq mapErr = applyBuildData bdata (mkModule (modulePrefix name))
-        mod' = mkEventType name mapEvent . mkRequestType name mapReq . mkErrorType name mapErr $ mod
-    in (x, mod')
+        newModule = fModExtras $ mkModule $ modulePrefix name
+        BuildResult mod mapEvent mapReq mapErr = applyBuildData bdata newModule
 
+        -- function which adds the module sum-types for events, errors and requests
+        fModExtras = mkEventType name mapEvent . mkRequestType name mapReq . mkErrorType name mapErr
+    in (x, mod)
+
+-- takes all of the results of running 'logEvent' and turns it into to two things:
+--   * a sum-type of all the events in this module
+--   * a function mapping that sum-type to it's event opcode
+--
+-- hopefully we can auto-generate srialization/desrialization here as well
 mkEventType :: String -- Module name
             -> M.Map EventName Int
             -> HsModule
