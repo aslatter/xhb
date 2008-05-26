@@ -44,10 +44,11 @@ logError :: ErrorName -> Int -> Build
 logError name code = tell $ buildError name code
 
 runBuilder :: String -> Builder a -> (a, HsModule)
-runBuilder name bldr =
+runBuilder nm bldr =
     let (x,bdata) = runWriter bldr
         newModule = fModExtras $ mkModule $ modulePrefix name
         BuildResult mod mapEvent mapReq mapErr = applyBuildData bdata newModule
+        name = ensureUpper nm
 
         -- function which adds the module sum-types for events, errors and requests
         fModExtras = mkEventType name mapEvent . mkRequestType name mapReq . mkErrorType name mapErr
