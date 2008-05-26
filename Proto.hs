@@ -12,7 +12,7 @@ import Data.Char
 import qualified Data.Map as M
 
 conPrefix = ("Mk" ++)
-modulePrefix =  ("XCB.Gen." ++)
+modulePrefix =  ("XHB.Gen." ++)
 
 accessor :: String -> String -> String
 accessor field typ = field ++ "_" ++ typ
@@ -46,7 +46,7 @@ logError name code = tell $ buildError name code
 runBuilder :: String -> Builder a -> (a, HsModule)
 runBuilder nm bldr =
     let (x,bdata) = runWriter bldr
-        newModule = fModExtras $ newXcbModule name
+        newModule = fModExtras $ newXhbModule name
         BuildResult mod mapEvent mapReq mapErr = applyBuildData bdata newModule
         name = ensureUpper nm
 
@@ -55,10 +55,10 @@ runBuilder nm bldr =
     in (x, mod)
 
 
--- Create a new XCB generated module
-newXcbModule :: String -> HsModule
-newXcbModule = addStandardImports . mkModule . modulePrefix . ensureUpper
-    where addStandardImports = addImport $ mkImport "XCB.Shared"
+-- Create a new XHB generated module
+newXhbModule :: String -> HsModule
+newXhbModule = addStandardImports . mkModule . modulePrefix . ensureUpper
+    where addStandardImports = addImport $ mkImport "XHB.Shared"
 
 -- takes all of the results of running 'logEvent' and turns it into to two things:
 --   * a sum-type of all the events in this module

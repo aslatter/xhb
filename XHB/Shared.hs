@@ -1,6 +1,6 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
-module XCB.Shared where
+module XHB.Shared where
 
 import Data.Binary.Put
 import Data.Binary.Get
