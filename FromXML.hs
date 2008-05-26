@@ -11,6 +11,9 @@ import Text.XML.HaXml.Parse
 import qualified Data.List as L
 import Control.Monad
 import Data.Maybe
+import qualified Data.Map as M
+import Control.Monad.State
+import Data.Monoid
 
 import Types
 
@@ -60,7 +63,7 @@ extractExInfo el = do
 -- |Given an element, attempts to interpret the element's
 -- contents as decribing a series of 'XDecl' values.
 extractDecls :: Element i -> [XDecl]
-extractDecls (Elem _ _ cnt) = mapMaybe xdecls cnt
+extractDecls (Elem _ _ cnt) = postProcess $ mapMaybe xdecls cnt
  where
    xdecls (CElem elem _)
        | elem `named` "request" = xrequest elem
@@ -116,7 +119,12 @@ xevent elem = do
         
 
 xevcopy :: Element i -> Maybe XDecl
-xevcopy = const Nothing
+xevcopy elem = do
+  nm <- "name" `attr` elem
+  number_string <- "number" `attr` elem
+  number <- maybeRead number_string
+  ref <- "ref" `attr` elem
+  return $ XEventCopy nm number ref
 
 xerror :: Element i -> Maybe XDecl
 xerror elem = do
@@ -131,7 +139,12 @@ xerror elem = do
   return $ XError nm number fields
 
 xercopy :: Element i -> Maybe XDecl
-xercopy = const Nothing
+xercopy elem = do
+  nm <- "name" `attr` elem
+  number_string <- "number" `attr` elem
+  number <- maybeRead number_string
+  ref <- "ref" `attr` elem
+  return $ XErrorCopy nm number ref
 
 xstruct :: Element i -> Maybe XDecl
 xstruct elem = case attr "name" elem of
@@ -193,6 +206,32 @@ structField elem
 
     | elem `named` "list" = Nothing
 structField _ = Nothing
+
+
+-- Post processing function.
+-- Eliminates 'XEventCopy' and 'XErrorCopy' declarations
+postProcess :: [XDecl] -> [XDecl]
+postProcess decls = 
+    let (decls', (eventsM,errorsM)) = flip runState mempty $ mapM go decls
+
+        recordEvent event@(XEvent name _ _)
+            = modify $ \(evs,ers) -> (M.insert name event evs,ers)
+
+        recordError err@(XError name _ _)
+            = modify $ \(evs,ers) -> (evs,M.insert name err ers)
+
+        go event@(XEvent {}) = recordEvent event >> return event
+        go   err@(XError {}) = recordError err   >> return err
+        go (XEventCopy name code ref) 
+            = return $ XEvent name code $ case M.lookup ref eventsM of
+                    Nothing -> error $ "Invaild reference to event: " ++ ref
+                    Just (XEvent _ _ fields) -> fields
+        go (XErrorCopy name code ref)
+            = return $ XError name code $ case M.lookup ref errorsM of
+                    Nothing -> error $ "Invalid reference to error: " ++ ref
+                    Just (XError _ _ fields) -> fields
+        go x = return x
+    in decls'
 
 -- stolen from Network.CGI.Protocol
 -- Probably more forgiving than I would've done it.

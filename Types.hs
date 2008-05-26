@@ -15,6 +15,8 @@ data XDecl = XStruct  Name [StructElem]
            | XEnum [EnumElem]
            | XImport Name
            | XError Name Int [StructElem] -- check to make sure
+           | XEventCopy Name Int Ref  -- should not appear after post processing
+           | XErrorCopy Name Int Ref  -- should not appear after post processing
 
 data StructElem = Pad Int
                 | ListSize Name Type String
@@ -24,6 +26,7 @@ data StructElem = Pad Int
 type Name = String
 type Type = String
 type XReply = [StructElem]
+type Ref = String
 
 data ExInfo = ExInfo Name Name Version
 
