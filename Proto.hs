@@ -46,13 +46,19 @@ logError name code = tell $ buildError name code
 runBuilder :: String -> Builder a -> (a, HsModule)
 runBuilder nm bldr =
     let (x,bdata) = runWriter bldr
-        newModule = fModExtras $ mkModule $ modulePrefix name
+        newModule = fModExtras $ newXcbModule name
         BuildResult mod mapEvent mapReq mapErr = applyBuildData bdata newModule
         name = ensureUpper nm
 
         -- function which adds the module sum-types for events, errors and requests
         fModExtras = mkEventType name mapEvent . mkRequestType name mapReq . mkErrorType name mapErr
     in (x, mod)
+
+
+-- Create a new XCB generated module
+newXcbModule :: String -> HsModule
+newXcbModule = addStandardImports . mkModule . modulePrefix . ensureUpper
+    where addStandardImports = addImport $ mkImport "XCB.Shared"
 
 -- takes all of the results of running 'logEvent' and turns it into to two things:
 --   * a sum-type of all the events in this module
