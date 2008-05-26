@@ -87,8 +87,8 @@ xrequest elem = do
       Elem _ _ cnt = elem
       go (CElem el _) = structField el
       go _ = Nothing
-  guard $ not $ null fields
   let reply = getReply elem
+  guard $ not (null fields) || not (isNothing reply)
   return $ XRequest nm code fields reply
 
 getReply :: Element i -> Maybe XReply
@@ -204,9 +204,66 @@ structField elem
         byte_count <- maybeRead bytes
         return $ Pad byte_count
 
-    | elem `named` "list" = Nothing
+    | elem `named` "list" = do
+        typ <- "type" `attr` elem
+        name <- "name" `attr` elem
+        celem <- firstChildElem elem
+        expr <- expression celem
+        return $ List name typ expr
 structField _ = Nothing
 
+firstChildElem :: Element i -> Maybe (Element i)
+firstChildElem (Elem _ _ cnt) = listToMaybe $ mapMaybe go cnt
+    where go (CElem el _) = return el
+          go _ = Nothing
+
+firstTextElem :: Element i -> Maybe String
+firstTextElem (Elem _ _ cnt) = listToMaybe $ mapMaybe go cnt
+    where go (CString _ str _) = return str
+          go _ = Nothing
+
+-- |Interpret an element as an expression
+expression :: Element i -> Maybe Expression
+expression elem | elem `named` "fieldref"
+                    = FieldRef `liftM` firstTextElem elem
+                | elem `named` "value"
+                    = firstTextElem elem >>= maybeValue
+                | elem `named` "bit"
+                    = firstTextElem elem >>= maybeBit
+                | elem `named` "op" = maybeOp elem
+expression _ = Nothing
+
+-- probably doesn't handle hex values correctly
+maybeValue :: String -> Maybe Expression
+maybeValue str = Value `liftM` maybeRead str
+
+maybeBit :: String -> Maybe Expression
+maybeBit str = do
+  n <- maybeRead str
+  guard $ n >= 0
+  return $ Bit n
+
+maybeOp :: Element i -> Maybe Expression
+maybeOp elem = do
+  op_string <- "op" `attr` elem
+  binop <- toBinop op_string
+  let celems = childElements elem
+  [exprLhs, exprRhs] <- mapM expression celems
+  return $ Op binop exprLhs exprRhs
+
+childElements :: Element i -> [Element i]
+childElements (Elem _ _ cnt) = mapMaybe go cnt
+    where go (CElem el _) = return el
+          go _ = Nothing
+
+toBinop :: String -> Maybe Binop
+toBinop "+"  = return Add
+toBinop "-"  = return Sub
+toBinop "*"  = return Mult
+toBinop "/"  = return Div
+toBinop "&"  = return And
+toBinop ">>" = return RShift
+toBinop _ = Nothing
 
 -- Post processing function.
 -- Eliminates 'XEventCopy' and 'XErrorCopy' declarations
@@ -222,14 +279,17 @@ postProcess decls =
 
         go event@(XEvent {}) = recordEvent event >> return event
         go   err@(XError {}) = recordError err   >> return err
+
         go (XEventCopy name code ref) 
             = return $ XEvent name code $ case M.lookup ref eventsM of
                     Nothing -> error $ "Invaild reference to event: " ++ ref
                     Just (XEvent _ _ fields) -> fields
+
         go (XErrorCopy name code ref)
             = return $ XError name code $ case M.lookup ref errorsM of
                     Nothing -> error $ "Invalid reference to error: " ++ ref
                     Just (XError _ _ fields) -> fields
+
         go x = return x
     in decls'
 
