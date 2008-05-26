@@ -88,35 +88,91 @@ mkEventType name namesMap =
         eventExports = [mkExportAll tyName
                        ,mkExportAbs toCodeFunName
                        ]
-                        
-
-        eventDeser  = undefined -- action in Get, deserialization
-        eventSer    = undefined -- action in Put, serialization
 
     in appMany (map addExport eventExports)
-           . addDecl eventTypDec
-           . addDecl toCodeFnTyp
            . addDecl toCodeFnDec
-
-appMany :: [a -> a] -> (a -> a)
-appMany = foldr (.) id
-
-{-
-   'eventDeser' and 'eventSer' need more information on how the event opcode
-   is sent down the wire for X."
--}
+           . addDecl toCodeFnTyp
+           . addDecl eventTypDec
 
 mkRequestType :: String -- Module name
               -> M.Map RequestName (Int,Bool)
               -> HsModule
               -> HsModule
-mkRequestType name map = id
+mkRequestType name namesMap =
+    let tyName = name ++ "Request"
+
+        toCodeFunName = "toRequestCode"
+        toCodeFnTyp = mkTypeSig toCodeFunName [] (HsTyFun (mkTyCon tyName) (mkTyCon "Int"))
+        toCodeFnDec = HsFunBind $ map go $ M.toList namesMap
+            where go (typName, (code,_)) =
+                      let cons = typName
+                          result = mkNumLit $ fromIntegral code
+                      in mkConsMatch toCodeFunName cons result
+
+        hasRepFunName = "hasReply"
+        hasRepFnTyp = mkTypeSig hasRepFunName [] (HsTyFun (mkTyCon tyName) (mkTyCon "Bool"))
+        hasRepFnDec = HsFunBind $ map go $ M.toList namesMap
+            where go (typName, (_,hasReply)) =
+                      let cons = typName
+                          result = HsCon $ mkUnQName $ show hasReply
+                      in mkConsMatch hasRepFunName cons result
+
+
+        requestTypDec = mkDataDecl [] tyName [] dataCons []
+            where dataCons :: [HsConDecl]
+                  dataCons = map f $ M.keys namesMap
+
+                  f :: String -> HsConDecl
+                  f eventTyName = mkCon eventTyName [HsUnBangedTy $ mkTyCon eventTyName]
+
+        requestExports :: [HsExportSpec]
+        requestExports = [mkExportAll tyName
+                         ,mkExportAbs toCodeFunName
+                         ,mkExportAbs hasRepFunName
+                         ]
+
+    in appMany (map addExport requestExports)
+       . appMany (map addDecl [requestTypDec
+                              ,toCodeFnTyp
+                              ,toCodeFnDec
+                              ,hasRepFnTyp
+                              ,hasRepFnDec
+                              ]) 
 
 mkErrorType :: String -- Module name
             -> M.Map ErrorName Int
             -> HsModule
             -> HsModule
-mkErrorType name map = id
+mkErrorType name namesMap =
+    let tyName = name ++ "Error"
+
+        toCodeFunName = "toErrorCode"
+        toCodeFnTyp = mkTypeSig toCodeFunName [] (HsTyFun (mkTyCon tyName) (mkTyCon "Int"))
+        toCodeFnDec = HsFunBind $ map go $ M.toList namesMap
+            where go (typName, code) = 
+                      let cons = typName
+                          result = mkNumLit $ fromIntegral code
+                      in mkConsMatch toCodeFunName cons result
+
+        errorTypDec = mkDataDecl [] tyName [] dataCons []
+            where dataCons :: [HsConDecl]
+                  dataCons = map f $ M.keys namesMap
+
+                  f :: String -> HsConDecl
+                  f eventTyName = mkCon eventTyName [HsUnBangedTy $ mkTyCon eventTyName]
+
+        errorExports :: [HsExportSpec]
+        errorExports = [mkExportAll tyName
+                       ,mkExportAbs toCodeFunName
+                       ]
+
+    in appMany (map addExport errorExports)
+           . addDecl toCodeFnDec
+           . addDecl toCodeFnTyp
+           . addDecl errorTypDec
+
+appMany :: [a -> a] -> (a -> a)
+appMany = foldr (flip (.)) id
 
 
 runBuild :: String -> Build -> HsModule
