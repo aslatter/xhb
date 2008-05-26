@@ -13,7 +13,7 @@ data XDecl = XStruct  Name [StructElem]
            | XRequest Name Int [StructElem] (Maybe XReply)
            | XidType  Name
            | XidUnion  Name [UnionElem]
-           | XEnum [EnumElem]
+           | XEnum Name [EnumElem]
            | XImport Name
            | XError Name Int [StructElem] -- check to make sure
            | XEventCopy Name Int Ref  -- should not appear after post processing
