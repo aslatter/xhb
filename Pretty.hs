@@ -30,19 +30,26 @@ instance (Pretty a, Pretty b) => Pretty (a,b) where
 
 -- Simple stuff
 
-instance Pretty Binop where
-    pretty = show
-
 instance Pretty ExInfo where
     pretty = show
 
 instance Pretty UnionElem where
     pretty = show
 
-instance Pretty EnumElem where
-    pretty = show
+instance Pretty Binop where
+    pretty Add  = "+"
+    pretty Sub  = "-"
+    pretty Mult = "*"
+    pretty Div  = "/"
+    pretty RShift = ">>"
+    pretty And = "&"
 
--- Harder stuff
+instance Pretty EnumElem where
+    toDoc (EnumElem name expr)
+        = text name <> char ':' <+> toDoc expr
+
+
+-- More complex stuff
 
 instance Pretty Expression where
     toDoc (Value n) = toDoc n
@@ -62,6 +69,16 @@ instance Pretty StructElem where
                                  ,text "::"
                                  ,text typ
                                  ]
+    toDoc (ExprField nm typ expr)
+          = parens (text nm <+> text "::" <+> text typ)
+            <+> toDoc expr
+    toDoc (ValueParam typ mname lname)
+        = text "Valueparam" <+>
+          text "::" <+>
+          hsep (punctuate (char ',') [text typ
+                                     ,text mname
+                                     ,text lname
+                                     ])
 
 instance Pretty XDecl where
     toDoc (XStruct nm elems) =

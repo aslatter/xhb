@@ -24,12 +24,17 @@ data StructElem = Pad Int
                 | ListSize Name Type String
                 | List Name Type Expression
                 | SField Name Type
+                | ExprField Name Type Expression
+                | ValueParam Type MaskName ListName
  deriving (Show)
 
 type Name = String
 type Type = String
 type XReply = [StructElem]
 type Ref = String
+
+type MaskName = Name
+type ListName = Name
 
 data ExInfo = ExInfo Name Name Version
  deriving (Show)
@@ -39,7 +44,8 @@ type Version = (String,String)
 data UnionElem = UnionElem Type
  deriving (Show)
 
-data EnumElem = EnumElem Name Int
+-- Should only ever have expressions of type 'Value' or 'Bit'.
+data EnumElem = EnumElem Name Expression
  deriving (Show)
 
 data Expression = Value Int

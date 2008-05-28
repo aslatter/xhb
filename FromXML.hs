@@ -38,8 +38,8 @@ fromElem _  = error "No parse in Types.fromElem"
 -- is ignored.
 attr :: String -> Element i -> Maybe String
 attr nm (Elem _ ats _) = do
-  AttValue [Left atv] <- snd `liftM` L.find ((== nm) . fst) ats
-  return atv
+  atv <- snd `liftM` L.find ((== nm) . fst) ats
+  return $ show atv
 
 -- |Returns true if the passed in element's name
 -- is the passed in string.
@@ -76,9 +76,28 @@ extractDecls (Elem _ _ cnt) = postProcess $ mapMaybe xdecls cnt
        | elem `named` "xidtype" = xidtype elem
        | elem `named` "xidunion" = xidunion elem
        | elem `named` "typedef" = xtypedef elem
+       | elem `named` "enum" = xenum elem
    xdecls _ = Nothing
 
-xrequest :: Element i -> Maybe XDecl
+xenum :: Element i -> Maybe XDecl
+xenum elem = do
+  nm <- "name" `attr` elem
+  let fields = mapMaybe go cnt
+      Elem _ _ cnt = elem
+      go (CElem el _) = enumField el
+      go _ = Nothing
+  guard $ not $ null fields
+  return $ XEnum nm fields
+
+enumField :: Element i -> Maybe EnumElem
+enumField elem = do
+  guard $ elem `named` "item"
+  name <- "name" `attr` elem
+  celem <- firstChildElem elem
+  expr <- expression celem
+  return $ EnumElem name expr
+
+xrequest :: Show i => Element i -> Maybe XDecl
 xrequest elem = do
   nm <- "name" `attr` elem
   code_string <- "opcode" `attr` elem
@@ -210,6 +229,20 @@ structField elem
         celem <- firstChildElem elem
         expr <- expression celem
         return $ List name typ expr
+
+    | elem `named` "valueparam" = do
+        mask_typ <- "value-mask-type" `attr` elem
+        mask_name <- "value-mask-name" `attr` elem
+        list_name <- "value-list-name" `attr` elem
+        return $ ValueParam mask_typ mask_name list_name
+
+    | elem `named` "exprfield" = do
+        typ <- "type" `attr` elem
+        name <- "name" `attr` elem
+        celem <- firstChildElem elem
+        expr <- expression celem
+        return $ ExprField name typ expr
+
 structField _ = Nothing
 
 firstChildElem :: Element i -> Maybe (Element i)
@@ -262,6 +295,7 @@ toBinop "-"  = return Sub
 toBinop "*"  = return Mult
 toBinop "/"  = return Div
 toBinop "&"  = return And
+toBinop "&amp;" = return And
 toBinop ">>" = return RShift
 toBinop _ = Nothing
 
