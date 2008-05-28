@@ -2,7 +2,6 @@
 import Proto
 import FromXML
 import Types
-import Pretty
 
 import System.IO
 import System.Environment
@@ -12,7 +11,10 @@ fromFile fp = do
   text <- readFile fp
   return $ fromString fp text
 
+pretty :: XHeader -> String
+pretty (XHeader nm _ decls) = prettyBuild nm $ mapM_ xDecl decls
+
 main = do
   [fp] <- getArgs
   xheader <- fromFile fp
-  print $ toDoc xheader
+  putStrLn $ pretty xheader
