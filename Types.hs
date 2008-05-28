@@ -21,7 +21,6 @@ data XDecl = XStruct  Name [StructElem]
  deriving (Show)
 
 data StructElem = Pad Int
-                | ListSize Name Type String
                 | List Name Type Expression
                 | SField Name Type
                 | ExprField Name Type Expression

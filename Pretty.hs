@@ -54,7 +54,7 @@ instance Pretty EnumElem where
 instance Pretty Expression where
     toDoc (Value n) = toDoc n
     toDoc (Bit n) = text "2^" <> toDoc n
-    toDoc (FieldRef ref) = char '*' <> text ref
+    toDoc (FieldRef ref) = char '$' <> text ref
     toDoc (Op binop exprL exprR)
         = parens $ hsep [toDoc exprL
                         ,toDoc binop
@@ -64,7 +64,7 @@ instance Pretty Expression where
 instance Pretty StructElem where
     toDoc (Pad n) = braces $ toDoc n <+> text "bytes"
     toDoc (List nm typ len)
-        = text nm <+> text "::" <+> brackets (text typ) <> char 'x' <> toDoc len
+        = text nm <+> text "::" <+> brackets (text typ) <+> toDoc len
     toDoc (SField nm typ) = hsep [text nm
                                  ,text "::"
                                  ,text typ
@@ -85,7 +85,7 @@ instance Pretty XDecl where
         hang (text "Struct:" <+> text nm) 2 $ vcat $ map toDoc elems
     toDoc (XTypeDef nm typ) = hsep [text "TypeDef:"
                                     ,text nm
-                                    ,text "AS"
+                                    ,text "as"
                                     ,text typ
                                     ]
     toDoc (XEvent nm n elems) =
