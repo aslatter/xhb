@@ -1,10 +1,12 @@
+{-# LANGUAGE TypeSynonymInstances #-}
+
 module Pretty where
 
 import Types
 
 import Text.PrettyPrint.HughesPJ
 
--- |Minaml complete definition:
+-- |Minimal complete definition:
 --
 -- One of 'pretty' or 'toDoc'.
 class Pretty a where

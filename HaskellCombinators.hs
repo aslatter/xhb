@@ -71,8 +71,20 @@ mkConsMatch fName cons res
        (HsUnGuardedRhs res)
        [] -- empty "where" clause
 
-mkNumLit :: Integer -> HsExp
-mkNumLit = HsLit . HsInt
+mkLitMatch :: String -- ^Function name
+           -> HsLiteral -- ^What to match
+           -> HsExp -- ^Result
+           -> HsMatch
+mkLitMatch fName lit res
+    = HsMatch
+       dummLoc
+       (HsIdent fName)
+       [HsPLit lit]
+       (HsUnGuardedRhs res)
+       [] -- empty where clause
+
+mkNumLit :: Integral n => n -> HsExp
+mkNumLit = HsLit . HsInt . fromIntegral
 
 mkNewtype :: HsContext
           -> String    -- |name
@@ -105,6 +117,9 @@ mkPVar = HsPVar . HsIdent
 
 mkTyVar :: String -> HsType
 mkTyVar = HsTyVar . HsIdent
+
+mkVar :: String -> HsExp
+mkVar = HsVar . UnQual . HsIdent
 
 mkDataDecl :: HsContext -> String -> [String] -> [HsConDecl] -> [HsQName] -> HsDecl
 mkDataDecl ctx nm args cons drv =

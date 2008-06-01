@@ -3,6 +3,7 @@ module Proto where
 import Types
 import HaskellCombinators
 import BuildData
+import Pretty
 
 import Language.Haskell.Syntax
 import Language.Haskell.Pretty
@@ -10,6 +11,8 @@ import Language.Haskell.Pretty
 import Control.Monad.Writer
 import Data.Char
 import qualified Data.Map as M
+import qualified Data.List as L
+import Data.Maybe
 
 conPrefix = ("Mk" ++)
 modulePrefix =  ("XHB.Gen." ++)
@@ -221,7 +224,94 @@ xDecl (XError name opcode fields) = do
   declareStruct name fields
   exportType name
   logError name opcode
+xDecl dec@(XEnum nm elems') = do
+  let elems = cleanEnum elems'
+      typ = verifyEnum dec elems
+  declareEnumTycon nm elems
+  declareEnumInstance typ nm elems
+  -- export something
+xDecl x = error $ "Pattern match failed in \"xDecl\" with argument:\n" ++ (show $ toDoc x)
 
+declareEnumInstance :: EnumType -> Name -> [EnumElem] -> Build
+declareEnumInstance _typ _name [] = return ()
+declareEnumInstance ETypeValue name els = buildDecl $
+      mkInstDecl
+      []
+      (mkUnQName "SimpleEnum")
+      [mkTyCon name]
+      [HsFunBind (map toVal els)
+      ,HsFunBind (map fromVal els)
+      ]
+  where toVal (EnumElem nm (Value n))
+            = mkConsMatch "toValue" (name ++ nm) (mkNumLit n)
+        fromVal (EnumElem nm (Value n))
+            = mkLitMatch "fromValue" (HsInt $ fromIntegral n) (HsCon (mkUnQName (name ++ nm)))
+
+declareEnumInstance ETypeBit name els = buildDecl $
+       mkInstDecl
+       []
+       (mkUnQName "BitEnum")
+       [mkTyCon name]
+       [HsFunBind (map toBit els)
+       ,HsFunBind (map fromBit els)
+       ]
+   where toBit (EnumElem nm (Bit n))
+             = mkConsMatch "toBit" (name ++ nm) (mkNumLit n)
+         fromBit (EnumElem nm (Bit n))
+             = mkLitMatch "fromBit" (HsInt (fromIntegral n)) $ HsCon $ mkUnQName $ name++nm
+
+declareEnumTycon :: Name -> [EnumElem] -> Build
+declareEnumTycon name elems = modifyModule . addDecl $ 
+            mkDataDecl
+            []
+            name
+            []
+            (map (mkEnumCon name) elems)
+            [] -- derving
+
+mkEnumCon :: Name -> EnumElem -> HsConDecl
+mkEnumCon tyname (EnumElem name _) = mkCon (tyname ++ name) []
+
+
+data EnumType = ETypeValue | ETypeBit | ETypeError
+ deriving (Eq, Show, Enum, Bounded, Ord)
+
+cleanEnum :: [EnumElem] -> [EnumElem]
+cleanEnum xs =
+  let containsBits = not . null $ justBits
+
+      justBits = filter bitElem xs
+
+      bitElem (EnumElem _ (Bit {})) = True
+      bitElem _ = False
+
+  in if containsBits
+      then justBits
+      else xs
+
+verifyEnum :: XDecl -> [EnumElem] -> EnumType
+verifyEnum dec elems = case enumType elems of
+        ETypeError -> enumTypPanic dec
+        x -> x
+
+-- spine strict. element strict under normal conditions
+enumType :: [EnumElem] -> EnumType
+enumType xs = case L.foldl' (flip go) Nothing xs of
+                Nothing -> ETypeError
+                Just x -> x
+    where go x Nothing = return $ etyp x
+          go _ jr@(Just ETypeError) = jr
+          go x jr@(Just r) | etyp x == r = jr
+          go _ _ = Just ETypeError
+
+          etyp (EnumElem _ (Value {})) = ETypeValue
+          etyp (EnumElem _ (Bit {}))   = ETypeBit
+          etyp _                       = ETypeError
+
+enumTypPanic :: XDecl -> a
+enumTypPanic dec = error $
+                   ("Error in enum:\n\n" ++) $
+                   show $ toDoc dec
 
 xImport :: String -> Build
 xImport = modifyModule . addImport . mkImport . modulePrefix . ensureUpper
@@ -235,23 +325,87 @@ typeDecl nm tp = modifyModule . addDecl $
   mkTypeDecl nm [] (mkTyCon tp)
 
 declareStruct :: String -> [StructElem] -> Build
-declareStruct name fields = modifyModule . addDecl $
-  mkDataDecl
-   []
-   name
-   []
-   [mkRCon (conPrefix name) (selemsToRec fields)]
-   []
- where selemsToRec :: [StructElem] -> [(String,HsBangType)]
-       selemsToRec [] = []
-       selemsToRec (Pad {} :xs)      = selemsToRec xs
-       selemsToRec (ListSize {} :xs) = selemsToRec xs
-       selemsToRec (List nm tp _:xs) = -- Needs to be updated for operators
-           (accessor nm name, HsUnBangedTy $ HsTyApp list_tycon (mkTyCon tp))
-           : selemsToRec xs
-       selemsToRec (SField nm tp:xs) =
-           (accessor nm name, HsUnBangedTy $ mkTyCon tp)
-           : selemsToRec xs
+declareStruct name fields = do
+         buildDecl $
+             mkDataDecl
+             []
+             name
+             []
+             [mkRCon (conPrefix name) (selemsToRec fields)]
+             []
+         exprFields name fields
+    where selemsToRec :: [StructElem] -> [(String,HsBangType)]
+          selemsToRec xs = mapMaybe go xs
+
+          go (Pad {})      = Nothing
+          go (List nm tp _) = return $ -- Needs to be updated for operators
+                       (accessor nm name, HsUnBangedTy $ listTyp tp)
+              where listTyp = HsTyApp list_tycon . mkTyCon . mapTyNames
+          go (SField nm tp) = return $
+                       (accessor nm name, HsUnBangedTy $ mkTyCon tp)
+          go (ValueParam typ mname _lname) = return $
+           let nme = case nm of
+                        Nothing -> mname
+                        Just n -> reverse $ drop (n+1) $ rname
+               rname = reverse mname
+               nm = L.findIndex (== '_') rname
+               vTyp = HsTyApp (mkTyCon "ValueParam") (mkTyCon typ)
+           in (accessor nme name, HsUnBangedTy $ vTyp)
+  
+          -- go _ = Nothing -- cheater for testing
+          go (ExprField{}) = Nothing -- deal wth these separate
+          go selem = selemsToRecPanic selem
+
+
+selemsToRecPanic :: StructElem -> a
+selemsToRecPanic x = error $
+                     ("I dont know what to do with struct elem: " ++) $
+                     show $ toDoc x
+
+buildDecl :: HsDecl -> Build
+buildDecl = modifyModule . addDecl
+
+mapTyNames :: String -> String
+mapTyNames "char" = "CChar"
+mapTyNames x = x
+
+exprFields :: Name -> [StructElem] -> Build
+exprFields name elems = mapM_ go elems
+    where go (ExprField nm tp expr) = do
+            let funName = accessor nm name
+                retTyp = mkTyCon tp
+                funTyp = HsTyFun (mkTyCon name) retTyp
+            -- Type signature
+            buildDecl $ mkTypeSig funName [] funTyp
+            
+            let inVar = "x"
+                
+                mkExpr :: Expression -> HsExp
+                mkExpr (Value n) = mkNumLit n
+                mkExpr (Bit n) = mkNumLit $ 2^n
+                mkExpr (FieldRef field)
+                    = HsApp
+                      (mkVar $ accessor field name)
+                      (mkVar inVar)
+                mkExpr (Op op lhs rhs) =
+                    let eLhs = mkExpr lhs
+                        eRhs = mkExpr rhs
+                    in HsParen $ HsInfixApp eLhs (mkOp op) eRhs
+
+                mkOp :: Binop -> HsQOp
+                mkOp Add  = HsQVarOp . UnQual . HsSymbol $ "+"
+                mkOp Sub  = HsQVarOp . UnQual . HsSymbol $ "-"
+                mkOp Mult = HsQVarOp . UnQual . HsSymbol $ "*"
+                mkOp Div  = HsQVarOp . UnQual . HsSymbol $ "/"
+                mkOp And  = HsQVarOp . UnQual . HsSymbol $ ".&."
+                mkOp RShift = HsQVarOp . UnQual . HsIdent $ "shiftR"
+
+            -- function body
+            buildDecl $ mkSimpleFun funName [mkPVar inVar] (mkExpr expr)
+
+            -- export
+            exportType funName
+          go _ = return ()
 
 
 -- |For the named newtype wrapper around an Xid,

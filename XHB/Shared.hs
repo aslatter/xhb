@@ -7,8 +7,11 @@ import Data.Binary.Get
 
 import Data.Word
 import Data.Int
+import Data.Bits
+import Data.Maybe
 
 import Control.Monad
+import Control.Exception
 
 -- |Byte-ordering.
 data BO = BE
@@ -40,6 +43,40 @@ instance XidLike Xid where
 
 -- TEMPORARY FIX
 type ClientMessageData = CARD32
+
+-- Enums and ValueParams
+
+class SimpleEnum a where
+    toValue :: Num n => a -> n
+    fromValue :: Num n => n -> a
+
+class BitEnum a where
+    toBit :: a -> Int
+    fromBit :: Int -> a
+
+fromMask :: (Bits b, BitEnum e) => b -> [e]
+fromMask x = mapMaybe go [0..(bitSize x) - 1]
+    where go i | x `testBit` i = return $ fromBit i
+               | otherwise = Nothing
+
+toMask :: (Bits b, BitEnum e) => [e] -> b
+toMask = foldl' (.&.) 0 . map (bit . toBit)
+
+
+newtype ValueParam a = VP (a,[Word32])
+
+-- instance serialize
+-- instance deserialize
+
+toValueParam :: (Bits a, BitEnum e) => [(e,Word32)] -> ValueParam a
+toValueParam xs = 
+    let (es,ws) = unzip $ L.sortBy (toBit . fst) xs
+    in VP (toMask es, ws)
+
+fromValueParam :: (Bits a, BitEnum e) => ValueParam a -> [(e,Word32)]
+fromValueParam (VP (x, ws)) =
+    let es = fromMask x
+    in assert (length es == length ws) $ zip es ws
 
 {-
   I really don't know what endianness any

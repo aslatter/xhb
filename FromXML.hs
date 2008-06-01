@@ -97,7 +97,7 @@ enumField elem = do
   expr <- expression celem
   return $ EnumElem name expr
 
-xrequest :: Show i => Element i -> Maybe XDecl
+xrequest :: Element i -> Maybe XDecl
 xrequest elem = do
   nm <- "name" `attr` elem
   code_string <- "opcode" `attr` elem
