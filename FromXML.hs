@@ -114,7 +114,11 @@ xstruct elem = do
   return $ XStruct name fields
 
 xunion :: Element -> Maybe XDecl
-xunion _elem = Nothing
+xunion elem = do
+  name <- elem `attr` "name"
+  let fields = mapMaybe structField $ elChildren elem
+  guard $ not $ null fields
+  return $ XUnion name fields
 
 xidtype :: Element -> Maybe XDecl
 xidtype elem = liftM XidType $ elem `attr` "name"
@@ -122,14 +126,14 @@ xidtype elem = liftM XidType $ elem `attr` "name"
 xidunion :: Element -> Maybe XDecl
 xidunion elem = do
   name <- elem `attr` "name"
-  let types = mapMaybe unionElem $ elChildren elem
+  let types = mapMaybe xidUnionElem $ elChildren elem
   guard $ not $ null types
   return $ XidUnion name types
 
-unionElem :: Element -> Maybe UnionElem
-unionElem elem = do
+xidUnionElem :: Element -> Maybe XidUnionElem
+xidUnionElem elem = do
   guard $ elem `named` "type"
-  return $ UnionElem $ strContent elem
+  return $ XidUnionElem $ strContent elem
 
 xtypedef :: Element -> Maybe XDecl
 xtypedef elem = do

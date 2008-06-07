@@ -12,8 +12,9 @@ data XDecl = XStruct  Name [StructElem]
            | XEvent Name Int [StructElem]
            | XRequest Name Int [StructElem] (Maybe XReply)
            | XidType  Name
-           | XidUnion  Name [UnionElem]
+           | XidUnion  Name [XidUnionElem]
            | XEnum Name [EnumElem]
+           | XUnion Name [StructElem]
            | XImport Name
            | XError Name Int [StructElem] -- check to make sure
            | XEventCopy Name Int Ref  -- should not appear after post processing
@@ -40,7 +41,7 @@ data ExInfo = ExInfo Name Name Version
 
 type Version = (String,String)
 
-data UnionElem = UnionElem Type
+data XidUnionElem = XidUnionElem Type
  deriving (Show)
 
 -- Should only ever have expressions of type 'Value' or 'Bit'.

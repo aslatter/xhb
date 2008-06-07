@@ -35,7 +35,7 @@ instance (Pretty a, Pretty b) => Pretty (a,b) where
 instance Pretty ExInfo where
     pretty = show
 
-instance Pretty UnionElem where
+instance Pretty XidUnionElem where
     pretty = show
 
 instance Pretty Binop where
@@ -107,6 +107,8 @@ instance Pretty XDecl where
              vcat $ map toDoc elems
     toDoc (XEnum nm elems) =
         hang (text "Enum:" <+> text nm) 2 $ vcat $ map toDoc elems
+    toDoc (XUnion nm elems) = 
+        hang (text "Union:" <+> text nm) 2 $ vcat $ map toDoc elems
     toDoc (XImport nm) = text "Import:" <+> text nm
     toDoc (XError nm n elems) = 
         hang (text "Error:" <+> text nm) 2 $ vcat $ map toDoc elems

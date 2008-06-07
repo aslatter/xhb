@@ -230,6 +230,7 @@ xDecl dec@(XEnum nm elems') = do
   declareEnumTycon nm elems
   declareEnumInstance typ nm elems
   -- export something
+xDecl (XUnion _ _) = return () -- Unions are currently unhandled
 xDecl x = error $ "Pattern match failed in \"xDecl\" with argument:\n" ++ (show $ toDoc x)
 
 declareEnumInstance :: EnumType -> Name -> [EnumElem] -> Build
