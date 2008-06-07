@@ -25,7 +25,7 @@ import System.Exit
 fromFile :: FilePath -> IO XHeader
 fromFile fp = do
   text <- readFile fp
-  return $ fromString fp text
+  return $ fromString text
 
 main = do
   fp <- getOneArg

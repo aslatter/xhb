@@ -1,293 +1,192 @@
-module FromXML(fromString) where
+module FromXML (fromString) where
 
--- Using HaXml 1.19
--- Maybe I could do some CPP magic to support both
--- HaXml 1.19 and 1.13.
+import Types
+import Pretty
 
-import Text.XML.HaXml.Types
- hiding (Name)
-import Text.XML.HaXml.Parse
+import Text.XML.Light
 
-import qualified Data.List as L
-import Control.Monad
-import Data.Maybe
+import Data.List as List
 import qualified Data.Map as M
+import Data.Maybe
+import Control.Monad
 import Control.Monad.State
 import Data.Monoid
 
-import Types
+fromString :: String -> XHeader
+fromString str = fromJust $ do 
+    el@(Element qname ats cnt _) <- parseXMLDoc str
+    guard $ el `named` "xcb"
+    modName <- el `attr` "header"
+    let exinfo = extractExInfo el
+    return $ XHeader modName exinfo $ extractDecls cnt
 
-fromString :: String -> String -> XHeader
-fromString fname str = 
-    let Document _ _ elem _ = xmlParse fname str
-    in fromElem elem
-
--- |Given an XML element, returns an 'XHeader'.
--- The element must be named "xcb".
-fromElem :: Element i -> XHeader
-fromElem el|el `named` "xcb" =
-         let Just modName = attr "header" el
-             exinfo = extractExInfo el
-             decs = extractDecls el
-         in XHeader modName exinfo decs
-fromElem _  = error "No parse in Types.fromElem"
-
--- |Given an element an the LHS of an attribute assignment,
--- return the RHS as 'Just rhs'.  XML attributes are more
--- complex than simple '(String, String)' pairs.  This complexity
--- is ignored.
-attr :: String -> Element i -> Maybe String
-attr nm (Elem _ ats _) = do
-  atv <- snd `liftM` L.find ((== nm) . fst) ats
-  return $ show atv
-
--- |Returns true if the passed in element's name
--- is the passed in string.
-named :: Element i -> String -> Bool
-named (Elem nm _ _) nm'| nm == nm' = True
-named _ _ = False
-
--- |Given an element, attempts to interpret it as a
--- description of an 'ExInfo' value.
-extractExInfo :: Element i -> Maybe ExInfo
+extractExInfo :: Element -> Maybe ExInfo
 extractExInfo el = do
-  xn <- attr "extension-xname" el
-  n  <- attr "extension-name"  el
-  v1 <- attr "major-version"   el
-  v2 <- attr "minor-version"   el
+  xn <- el `attr` "extension-xname"
+  n  <- el `attr` "extension-name"
+  v1 <- el `attr` "major-version"
+  v2 <- el `attr` "minor-version"
   return $ ExInfo n xn (v1,v2)
--- NOTE:  The above function isn't quite right.  The individual
--- components of the ExInfo value should be optional, not the whole
--- thing.
 
--- |Given an element, attempts to interpret the element's
--- contents as decribing a series of 'XDecl' values.
-extractDecls :: Element i -> [XDecl]
-extractDecls (Elem _ _ cnt) = postProcess $ mapMaybe xdecls cnt
- where
-   xdecls (CElem elem _)
-       | elem `named` "request" = xrequest elem
-       | elem `named` "event"   = xevent elem
-       | elem `named` "eventcopy" = xevcopy elem
-       | elem `named` "error" = xerror elem
-       | elem `named` "errorcopy" = xercopy elem
-       | elem `named` "struct" = xstruct elem
-       | elem `named` "union" = xunion elem -- ?!?
-       | elem `named` "xidtype" = xidtype elem
-       | elem `named` "xidunion" = xidunion elem
-       | elem `named` "typedef" = xtypedef elem
-       | elem `named` "enum" = xenum elem
-   xdecls _ = Nothing
+extractDecls :: [Content] -> [XDecl]
+extractDecls = postProcess . mapMaybe declFromElem . onlyElems
 
-xenum :: Element i -> Maybe XDecl
+declFromElem :: Element -> Maybe XDecl
+declFromElem elem 
+    | elem `named` "request" = xrequest elem
+    | elem `named` "event"   = xevent elem
+    | elem `named` "eventcopy" = xevcopy elem
+    | elem `named` "error" = xerror elem
+    | elem `named` "errorcopy" = xercopy elem
+    | elem `named` "struct" = xstruct elem
+    | elem `named` "union" = xunion elem
+    | elem `named` "xidtype" = xidtype elem
+    | elem `named` "xidunion" = xidunion elem
+    | elem `named` "typedef" = xtypedef elem
+    | elem `named` "enum" = xenum elem
+    | otherwise = Nothing
+
+xenum :: Element -> Maybe XDecl
 xenum elem = do
-  nm <- "name" `attr` elem
-  let fields = mapMaybe go cnt
-      Elem _ _ cnt = elem
-      go (CElem el _) = enumField el
-      go _ = Nothing
+  nm <- elem `attr` "name"
+  let fields = mapMaybe enumField $ elChildren elem
   guard $ not $ null fields
   return $ XEnum nm fields
 
-enumField :: Element i -> Maybe EnumElem
+enumField :: Element -> Maybe EnumElem
 enumField elem = do
   guard $ elem `named` "item"
-  name <- "name" `attr` elem
-  celem <- firstChildElem elem
-  expr <- expression celem
+  name <- elem `attr` "name"
+  expr <- firstChild elem >>= expression
   return $ EnumElem name expr
 
-xrequest :: Element i -> Maybe XDecl
+xrequest :: Element -> Maybe XDecl
 xrequest elem = do
-  nm <- "name" `attr` elem
-  code_string <- "opcode" `attr` elem
-  code <- maybeRead code_string
-  let fields = mapMaybe go cnt
-      Elem _ _ cnt = elem
-      go (CElem el _) = structField el
-      go _ = Nothing
-  let reply = getReply elem
+  nm <- elem `attr` "name"
+  code <- elem `attr` "opcode" >>= maybeRead
+  let fields = mapMaybe structField $ elChildren elem
+      reply = getReply elem
   guard $ not (null fields) || not (isNothing reply)
   return $ XRequest nm code fields reply
 
-getReply :: Element i -> Maybe XReply
+getReply :: Element -> Maybe XReply
 getReply elem = do
-  cnt <- elem `contentOfChild` "reply"
-  let fields = mapMaybe go cnt
-      go (CElem el _) = structField el
-      go _ = Nothing
+  childElem <- unqual "reply" `findChild` elem
+  let fields = mapMaybe structField $ elChildren childElem
   guard $ not $ null fields
   return fields
 
-contentOfChild :: Element i -> String -> Maybe [Content i]
-contentOfChild (Elem _ _ cnt) nm = listToMaybe $ mapMaybe go cnt
- where go (CElem (Elem nm' _ cout) _)|nm' == nm = return cout
-       go _ = Nothing 
-
-xevent :: Element i -> Maybe XDecl
+xevent :: Element -> Maybe XDecl
 xevent elem = do
-  nm <- "name" `attr` elem
-  number_string <- "number" `attr` elem
-  number <- maybeRead number_string
-  let fields = mapMaybe go cnt
-      Elem _ _ cnt = elem
-      go (CElem el _) = structField el
-      go _ = Nothing
-  guard $ not $ null fields 
-  return $ XEvent nm number fields
-        
-
-xevcopy :: Element i -> Maybe XDecl
-xevcopy elem = do
-  nm <- "name" `attr` elem
-  number_string <- "number" `attr` elem
-  number <- maybeRead number_string
-  ref <- "ref" `attr` elem
-  return $ XEventCopy nm number ref
-
-xerror :: Element i -> Maybe XDecl
-xerror elem = do
-  nm <- "name" `attr` elem
-  number_string <- "number" `attr` elem
-  number <- maybeRead number_string
-  let fields = mapMaybe go cnt
-      Elem _ _ cnt = elem
-      go (CElem el _) = structField el
-      go _ = Nothing
+  name <- elem `attr` "name"
+  number <- elem `attr` "number" >>= maybeRead
+  let fields = mapMaybe structField $ elChildren elem
   guard $ not $ null fields
-  return $ XError nm number fields
+  return $ XEvent name number fields
 
-xercopy :: Element i -> Maybe XDecl
+xevcopy :: Element -> Maybe XDecl
+xevcopy elem = do
+  name <- elem `attr` "name"
+  number <- elem `attr` "number" >>= maybeRead
+  ref <- elem `attr` "ref"
+  return $ XEventCopy name number ref
+
+xerror :: Element -> Maybe XDecl
+xerror elem = do
+  name <- elem `attr` "name"
+  number <- elem `attr` "number" >>= maybeRead
+  let fields = mapMaybe structField $ elChildren elem
+  guard $ not $ null fields
+  return $ XError name number fields
+
+xercopy :: Element -> Maybe XDecl
 xercopy elem = do
-  nm <- "name" `attr` elem
-  number_string <- "number" `attr` elem
-  number <- maybeRead number_string
-  ref <- "ref" `attr` elem
-  return $ XErrorCopy nm number ref
+  name <- elem `attr` "name"
+  number <- elem `attr` "number" >>= maybeRead
+  ref <- elem `attr` "ref"
+  return $ XErrorCopy name number ref
 
-xstruct :: Element i -> Maybe XDecl
-xstruct elem = case attr "name" elem of
-    Nothing -> Nothing
-    Just nm -> 
-        let fields = mapMaybe f cnt
-            Elem _ _ cnt = elem
+xstruct :: Element -> Maybe XDecl
+xstruct elem = do
+  name <- elem `attr` "name"
+  let fields = mapMaybe structField $ elChildren elem
+  guard $ not $ null fields
+  return $ XStruct name fields
 
-            f (CElem el _) = structField el
-            f _ = Nothing
-        in case fields of
-             [] -> Nothing
-             _  -> Just $ XStruct nm fields
+xunion :: Element -> Maybe XDecl
+xunion _elem = Nothing
 
-xunion :: Element i -> Maybe XDecl
-xunion = const Nothing
+xidtype :: Element -> Maybe XDecl
+xidtype elem = liftM XidType $ elem `attr` "name"
 
-xidtype :: Element i -> Maybe XDecl
-xidtype elem = do
-  name <- "name" `attr` elem
-  return $ XidType name
-
-xidunion :: Element i -> Maybe XDecl
+xidunion :: Element -> Maybe XDecl
 xidunion elem = do
-  nm <- "name" `attr` elem
-  let types = mapMaybe go cnt
-      Elem _ _ cnt = elem
-      go (CElem el _) = unionElem el
-      go _ = Nothing
+  name <- elem `attr` "name"
+  let types = mapMaybe unionElem $ elChildren elem
   guard $ not $ null types
-  return $ XidUnion nm types
+  return $ XidUnion name types
 
-unionElem :: Element i -> Maybe UnionElem
-unionElem elem | elem `named` "type" = do
-                   let (Elem _ _ [CString _ str _]) = elem
-                   return $ UnionElem str
-unionElem _ = Nothing
+unionElem :: Element -> Maybe UnionElem
+unionElem elem = do
+  guard $ elem `named` "type"
+  return $ UnionElem $ strContent elem
 
-xtypedef :: Element i -> Maybe XDecl
+xtypedef :: Element -> Maybe XDecl
 xtypedef elem = do
-  oldname <- "oldname" `attr` elem
-  newname <- "newname" `attr` elem
+  oldname <- elem `attr` "oldname"
+  newname <- elem `attr` "newname"
   return $ XTypeDef newname oldname
 
 
--- |If the passed-in element can be interpretted as a
--- struct element, it will be.
-structField :: Element i -> Maybe StructElem
+structField :: Element -> Maybe StructElem
 structField elem
     | elem `named` "field" = do
-        typ <- "type" `attr` elem
-        name <- "name" `attr` elem
+        typ <- elem `attr` "type"
+        name <- elem `attr` "name"
         return $ SField name typ
 
     | elem `named` "pad" = do
-        bytes <- "bytes" `attr` elem
-        byte_count <- maybeRead bytes
-        return $ Pad byte_count
+        bytes <- elem `attr` "bytes" >>= maybeRead
+        return $ Pad bytes
 
     | elem `named` "list" = do
-        typ <- "type" `attr` elem
-        name <- "name" `attr` elem
-        celem <- firstChildElem elem
-        expr <- expression celem
+        typ <- elem `attr` "type"
+        name <- elem `attr` "name"
+        expr <- firstChild elem >>= expression
         return $ List name typ expr
 
     | elem `named` "valueparam" = do
-        mask_typ <- "value-mask-type" `attr` elem
-        mask_name <- "value-mask-name" `attr` elem
-        list_name <- "value-list-name" `attr` elem
+        mask_typ <- elem `attr` "value-mask-type"
+        mask_name <- elem `attr` "value-mask-name"
+        list_name <- elem `attr` "value-list-name"
         return $ ValueParam mask_typ mask_name list_name
 
     | elem `named` "exprfield" = do
-        typ <- "type" `attr` elem
-        name <- "name" `attr` elem
-        celem <- firstChildElem elem
-        expr <- expression celem
+        typ <- elem `attr` "type"
+        name <- elem `attr` "name"
+        expr <- firstChild elem >>= expression
         return $ ExprField name typ expr
 
-structField _ = Nothing
+    | elem `named` "reply" = Nothing -- handled separate
 
-firstChildElem :: Element i -> Maybe (Element i)
-firstChildElem (Elem _ _ cnt) = listToMaybe $ mapMaybe go cnt
-    where go (CElem el _) = return el
-          go _ = Nothing
+    | otherwise = let name = elName elem
+                  in error $ "I don't know what to do with structelem "
+ ++ show name
 
-firstTextElem :: Element i -> Maybe String
-firstTextElem (Elem _ _ cnt) = listToMaybe $ mapMaybe go cnt
-    where go (CString _ str _) = return str
-          go _ = Nothing
-
--- |Interpret an element as an expression
-expression :: Element i -> Maybe Expression
+expression :: Element -> Maybe Expression
 expression elem | elem `named` "fieldref"
-                    = FieldRef `liftM` firstTextElem elem
+                    = return $ FieldRef $ strContent elem
                 | elem `named` "value"
-                    = firstTextElem elem >>= maybeValue
+                    = Value `liftM` maybeRead (strContent elem)
                 | elem `named` "bit"
-                    = firstTextElem elem >>= maybeBit
-                | elem `named` "op" = maybeOp elem
-expression _ = Nothing
-
--- probably doesn't handle hex values correctly
-maybeValue :: String -> Maybe Expression
-maybeValue str = Value `liftM` maybeRead str
-
-maybeBit :: String -> Maybe Expression
-maybeBit str = do
-  n <- maybeRead str
-  guard $ n >= 0
-  return $ Bit n
-
-maybeOp :: Element i -> Maybe Expression
-maybeOp elem = do
-  op_string <- "op" `attr` elem
-  binop <- toBinop op_string
-  let celems = childElements elem
-  [exprLhs, exprRhs] <- mapM expression celems
-  return $ Op binop exprLhs exprRhs
-
-childElements :: Element i -> [Element i]
-childElements (Elem _ _ cnt) = mapMaybe go cnt
-    where go (CElem el _) = return el
-          go _ = Nothing
+                    = Bit `liftM` do
+                        n <- maybeRead (strContent elem)
+                        guard $ n >= 0
+                        return n
+                | elem `named` "op" = do
+                    binop <- elem `attr` "op" >>= toBinop
+                    [exprLhs,exprRhs] <- mapM expression $ elChildren elem
+                    return $ Op binop exprLhs exprRhs
 
 toBinop :: String -> Maybe Binop
 toBinop "+"  = return Add
@@ -299,6 +198,7 @@ toBinop "&amp;" = return And
 toBinop ">>" = return RShift
 toBinop _ = Nothing
 
+  
 -- Post processing function.
 -- Eliminates 'XEventCopy' and 'XErrorCopy' declarations
 postProcess :: [XDecl] -> [XDecl]
@@ -326,8 +226,29 @@ postProcess decls =
 
         go x = return x
     in decls'
+               
+  
+
+----
+----
+-- Utility functions
+----
+----
+
+firstChild :: Element -> Maybe Element
+firstChild = listToMaybe . elChildren
+
+named :: Element -> String -> Bool
+named (Element qname _ _ _) name | qname == unqual name = True
+named _ _ = False
+
+attr :: Element -> String -> Maybe String
+(Element _ xs _ _) `attr` name = do 
+                Attr _ res <- List.find p xs
+                return res
+    where p (Attr qname _) | qname == unqual name = True
+          p _ = False
 
 -- stolen from Network.CGI.Protocol
--- Probably more forgiving than I would've done it.
 maybeRead :: Read a => String -> Maybe a
 maybeRead = fmap fst . listToMaybe . reads

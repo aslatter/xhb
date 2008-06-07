@@ -9,7 +9,7 @@ import System.Environment
 fromFile :: FilePath -> IO XHeader
 fromFile fp = do
   text <- readFile fp
-  return $ fromString fp text
+  return $ fromString text
 
 pretty :: XHeader -> String
 pretty (XHeader nm _ decls) = prettyBuild nm $ mapM_ xDecl decls
