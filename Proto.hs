@@ -61,7 +61,12 @@ runBuilder nm bldr =
 -- Create a new XHB generated module
 newXhbModule :: String -> HsModule
 newXhbModule = addStandardImports . mkModule . modulePrefix . ensureUpper
-    where addStandardImports = addImport $ mkImport "XHB.Shared"
+    where addStandardImports = appMany $ map (addImport . mkImport)
+              ["XHB.Shared"
+              ,"Data.Word"
+              ,"Foreign.C.Types"
+              ,"Data.Bits"
+              ]
 
 -- takes all of the results of running 'logEvent' and turns it into to two things:
 --   * a sum-type of all the events in this module
@@ -189,6 +194,10 @@ runBuild name bld= snd $ runBuilder name bld
 
 prettyBuild :: String -> Build -> String
 prettyBuild name bld = prettyPrint $ runBuild name bld
+
+toHsModule :: XHeader -> HsModule
+toHsModule (XHeader nm _ decls) = runBuild nm $ mapM_ xDecl decls
+
 -----
 
 xDecl :: XDecl -> Build
@@ -198,6 +207,7 @@ xDecl (XidType name) = do
 xDecl (XidUnion name _fields) = xDecl $ XidType name  -- Pretend it's a declaration of an Xid Type  
 xDecl (XStruct name fields) = do
   declareStruct name fields
+  declareSerStruct name fields
   exportType name
 xDecl (XTypeDef name typ) = do
   typeDecl name typ
@@ -345,11 +355,7 @@ declareStruct name fields = do
           go (SField nm tp) = return $
                        (accessor nm name, HsUnBangedTy $ mkTyCon tp)
           go (ValueParam typ mname _lname) = return $
-           let nme = case nm of
-                        Nothing -> mname
-                        Just n -> reverse $ drop (n+1) $ rname
-               rname = reverse mname
-               nm = L.findIndex (== '_') rname
+           let nme = valueParamName mname
                vTyp = HsTyApp (mkTyCon "ValueParam") (mkTyCon typ)
            in (accessor nme name, HsUnBangedTy $ vTyp)
   
@@ -357,6 +363,14 @@ declareStruct name fields = do
           go (ExprField{}) = Nothing -- deal wth these separate
           go selem = selemsToRecPanic selem
 
+valueParamName :: Name -> Name
+valueParamName mname = 
+    let name = case nm of
+                Nothing -> mname
+                Just n -> reverse $ drop (n+1) $ rname
+        rname = reverse mname
+        nm = L.findIndex (== '_') rname
+    in name
 
 selemsToRecPanic :: StructElem -> a
 selemsToRecPanic x = error $
@@ -368,6 +382,7 @@ buildDecl = modifyModule . addDecl
 
 mapTyNames :: String -> String
 mapTyNames "char" = "CChar"
+mapTyNames "void" = "Word8"
 mapTyNames x = x
 
 exprFields :: Name -> [StructElem] -> Build
@@ -405,7 +420,7 @@ exprFields name elems = mapM_ go elems
             buildDecl $ mkSimpleFun funName [mkPVar inVar] (mkExpr expr)
 
             -- export
-            exportType funName
+            exportVar funName
           go _ = return ()
 
 
@@ -425,6 +440,74 @@ instanceXid tyname = modifyModule . addDecl $
       [HsPApp (mkUnQName (conPrefix tyname)) [mkPVar "a"]]
       (HsVar $ mkUnQName "a")
     ]
+
+
+----- Declaring serialize and deserialize instances
+
+declareSerStruct :: Name -> [StructElem] -> Build
+declareSerStruct name fields = modifyModule . addDecl $
+    mkInstDecl
+      []
+      (mkUnQName "Serialize")
+      [HsTyCon $ mkUnQName name]
+      [serializeFunc,
+       sizeFunc
+      ]
+  where
+    sizeFunc :: HsDecl
+    sizeFunc = mkSimpleFun
+                "size"
+                [mkPVar "x"]
+                (L.foldl1' add $ mapMaybe toFieldSize fields)
+
+    add :: HsExp -> HsExp -> HsExp
+    add = expBinop "+"
+
+    mult :: HsExp -> HsExp -> HsExp
+    mult = expBinop "*"
+
+    expBinop op lhs rhs = HsInfixApp lhs (HsQVarOp . UnQual $ HsSymbol op) rhs
+
+    accessField fieldName =
+        mkVar (accessor fieldName name) `HsApp` mkVar "x"
+
+    sizeOfType typ = (mkVar "size" `HsApp`) $ HsParen $
+                     mkVar "undefined" `mkAsExp` HsTyCon (mkUnQName typ)
+
+    sizeOfMember fname = (mkVar "size" `HsApp`) $ HsParen $
+                           accessField fname
+
+    toFieldSize :: StructElem -> Maybe HsExp
+    toFieldSize (Pad n) = return $ mkNumLit n
+    toFieldSize (List lname typ _expr) = return $
+         (mkVar "sum" `HsApp`) $ HsParen $
+         ((mkVar "map" `HsApp` mkVar "size") `HsApp`) $ HsParen $
+         accessField lname
+    toFieldSize (SField fname _typ) = return $ sizeOfMember fname
+    toFieldSize (ExprField _ _ _) = Nothing
+    toFieldSize (ValueParam _ name _) = return $
+          sizeOfMember . valueParamName $ name
+
+
+    serializeFunc = mkSimpleFun "serialize"
+          [mkPVar "bo"
+          ,mkPVar "x"]
+          (HsDo $ map HsQualifier $ mapMaybe serField fields)
+
+    serField :: StructElem -> Maybe HsExp
+    serField (Pad n) -- "putSkip n"
+        = return $ mkVar "putSkip" `HsApp` mkNumLit n
+    serField (List name _typ _expr) -- serializeList bo <list>
+        = return $ 
+          HsApp (mkVar "serializeList" `HsApp` mkVar "bo") $ HsParen $
+          accessField name
+    serField (SField fname _typ) -- serialize bo <field>
+        = return $ HsApp (mkVar "serialize" `HsApp` mkVar "bo") $ HsParen $
+          accessField fname
+    serField ExprField{}  = Nothing
+    serField (ValueParam _ mname _) -- serialize bo <field>
+        = return $ HsApp (mkVar "serialize" `HsApp` mkVar "bo") $ HsParen $
+          accessField $ valueParamName mname
 
 -- |Defines a newtype declaration.
 simpleNewtype :: String   -- typename
@@ -450,12 +533,6 @@ exportTypeAbs = modifyModule . addExport . mkExportAbs
 exportType :: String -> Build
 exportType = modifyModule . addExport . mkExportAll
 
-
--- Random utiltiy functions
-
-swap :: (a,b) -> (b,a)
-swap (a,b) = (b,a)
-
-twist :: (Ord a, Ord b) => M.Map a b -> M.Map b a
-twist = M.fromList . map swap . M.toList
-
+-- |Export the named variable
+exportVar :: String -> Build
+exportVar = modifyModule . addExport . HsEVar . mkUnQName

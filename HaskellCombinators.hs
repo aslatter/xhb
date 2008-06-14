@@ -50,18 +50,18 @@ mkExportAll = HsEThingAll . mkUnQName
 mkTypeDecl :: String -> [String] -> HsType -> HsDecl
 mkTypeDecl nm args ty = HsTypeDecl dummLoc (HsIdent nm) (map HsIdent args) ty
 
-mkSimpleFun :: String  -- |name
-            -> [HsPat] -- |args
-            -> HsExp   -- |body
+mkSimpleFun :: String  -- ^name
+            -> [HsPat] -- ^args
+            -> HsExp   -- ^body
             -> HsDecl
 mkSimpleFun name args rhs = HsFunBind
      [HsMatch dummLoc (HsIdent name) args (HsUnGuardedRhs rhs) []]
 
 -- |Makes an choice in a function which returns
 -- a value based soley on the input constructor
-mkConsMatch :: String -- |Function name
-            -> String -- |Constructor name
-            -> HsExp -- |Result expression
+mkConsMatch :: String -- ^Function name
+            -> String -- ^Constructor name
+            -> HsExp  -- ^Result expression
             -> HsMatch
 mkConsMatch fName cons res
     = HsMatch
@@ -87,10 +87,10 @@ mkNumLit :: Integral n => n -> HsExp
 mkNumLit = HsLit . HsInt . fromIntegral
 
 mkNewtype :: HsContext
-          -> String    -- |name
-          -> [String]  -- |type args
-          -> HsConDecl -- |constructor
-          -> [HsQName] -- |deriving clause
+          -> String    -- ^name
+          -> [String]  -- ^type args
+          -> HsConDecl -- ^constructor
+          -> [HsQName] -- ^deriving clause
           -> HsDecl
 mkNewtype ctxt nam args con drv =
     HsNewTypeDecl
@@ -147,6 +147,10 @@ mkRCon name fields =
 -- |A class declaration
 mkClass :: HsContext -> String -> [String] -> [HsDecl] -> HsDecl
 mkClass ctxt name vars = HsClassDecl dummLoc ctxt (HsIdent name) (map HsIdent vars)
+
+
+mkAsExp :: HsExp -> HsType -> HsExp
+mkAsExp exp typ = HsExpTypeSig dummLoc exp (HsQualType [] typ)
 
 -- For building up modules
 

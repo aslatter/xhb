@@ -1,4 +1,22 @@
-module FromXML (fromString) where
+{- {-# LANGUAGE PatternSignatures, ScopedTypeVariables #-} -}
+
+{-
+
+What we need if a way to allow modules to copy events, errors, etc.
+across module boundaries.
+
+The idea is that XML parsing takes place in a Writer/Reader monad.
+
+The Reader is fed the results of the Writer.
+
+Hopefuly black-holes do not ensue.
+
+-}
+
+
+-- something like:
+
+module FromXML where
 
 import Types
 import Pretty
@@ -6,19 +24,94 @@ import Pretty
 import Text.XML.Light
 
 import Data.List as List
-import qualified Data.Map as M
 import Data.Maybe
-import Control.Monad
-import Control.Monad.State
 import Data.Monoid
 
-fromString :: String -> XHeader
-fromString str = fromJust $ do 
-    el@(Element qname ats cnt _) <- parseXMLDoc str
-    guard $ el `named` "xcb"
-    modName <- el `attr` "header"
-    let exinfo = extractExInfo el
-    return $ XHeader modName exinfo $ extractDecls cnt
+import Control.Monad
+import Control.Monad.Reader
+
+
+fromFiles :: [FilePath] -> IO [XHeader]
+fromFiles xs = do
+  strings <- sequence $ map readFile xs
+  return $ fromStrings strings
+
+
+fromStrings :: [String] -> [XHeader]
+fromStrings xs =
+   let rs = mapMaybeParse fromString xs
+       Just headers = runReaderT rs headers
+   in headers 
+
+-- The 'Parse' monad.  Provides the name of the
+-- current module, and a list of all of the modules.
+type Parse = ReaderT ([XHeader],Name) Maybe
+
+-- operations in the 'Parse' monad
+
+localName :: Parse Name
+localName = snd `liftM` ask
+
+allModules :: Parse [XHeader]
+allModules = fst `liftM` ask
+
+first :: Maybe a -> Maybe a -> Maybe a
+first a b = getFirst $ First a `mappend` First b
+
+lookupThingy :: ([XDecl] -> Maybe a)
+             -> (Maybe Name)
+             -> Parse (Maybe a)
+lookupThingy f Nothing = do
+  lname <- localName
+  liftM2 first (lookupThingy f $ Just lname)
+               (lookupThingy f $ Just "xproto") -- implicit xproto import
+lookupThingy f (Just mname) = do
+  xs <- allModules
+  return $ do
+    XHeader _ _ decls <- findXHeader mname xs
+    f decls
+
+lookupEvent :: Maybe Name -> Name -> Parse (Maybe EventDetails)
+lookupEvent mname evname = flip lookupThingy mname $ \decls ->
+                 findEvent evname decls
+
+lookupError :: Maybe Name -> Name -> Parse (Maybe ErrorDetails)
+lookupError mname ername = flip lookupThingy mname $ \decls ->
+                 findError ername decls
+
+findXHeader :: Name -> [XHeader] -> Maybe XHeader
+findXHeader name = List.find $ \ (XHeader name' _ _) -> name == name'
+
+findError :: Name -> [XDecl] -> Maybe ErrorDetails
+findError pname xs =
+      case List.find f xs of
+        Nothing -> Nothing
+        Just (XError name code elems) -> Just $ ErrorDetails name code elems
+    where  f (XError name _ _) | name == pname = True
+           f _ = False 
+                                       
+findEvent :: Name -> [XDecl] -> Maybe EventDetails
+findEvent pname xs = 
+      case List.find f xs of
+        Nothing -> Nothing
+        Just (XEvent name code elems) -> Just $ EventDetails name code elems
+   where f (XEvent name _ _) | name == pname = True
+         f _ = False 
+
+data EventDetails = EventDetails Name Int [StructElem]
+data ErrorDetails = ErrorDetails Name Int [StructElem]
+
+---
+
+fromString :: String -> ReaderT [XHeader] Maybe XHeader
+fromString str = do
+  el@(Element qname ats cnt _) <- lift $ parseXMLDoc str
+  guard $ el `named` "xcb"
+  modName <- el `attr` "header"
+  let exinfo = extractExInfo el
+  decls <- withReaderT (\r -> (r,modName)) $ extractDecls cnt
+  return $ XHeader modName exinfo decls
+
 
 extractExInfo :: Element -> Maybe ExInfo
 extractExInfo el = do
@@ -28,10 +121,19 @@ extractExInfo el = do
   v2 <- el `attr` "minor-version"
   return $ ExInfo n xn (v1,v2)
 
-extractDecls :: [Content] -> [XDecl]
-extractDecls = postProcess . mapMaybe declFromElem . onlyElems
+extractDecls :: [Content] -> Parse [XDecl]
+extractDecls = mapMaybeParse declFromElem . onlyElems
 
-declFromElem :: Element -> Maybe XDecl
+-- |Elements which evaluate to failure are dropped
+mapMaybeParse :: (a -> ReaderT r Maybe b)
+              -> [a]
+              -> ReaderT r Maybe [b]
+mapMaybeParse f xs = ReaderT $ \r -> 
+        let ms = map ((\m -> runReaderT m r) . f) xs
+        in  Just $ mapMaybe id ms
+                         
+
+declFromElem :: Element -> Parse XDecl
 declFromElem elem 
     | elem `named` "request" = xrequest elem
     | elem `named` "event"   = xevent elem
@@ -44,28 +146,28 @@ declFromElem elem
     | elem `named` "xidunion" = xidunion elem
     | elem `named` "typedef" = xtypedef elem
     | elem `named` "enum" = xenum elem
-    | otherwise = Nothing
+    | otherwise = fail "no parse"
 
-xenum :: Element -> Maybe XDecl
+xenum :: Element -> Parse XDecl
 xenum elem = do
   nm <- elem `attr` "name"
-  let fields = mapMaybe enumField $ elChildren elem
+  fields <- mapMaybeParse enumField $ elChildren elem
   guard $ not $ null fields
   return $ XEnum nm fields
 
-enumField :: Element -> Maybe EnumElem
+enumField :: Element -> Parse EnumElem
 enumField elem = do
   guard $ elem `named` "item"
   name <- elem `attr` "name"
   expr <- firstChild elem >>= expression
   return $ EnumElem name expr
 
-xrequest :: Element -> Maybe XDecl
+xrequest :: Element -> Parse XDecl
 xrequest elem = do
   nm <- elem `attr` "name"
-  code <- elem `attr` "opcode" >>= maybeRead
-  let fields = mapMaybe structField $ elChildren elem
-      reply = getReply elem
+  code <- elem `attr` "opcode" >>= readM
+  fields <- mapMaybeParse structField $ elChildren elem
+  let reply = getReply elem
   guard $ not (null fields) || not (isNothing reply)
   return $ XRequest nm code fields reply
 
@@ -76,54 +178,80 @@ getReply elem = do
   guard $ not $ null fields
   return fields
 
-xevent :: Element -> Maybe XDecl
+xevent :: Element -> Parse XDecl
 xevent elem = do
   name <- elem `attr` "name"
-  number <- elem `attr` "number" >>= maybeRead
-  let fields = mapMaybe structField $ elChildren elem
+  number <- elem `attr` "number" >>= readM
+  fields <- mapMaybeParse structField $ elChildren elem
   guard $ not $ null fields
   return $ XEvent name number fields
 
-xevcopy :: Element -> Maybe XDecl
+xevcopy :: Element -> Parse XDecl
 xevcopy elem = do
   name <- elem `attr` "name"
-  number <- elem `attr` "number" >>= maybeRead
+  number <- elem `attr` "number" >>= readM
   ref <- elem `attr` "ref"
-  return $ XEventCopy name number ref
+  -- do we have a qualified ref?
+  let (mname,evname) = splitRef ref
+  details <- lookupEvent mname evname 
+  return $ XEvent name number $ case details of
+               Nothing -> error $ "Unresolved event: " ++ show mname ++ " " ++ ref
+               Just (EventDetails _ _ x) -> x
 
-xerror :: Element -> Maybe XDecl
+splitRef :: Name -> (Maybe Name, Name)
+splitRef ref = case split ':' ref of
+                 (x,"") -> (Nothing, x)
+                 (a, b) -> (Just a, b)
+
+-- |Neither returned string contains the first occurance of the
+-- supplied Char.
+split :: Char -> String -> (String, String)
+split c xs = go xs
+    where go [] = ([],[])
+          go (x:xs) | x == c = ([],xs)
+                    | otherwise = 
+                        let (lefts, rights) = go xs
+                        in (x:lefts,rights)
+                 
+
+xerror :: Element -> Parse XDecl
 xerror elem = do
   name <- elem `attr` "name"
-  number <- elem `attr` "number" >>= maybeRead
-  let fields = mapMaybe structField $ elChildren elem
+  number <- elem `attr` "number" >>= readM
+  fields <- mapMaybeParse structField $ elChildren elem
   guard $ not $ null fields
   return $ XError name number fields
 
-xercopy :: Element -> Maybe XDecl
+
+xercopy :: Element -> Parse XDecl
 xercopy elem = do
   name <- elem `attr` "name"
-  number <- elem `attr` "number" >>= maybeRead
+  number <- elem `attr` "number" >>= readM
   ref <- elem `attr` "ref"
-  return $ XErrorCopy name number ref
+  let (mname, ername) = splitRef ref
+  details <- lookupError mname ername
+  return $ XError name number $ case details of
+               Nothing -> error $ "Unresolved error: " ++ show mname ++ " " ++ ref
+               Just (ErrorDetails _ _ x) -> x
 
-xstruct :: Element -> Maybe XDecl
+xstruct :: Element -> Parse XDecl
 xstruct elem = do
   name <- elem `attr` "name"
-  let fields = mapMaybe structField $ elChildren elem
+  fields <- mapMaybeParse structField $ elChildren elem
   guard $ not $ null fields
   return $ XStruct name fields
 
-xunion :: Element -> Maybe XDecl
+xunion :: Element -> Parse XDecl
 xunion elem = do
   name <- elem `attr` "name"
-  let fields = mapMaybe structField $ elChildren elem
+  fields <- mapMaybeParse structField $ elChildren elem
   guard $ not $ null fields
   return $ XUnion name fields
 
-xidtype :: Element -> Maybe XDecl
+xidtype :: Element -> Parse XDecl
 xidtype elem = liftM XidType $ elem `attr` "name"
 
-xidunion :: Element -> Maybe XDecl
+xidunion :: Element -> Parse XDecl
 xidunion elem = do
   name <- elem `attr` "name"
   let types = mapMaybe xidUnionElem $ elChildren elem
@@ -135,14 +263,14 @@ xidUnionElem elem = do
   guard $ elem `named` "type"
   return $ XidUnionElem $ strContent elem
 
-xtypedef :: Element -> Maybe XDecl
+xtypedef :: Element -> Parse XDecl
 xtypedef elem = do
   oldname <- elem `attr` "oldname"
   newname <- elem `attr` "newname"
   return $ XTypeDef newname oldname
 
 
-structField :: Element -> Maybe StructElem
+structField :: MonadPlus m => Element -> m StructElem
 structField elem
     | elem `named` "field" = do
         typ <- elem `attr` "type"
@@ -150,7 +278,7 @@ structField elem
         return $ SField name typ
 
     | elem `named` "pad" = do
-        bytes <- elem `attr` "bytes" >>= maybeRead
+        bytes <- elem `attr` "bytes" >>= readM
         return $ Pad bytes
 
     | elem `named` "list" = do
@@ -171,20 +299,20 @@ structField elem
         expr <- firstChild elem >>= expression
         return $ ExprField name typ expr
 
-    | elem `named` "reply" = Nothing -- handled separate
+    | elem `named` "reply" = fail "" -- handled separate
 
     | otherwise = let name = elName elem
                   in error $ "I don't know what to do with structelem "
  ++ show name
 
-expression :: Element -> Maybe Expression
+expression :: MonadPlus m => Element -> m Expression
 expression elem | elem `named` "fieldref"
                     = return $ FieldRef $ strContent elem
                 | elem `named` "value"
-                    = Value `liftM` maybeRead (strContent elem)
+                    = Value `liftM` readM (strContent elem)
                 | elem `named` "bit"
                     = Bit `liftM` do
-                        n <- maybeRead (strContent elem)
+                        n <- readM (strContent elem)
                         guard $ n >= 0
                         return n
                 | elem `named` "op" = do
@@ -192,7 +320,7 @@ expression elem | elem `named` "fieldref"
                     [exprLhs,exprRhs] <- mapM expression $ elChildren elem
                     return $ Op binop exprLhs exprRhs
 
-toBinop :: String -> Maybe Binop
+toBinop :: MonadPlus m => String -> m Binop
 toBinop "+"  = return Add
 toBinop "-"  = return Sub
 toBinop "*"  = return Mult
@@ -200,9 +328,10 @@ toBinop "/"  = return Div
 toBinop "&"  = return And
 toBinop "&amp;" = return And
 toBinop ">>" = return RShift
-toBinop _ = Nothing
+toBinop _ = fail ""
 
-  
+
+{-  
 -- Post processing function.
 -- Eliminates 'XEventCopy' and 'XErrorCopy' declarations
 postProcess :: [XDecl] -> [XDecl]
@@ -230,7 +359,7 @@ postProcess decls =
 
         go x = return x
     in decls'
-               
+-}             
   
 
 ----
@@ -239,20 +368,27 @@ postProcess decls =
 ----
 ----
 
-firstChild :: Element -> Maybe Element
-firstChild = listToMaybe . elChildren
+firstChild :: Monad m => Element -> m Element
+firstChild = listToM . elChildren
+
+listToM :: Monad m => [a] -> m a
+listToM [] = fail "empty list"
+listToM (x:xs) = return x
 
 named :: Element -> String -> Bool
 named (Element qname _ _ _) name | qname == unqual name = True
 named _ _ = False
 
-attr :: Element -> String -> Maybe String
-(Element _ xs _ _) `attr` name = do 
-                Attr _ res <- List.find p xs
-                return res
+attr :: Monad m => Element -> String -> m String
+(Element _ xs _ _) `attr` name = case List.find p xs of
+      Just (Attr _ res) -> return res
+      _ -> fail "not found"
     where p (Attr qname _) | qname == unqual name = True
           p _ = False
 
--- stolen from Network.CGI.Protocol
+-- adapted from Network.CGI.Protocol
+readM :: (Monad m, Read a) => String -> m a
+readM = liftM fst . listToM . reads
+
 maybeRead :: Read a => String -> Maybe a
 maybeRead = fmap fst . listToMaybe . reads

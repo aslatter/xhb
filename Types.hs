@@ -4,7 +4,10 @@ module Types where
 import qualified Data.List as L
 import Control.Monad
 
-data XHeader = XHeader Name (Maybe ExInfo) [XDecl]
+data XHeader = XHeader {xheader_name :: Name
+                       ,xheader_exinfo :: (Maybe ExInfo)
+                       ,xheader_decls :: [XDecl]
+                       }
  deriving (Show)
 
 data XDecl = XStruct  Name [StructElem]
@@ -16,9 +19,7 @@ data XDecl = XStruct  Name [StructElem]
            | XEnum Name [EnumElem]
            | XUnion Name [StructElem]
            | XImport Name
-           | XError Name Int [StructElem] -- check to make sure
-           | XEventCopy Name Int Ref  -- should not appear after post processing
-           | XErrorCopy Name Int Ref  -- should not appear after post processing
+           | XError Name Int [StructElem]
  deriving (Show)
 
 data StructElem = Pad Int
@@ -61,3 +62,4 @@ data Binop = Add
            | And
            | RShift
  deriving (Show)
+

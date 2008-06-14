@@ -17,10 +17,10 @@ import Data.Map
 
 -- |The state that we build up to eventually build a haskell module
 data BuildData = BuildData
-    (Endo HsModule) -- |A partial module
-    (Map EventName Int) -- |A map from events to event-opcodes
-    (Map RequestName (Int, Bool)) -- |A map from requests to (opcodes, has-reply flag)
-    (Map ErrorName Int) -- |A map from errors to numbers
+                  (Endo HsModule) -- ^A partial module
+                  (Map EventName Int) -- ^A map from events to event-opcodes
+                  (Map RequestName (Int, Bool)) -- ^A map from requests to (opcodes, has-reply flag)
+                  (Map ErrorName Int) -- ^A map from errors to numbers
 
 type EventName   = String
 type RequestName = String

@@ -1,0 +1,15 @@
+X Haskell Bindings
+
+The goal of this project is to provide a Haskell library for interacting
+with an X server, using XCB as a model.
+
+The bedrock of the library will be datatypes and serialization code
+automatically generated from the 'xproto' XML files:
+
+To see what the current progress is, try the following:
+
+  chmod +x generate.sh
+  ./generate.sh
+
+and then look around in the "generated" directory.
+
