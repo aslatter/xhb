@@ -16,10 +16,13 @@ Hopefuly black-holes do not ensue.
 
 -- something like:
 
-module FromXML where
+module XCB.FromXML(fromFiles
+                  ,fromStrings
+                  ) where
 
-import Types
-import Pretty
+import XCB.Types
+import XCB.Pretty
+import XCB.Utils
 
 import Text.XML.Light
 
@@ -55,21 +58,18 @@ localName = snd `liftM` ask
 allModules :: Parse [XHeader]
 allModules = fst `liftM` ask
 
-first :: Maybe a -> Maybe a -> Maybe a
-first a b = getFirst $ First a `mappend` First b
-
 lookupThingy :: ([XDecl] -> Maybe a)
              -> (Maybe Name)
              -> Parse (Maybe a)
 lookupThingy f Nothing = do
   lname <- localName
-  liftM2 first (lookupThingy f $ Just lname)
+  liftM2 mplus (lookupThingy f $ Just lname)
                (lookupThingy f $ Just "xproto") -- implicit xproto import
 lookupThingy f (Just mname) = do
   xs <- allModules
   return $ do
-    XHeader _ _ decls <- findXHeader mname xs
-    f decls
+    x <- findXHeader mname xs
+    f $ xheader_decls x
 
 lookupEvent :: Maybe Name -> Name -> Parse (Maybe EventDetails)
 lookupEvent mname evname = flip lookupThingy mname $ \decls ->
@@ -80,7 +80,7 @@ lookupError mname ername = flip lookupThingy mname $ \decls ->
                  findError ername decls
 
 findXHeader :: Name -> [XHeader] -> Maybe XHeader
-findXHeader name = List.find $ \ (XHeader name' _ _) -> name == name'
+findXHeader name = List.find $ \ x -> xheader_header x == name
 
 findError :: Name -> [XDecl] -> Maybe ErrorDetails
 findError pname xs =
@@ -107,19 +107,21 @@ fromString :: String -> ReaderT [XHeader] Maybe XHeader
 fromString str = do
   el@(Element qname ats cnt _) <- lift $ parseXMLDoc str
   guard $ el `named` "xcb"
-  modName <- el `attr` "header"
-  let exinfo = extractExInfo el
-  decls <- withReaderT (\r -> (r,modName)) $ extractDecls cnt
-  return $ XHeader modName exinfo decls
-
-
-extractExInfo :: Element -> Maybe ExInfo
-extractExInfo el = do
-  xn <- el `attr` "extension-xname"
-  n  <- el `attr` "extension-name"
-  v1 <- el `attr` "major-version"
-  v2 <- el `attr` "minor-version"
-  return $ ExInfo n xn (v1,v2)
+  header <- el `attr` "header"
+  let name = el `attr` "extension-name"
+      xname = el `attr` "extension-xname"
+      maj_ver = el `attr` "major-version" >>= readM
+      min_ver = el `attr` "minor-version" >>= readM
+      multiword = el `attr` "extension-multiword" >>= readM . ensureUpper
+  decls <- withReaderT (\r -> (r,header)) $ extractDecls cnt
+  return $ XHeader {xheader_header = header
+                   ,xheader_xname = xname
+                   ,xheader_name = name
+                   ,xheader_multiword = multiword
+                   ,xheader_major_version = maj_ver
+                   ,xheader_minor_version = min_ver
+                   ,xheader_decls = decls
+                   }
 
 extractDecls :: [Content] -> Parse [XDecl]
 extractDecls = mapMaybeParse declFromElem . onlyElems
@@ -146,7 +148,12 @@ declFromElem elem
     | elem `named` "xidunion" = xidunion elem
     | elem `named` "typedef" = xtypedef elem
     | elem `named` "enum" = xenum elem
-    | otherwise = fail "no parse"
+    | elem `named` "import" = ximport elem
+    | otherwise = mzero
+
+
+ximport :: Element -> Parse XDecl
+ximport = return . XImport . strContent
 
 xenum :: Element -> Parse XDecl
 xenum elem = do
@@ -197,6 +204,13 @@ xevcopy elem = do
   return $ XEvent name number $ case details of
                Nothing -> error $ "Unresolved event: " ++ show mname ++ " " ++ ref
                Just (EventDetails _ _ x) -> x
+
+mkType :: String -> Type
+mkType str =
+    let (mname, name) = splitRef str
+    in case mname of
+         Just mod -> QualType mod name
+         Nothing  -> UnQualType name
 
 splitRef :: Name -> (Maybe Name, Name)
 splitRef ref = case split ':' ref of
@@ -261,19 +275,19 @@ xidunion elem = do
 xidUnionElem :: Element -> Maybe XidUnionElem
 xidUnionElem elem = do
   guard $ elem `named` "type"
-  return $ XidUnionElem $ strContent elem
+  return $ XidUnionElem $ mkType $ strContent elem
 
 xtypedef :: Element -> Parse XDecl
 xtypedef elem = do
-  oldname <- elem `attr` "oldname"
+  oldtyp <- liftM mkType $ elem `attr` "oldname"
   newname <- elem `attr` "newname"
-  return $ XTypeDef newname oldname
+  return $ XTypeDef newname oldtyp
 
 
 structField :: MonadPlus m => Element -> m StructElem
 structField elem
     | elem `named` "field" = do
-        typ <- elem `attr` "type"
+        typ <- liftM mkType $ elem `attr` "type"
         name <- elem `attr` "name"
         return $ SField name typ
 
@@ -282,19 +296,19 @@ structField elem
         return $ Pad bytes
 
     | elem `named` "list" = do
-        typ <- elem `attr` "type"
+        typ <- liftM mkType $ elem `attr` "type"
         name <- elem `attr` "name"
         expr <- firstChild elem >>= expression
         return $ List name typ expr
 
     | elem `named` "valueparam" = do
-        mask_typ <- elem `attr` "value-mask-type"
+        mask_typ <- liftM mkType $ elem `attr` "value-mask-type"
         mask_name <- elem `attr` "value-mask-name"
         list_name <- elem `attr` "value-list-name"
         return $ ValueParam mask_typ mask_name list_name
 
     | elem `named` "exprfield" = do
-        typ <- elem `attr` "type"
+        typ <- liftM mkType $ elem `attr` "type"
         name <- elem `attr` "name"
         expr <- firstChild elem >>= expression
         return $ ExprField name typ expr
@@ -328,39 +342,10 @@ toBinop "/"  = return Div
 toBinop "&"  = return And
 toBinop "&amp;" = return And
 toBinop ">>" = return RShift
-toBinop _ = fail ""
+toBinop _ = mzero
 
 
-{-  
--- Post processing function.
--- Eliminates 'XEventCopy' and 'XErrorCopy' declarations
-postProcess :: [XDecl] -> [XDecl]
-postProcess decls = 
-    let (decls', (eventsM,errorsM)) = flip runState mempty $ mapM go decls
 
-        recordEvent event@(XEvent name _ _)
-            = modify $ \(evs,ers) -> (M.insert name event evs,ers)
-
-        recordError err@(XError name _ _)
-            = modify $ \(evs,ers) -> (evs,M.insert name err ers)
-
-        go event@(XEvent {}) = recordEvent event >> return event
-        go   err@(XError {}) = recordError err   >> return err
-
-        go (XEventCopy name code ref) 
-            = return $ XEvent name code $ case M.lookup ref eventsM of
-                    Nothing -> error $ "Invaild reference to event: " ++ ref
-                    Just (XEvent _ _ fields) -> fields
-
-        go (XErrorCopy name code ref)
-            = return $ XError name code $ case M.lookup ref errorsM of
-                    Nothing -> error $ "Invalid reference to error: " ++ ref
-                    Just (XError _ _ fields) -> fields
-
-        go x = return x
-    in decls'
--}             
-  
 
 ----
 ----
@@ -368,27 +353,29 @@ postProcess decls =
 ----
 ----
 
-firstChild :: Monad m => Element -> m Element
+firstChild :: MonadPlus m => Element -> m Element
 firstChild = listToM . elChildren
 
-listToM :: Monad m => [a] -> m a
-listToM [] = fail "empty list"
+listToM :: MonadPlus m => [a] -> m a
+listToM [] = mzero
 listToM (x:xs) = return x
 
 named :: Element -> String -> Bool
 named (Element qname _ _ _) name | qname == unqual name = True
 named _ _ = False
 
-attr :: Monad m => Element -> String -> m String
+attr :: MonadPlus m => Element -> String -> m String
 (Element _ xs _ _) `attr` name = case List.find p xs of
       Just (Attr _ res) -> return res
-      _ -> fail "not found"
+      _ -> mzero
     where p (Attr qname _) | qname == unqual name = True
           p _ = False
 
 -- adapted from Network.CGI.Protocol
-readM :: (Monad m, Read a) => String -> m a
+readM :: (MonadPlus m, Read a) => String -> m a
 readM = liftM fst . listToM . reads
 
 maybeRead :: Read a => String -> Maybe a
-maybeRead = fmap fst . listToMaybe . reads
+maybeRead = readM
+
+

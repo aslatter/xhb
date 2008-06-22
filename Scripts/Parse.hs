@@ -10,9 +10,7 @@
  -}
 
 
-import FromXML
-import Pretty
-import Types
+import XCB
 
 import System.IO
 import System.Environment
@@ -31,10 +29,8 @@ writeHeaders = sequence_ . map writeHeader
 writeHeader :: XHeader -> IO ()
 writeHeader xhd =
     let fname = outdir </> xname <.> "out"
-        xname = getHeaderName xhd
+        xname = xheader_header xhd
         outString = pretty xhd
     in writeFile fname outString
 
 outdir = "parsed"
-
-getHeaderName (XHeader name _ _) = name

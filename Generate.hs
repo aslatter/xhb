@@ -1,206 +1,33 @@
-module Proto where
+module Generate where
 
-import Types
+import Generate.Build
+import Generate.Types
+
+import XCB
+import XCB.Utils
+
 import HaskellCombinators
-import BuildData
-import Pretty
-
 import Language.Haskell.Syntax
-import Language.Haskell.Pretty
 
-import Control.Monad.Writer
-import Data.Char
-import qualified Data.Map as M
+import Control.Monad.RW
+import Control.Monad.Reader
 import qualified Data.List as L
+import Control.Applicative
+
 import Data.Maybe
+import Data.Function
 
-conPrefix = ("Mk" ++)
-modulePrefix =  ("XHB.Gen." ++)
+toHsModule :: [XHeader] -> XHeader -> HsModule
+toHsModule xs xhd =
+    let rdata = ReaderData xhd xs
+    in  runGen (modName xhd) rdata $ mapM_ xDecl (xheader_decls xhd)
 
-accessor :: String -> String -> String
-accessor field typ = field ++ "_" ++ typ
-
------ Builder monad details
-type Builder = Writer BuildData
-type Build = Builder ()
-
--- |Execute the modification of the module under build.
-modifyModule :: (HsModule -> HsModule) -> Build
-modifyModule = tell . buildHsModule
-
--- |Call this after building an event type.
--- It logs the event opcode, and eventually adds it to the module-level
--- event variant type.
-logEvent :: EventName -> Int -> Build
-logEvent name code = tell $ buildEvent name code
-
--- |Call this after building a request type.
--- It logs the request opcode, and eventually adds it to the module-level
--- request variant type.
-logRequest :: RequestName -> Int -> Bool -> Build
-logRequest name code hasReply = tell $ buildRequest name code hasReply
-
--- |Call this after building a request type.
--- It logs the request opcode, and eventually adds it to the module-level
--- error variant type.
-logError :: ErrorName -> Int -> Build
-logError name code = tell $ buildError name code
-
-runBuilder :: String -> Builder a -> (a, HsModule)
-runBuilder nm bldr =
-    let (x,bdata) = runWriter bldr
-        newModule = fModExtras $ newXhbModule name
-        BuildResult mod mapEvent mapReq mapErr = applyBuildData bdata newModule
-        name = ensureUpper nm
-
-        -- function which adds the module sum-types for events, errors and requests
-        fModExtras = mkEventType name mapEvent . mkRequestType name mapReq . mkErrorType name mapErr
-    in (x, mod)
+toHsModules :: [XHeader] -> [HsModule]
+toHsModules xs = map (toHsModule xs) xs
 
 
--- Create a new XHB generated module
-newXhbModule :: String -> HsModule
-newXhbModule = addStandardImports . mkModule . modulePrefix . ensureUpper
-    where addStandardImports = appMany $ map (addImport . mkImport)
-              ["XHB.Shared"
-              ,"Data.Word"
-              ,"Foreign.C.Types"
-              ,"Data.Bits"
-              ]
-
--- takes all of the results of running 'logEvent' and turns it into to two things:
---   * a sum-type of all the events in this module
---   * a function mapping that sum-type to it's event opcode
---
--- hopefully we can auto-generate srialization/desrialization here as well
-mkEventType :: String -- Module name
-            -> M.Map EventName Int
-            -> HsModule
-            -> HsModule
-mkEventType name namesMap = 
-
-    let tyName = name ++ "Event"
-
-        -- Function mapping a module event to its event code
-        toCodeFunName = "toEventCode"
-        toCodeFnTyp = mkTypeSig toCodeFunName [] (HsTyFun (mkTyCon tyName) (mkTyCon "Int"))
-        toCodeFnDec = HsFunBind $ map go $ M.toList namesMap
-            where go (typName, code) = 
-                      let cons = typName -- the super-type uses the base typenames as constructors
-                          result = mkNumLit $ fromIntegral code
-                      in mkConsMatch toCodeFunName cons result
-
-        -- Type of any event in this module
-        eventTypDec = mkDataDecl [] tyName [] dataCons []
-            where dataCons :: [HsConDecl]
-                  dataCons = map f $ M.keys namesMap
-
-                  f :: String -> HsConDecl
-                  f eventTyName = mkCon eventTyName [HsUnBangedTy $ mkTyCon eventTyName]
-
-        eventExports :: [HsExportSpec]
-        eventExports = [mkExportAll tyName
-                       ,mkExportAbs toCodeFunName
-                       ]
-
-    in appMany (map addExport eventExports)
-           . addDecl toCodeFnDec
-           . addDecl toCodeFnTyp
-           . addDecl eventTypDec
-
-mkRequestType :: String -- Module name
-              -> M.Map RequestName (Int,Bool)
-              -> HsModule
-              -> HsModule
-mkRequestType name namesMap =
-    let tyName = name ++ "Request"
-
-        toCodeFunName = "toRequestCode"
-        toCodeFnTyp = mkTypeSig toCodeFunName [] (HsTyFun (mkTyCon tyName) (mkTyCon "Int"))
-        toCodeFnDec = HsFunBind $ map go $ M.toList namesMap
-            where go (typName, (code,_)) =
-                      let cons = typName
-                          result = mkNumLit $ fromIntegral code
-                      in mkConsMatch toCodeFunName cons result
-
-        hasRepFunName = "hasReply"
-        hasRepFnTyp = mkTypeSig hasRepFunName [] (HsTyFun (mkTyCon tyName) (mkTyCon "Bool"))
-        hasRepFnDec = HsFunBind $ map go $ M.toList namesMap
-            where go (typName, (_,hasReply)) =
-                      let cons = typName
-                          result = HsCon $ mkUnQName $ show hasReply
-                      in mkConsMatch hasRepFunName cons result
-
-
-        requestTypDec = mkDataDecl [] tyName [] dataCons []
-            where dataCons :: [HsConDecl]
-                  dataCons = map f $ M.keys namesMap
-
-                  f :: String -> HsConDecl
-                  f eventTyName = mkCon eventTyName [HsUnBangedTy $ mkTyCon eventTyName]
-
-        requestExports :: [HsExportSpec]
-        requestExports = [mkExportAll tyName
-                         ,mkExportAbs toCodeFunName
-                         ,mkExportAbs hasRepFunName
-                         ]
-
-    in appMany (map addExport requestExports)
-       . appMany (map addDecl [requestTypDec
-                              ,toCodeFnTyp
-                              ,toCodeFnDec
-                              ,hasRepFnTyp
-                              ,hasRepFnDec
-                              ]) 
-
-mkErrorType :: String -- Module name
-            -> M.Map ErrorName Int
-            -> HsModule
-            -> HsModule
-mkErrorType name namesMap =
-    let tyName = name ++ "Error"
-
-        toCodeFunName = "toErrorCode"
-        toCodeFnTyp = mkTypeSig toCodeFunName [] (HsTyFun (mkTyCon tyName) (mkTyCon "Int"))
-        toCodeFnDec = HsFunBind $ map go $ M.toList namesMap
-            where go (typName, code) = 
-                      let cons = typName
-                          result = mkNumLit $ fromIntegral code
-                      in mkConsMatch toCodeFunName cons result
-
-        errorTypDec = mkDataDecl [] tyName [] dataCons []
-            where dataCons :: [HsConDecl]
-                  dataCons = map f $ M.keys namesMap
-
-                  f :: String -> HsConDecl
-                  f eventTyName = mkCon eventTyName [HsUnBangedTy $ mkTyCon eventTyName]
-
-        errorExports :: [HsExportSpec]
-        errorExports = [mkExportAll tyName
-                       ,mkExportAbs toCodeFunName
-                       ]
-
-    in appMany (map addExport errorExports)
-           . addDecl toCodeFnDec
-           . addDecl toCodeFnTyp
-           . addDecl errorTypDec
-
-appMany :: [a -> a] -> (a -> a)
-appMany = foldr (flip (.)) id
-
-
-runBuild :: String -> Build -> HsModule
-runBuild name bld= snd $ runBuilder name bld
-
-prettyBuild :: String -> Build -> String
-prettyBuild name bld = prettyPrint $ runBuild name bld
-
-toHsModule :: XHeader -> HsModule
-toHsModule (XHeader nm _ decls) = runBuild nm $ mapM_ xDecl decls
-
------
-
-xDecl :: XDecl -> Build
+-- |Coverts a declartion to a mdification on a haskell module
+xDecl :: XDecl -> Gen
 xDecl (XidType name) = do
   simpleNewtype name "Xid" ["Eq","Ord","Show","Serialize","Deserialize","XidLike"]
   exportTypeAbs name
@@ -243,7 +70,7 @@ xDecl dec@(XEnum nm elems') = do
 xDecl (XUnion _ _) = return () -- Unions are currently unhandled
 xDecl x = error $ "Pattern match failed in \"xDecl\" with argument:\n" ++ (show $ toDoc x)
 
-declareEnumInstance :: EnumType -> Name -> [EnumElem] -> Build
+declareEnumInstance :: EnumType -> Name -> [EnumElem] -> Gen
 declareEnumInstance _typ _name [] = return ()
 declareEnumInstance ETypeValue name els = buildDecl $
       mkInstDecl
@@ -271,7 +98,7 @@ declareEnumInstance ETypeBit name els = buildDecl $
          fromBit (EnumElem nm (Bit n))
              = mkLitMatch "fromBit" (HsInt (fromIntegral n)) $ HsCon $ mkUnQName $ name++nm
 
-declareEnumTycon :: Name -> [EnumElem] -> Build
+declareEnumTycon :: Name -> [EnumElem] -> Gen
 declareEnumTycon name elems = modifyModule . addDecl $ 
             mkDataDecl
             []
@@ -324,43 +151,57 @@ enumTypPanic dec = error $
                    ("Error in enum:\n\n" ++) $
                    show $ toDoc dec
 
-xImport :: String -> Build
-xImport = modifyModule . addImport . mkImport . modulePrefix . ensureUpper
+xImport :: String -> Gen
+xImport str = do
+  cur <- current
+  impMod <- fromJust `liftM` oneModule str -- bad error message
+  let shared_types = (L.intersect `on` declaredTypes) cur impMod
+      impName = modulePrefix $ modName impMod
+  if null shared_types
+   then modifyModule . addImport . mkImport $ impName
+   else do
+    modifyModule . addImport $ mkHidingImport impName shared_types
+    modifyModule . addImport . mkQualImport $ impName
 
-ensureUpper :: String -> String
-ensureUpper [] = []
-ensureUpper (x:xs) = (toUpper x) : xs
+typeDecl :: String -> Type -> Gen
+typeDecl nm tp = do
+  typName <- mapTyNames `liftM` fancyTypeName tp
+  modifyModule . addDecl $
+        mkTypeDecl nm [] (mkTyCon typName)
 
-typeDecl :: String -> String -> Build
-typeDecl nm tp = modifyModule . addDecl $
-  mkTypeDecl nm [] (mkTyCon tp)
-
-declareStruct :: String -> [StructElem] -> Build
+declareStruct :: String -> [StructElem] -> Gen
 declareStruct name fields = do
+         selems <- selemsToRec fields  
          buildDecl $
              mkDataDecl
              []
              name
              []
-             [mkRCon (conPrefix name) (selemsToRec fields)]
+             [mkRCon (conPrefix name) (selems)]
              []
          exprFields name fields
-    where selemsToRec :: [StructElem] -> [(String,HsBangType)]
-          selemsToRec xs = mapMaybe go xs
+    where selemsToRec :: [StructElem] -> Generate [(String,HsBangType)]
+          selemsToRec xs = do
+            ys <- embed $ mapAlt go xs
+            return $ fromJust ys -- mapAlt never returns Nothing
 
-          go (Pad {})      = Nothing
-          go (List nm tp _) = return $ -- Needs to be updated for operators
-                       (accessor nm name, HsUnBangedTy $ listTyp tp)
+          go (Pad {})      = empty
+          go (List nm tp _) = 
+              do tyname <- fancyTypeName tp
+                 return $
+                  (accessor nm name, HsUnBangedTy $ listTyp tyname)
               where listTyp = HsTyApp list_tycon . mkTyCon . mapTyNames
-          go (SField nm tp) = return $
-                       (accessor nm name, HsUnBangedTy $ mkTyCon tp)
-          go (ValueParam typ mname _lname) = return $
-           let nme = valueParamName mname
-               vTyp = HsTyApp (mkTyCon "ValueParam") (mkTyCon typ)
-           in (accessor nme name, HsUnBangedTy $ vTyp)
+          go (SField nm tp) = do
+              tyname <- fancyTypeName tp
+              return $ (accessor nm name, HsUnBangedTy $ mkTyCon tyname)
+          go (ValueParam typ mname _lname) = do
+            tyname <- fancyTypeName typ
+            return $
+             let nme = valueParamName mname
+                 vTyp = HsTyApp (mkTyCon "ValueParam") (mkTyCon tyname)
+             in (accessor nme name, HsUnBangedTy $ vTyp)
   
-          -- go _ = Nothing -- cheater for testing
-          go (ExprField{}) = Nothing -- deal wth these separate
+          go (ExprField{}) = empty -- deal wth these separate
           go selem = selemsToRecPanic selem
 
 valueParamName :: Name -> Name
@@ -377,19 +218,22 @@ selemsToRecPanic x = error $
                      ("I dont know what to do with struct elem: " ++) $
                      show $ toDoc x
 
-buildDecl :: HsDecl -> Build
+buildDecl :: HsDecl -> Gen
 buildDecl = modifyModule . addDecl
 
 mapTyNames :: String -> String
 mapTyNames "char" = "CChar"
 mapTyNames "void" = "Word8"
+mapTyNames "float" = "CFloat"
+mapTyNames "double" = "CDouble"
 mapTyNames x = x
 
-exprFields :: Name -> [StructElem] -> Build
+exprFields :: Name -> [StructElem] -> Gen
 exprFields name elems = mapM_ go elems
     where go (ExprField nm tp expr) = do
+            tyname <- fancyTypeName tp
             let funName = accessor nm name
-                retTyp = mkTyCon tp
+                retTyp = mkTyCon tyname
                 funTyp = HsTyFun (mkTyCon name) retTyp
             -- Type signature
             buildDecl $ mkTypeSig funName [] funTyp
@@ -428,7 +272,7 @@ exprFields name elems = mapM_ go elems
 -- declares an instance of FromXid.
 -- Assumes the standard prefix is used for the
 -- newtype data constructor.
-instanceXid :: String -> Build
+instanceXid :: String -> Gen
 instanceXid tyname = modifyModule . addDecl $
    mkInstDecl
     []
@@ -444,7 +288,7 @@ instanceXid tyname = modifyModule . addDecl $
 
 ----- Declaring serialize and deserialize instances
 
-declareSerStruct :: Name -> [StructElem] -> Build
+declareSerStruct :: Name -> [StructElem] -> Gen
 declareSerStruct name fields = modifyModule . addDecl $
     mkInstDecl
       []
@@ -513,7 +357,7 @@ declareSerStruct name fields = modifyModule . addDecl $
 simpleNewtype :: String   -- typename
               -> String   -- wrapped type (unqualified)
               -> [String] -- derived typeclass instances
-              -> Build
+              -> Gen
 simpleNewtype name typ cls =
     modifyModule $
     addDecl $
@@ -526,13 +370,13 @@ simpleNewtype name typ cls =
 
 -- |Export the named type without exporting constructors.
 -- Should be usable for type synonyms as well.
-exportTypeAbs :: String -> Build
+exportTypeAbs :: String -> Gen
 exportTypeAbs = modifyModule . addExport . mkExportAbs
 
 -- |Export the named type/thing non-abstractly
-exportType :: String -> Build
+exportType :: String -> Gen
 exportType = modifyModule . addExport . mkExportAll
 
 -- |Export the named variable
-exportVar :: String -> Build
+exportVar :: String -> Gen
 exportVar = modifyModule . addExport . HsEVar . mkUnQName

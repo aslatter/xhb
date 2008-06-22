@@ -1,8 +1,8 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 
-module Pretty where
+module XCB.Pretty where
 
-import Types
+import XCB.Types
 
 import Text.PrettyPrint.HughesPJ
 
@@ -32,9 +32,6 @@ instance (Pretty a, Pretty b) => Pretty (a,b) where
 
 -- Simple stuff
 
-instance Pretty ExInfo where
-    pretty = show
-
 instance Pretty XidUnionElem where
     pretty = show
 
@@ -50,6 +47,9 @@ instance Pretty EnumElem where
     toDoc (EnumElem name expr)
         = text name <> char ':' <+> toDoc expr
 
+instance Pretty Type where
+    toDoc (UnQualType name) = text name
+    toDoc (QualType mod name) = text mod <> char '.' <> text name
 
 -- More complex stuff
 
@@ -66,18 +66,18 @@ instance Pretty Expression where
 instance Pretty StructElem where
     toDoc (Pad n) = braces $ toDoc n <+> text "bytes"
     toDoc (List nm typ len)
-        = text nm <+> text "::" <+> brackets (text typ) <+> toDoc len
+        = text nm <+> text "::" <+> brackets (toDoc typ) <+> toDoc len
     toDoc (SField nm typ) = hsep [text nm
                                  ,text "::"
-                                 ,text typ
+                                 ,toDoc typ
                                  ]
     toDoc (ExprField nm typ expr)
-          = parens (text nm <+> text "::" <+> text typ)
+          = parens (text nm <+> text "::" <+> toDoc typ)
             <+> toDoc expr
     toDoc (ValueParam typ mname lname)
         = text "Valueparam" <+>
           text "::" <+>
-          hsep (punctuate (char ',') [text typ
+          hsep (punctuate (char ',') [toDoc typ
                                      ,text mname
                                      ,text lname
                                      ])
@@ -88,7 +88,7 @@ instance Pretty XDecl where
     toDoc (XTypeDef nm typ) = hsep [text "TypeDef:"
                                     ,text nm
                                     ,text "as"
-                                    ,text typ
+                                    ,toDoc typ
                                     ]
     toDoc (XEvent nm n elems) =
         hang (text "Event:" <+> text nm <> char ',' <> toDoc n) 2 $
@@ -114,4 +114,5 @@ instance Pretty XDecl where
         hang (text "Error:" <+> text nm) 2 $ vcat $ map toDoc elems
 
 instance Pretty XHeader where
-    toDoc (XHeader nm _ decs) = text nm $$ (vcat $ map toDoc decs)
+    toDoc xhd = text (xheader_header xhd) $$
+                (vcat $ map toDoc (xheader_decls xhd))

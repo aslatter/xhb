@@ -1,11 +1,20 @@
-module Types where
+module XCB.Types where
 
 
 import qualified Data.List as L
 import Control.Monad
 
-data XHeader = XHeader {xheader_name :: Name
-                       ,xheader_exinfo :: (Maybe ExInfo)
+-- 'xheader_header' is the name gauranteed to exist, and is used in
+-- imports and in type qualifiers.
+--
+-- 'xheader_name' is the InterCaps name, and should be prefered in the naming
+-- of types, functions and haskell modules when available.
+data XHeader = XHeader {xheader_header :: Name
+                       ,xheader_xname :: Maybe Name
+                       ,xheader_name :: Maybe Name
+                       ,xheader_multiword :: Maybe Bool
+                       ,xheader_major_version :: Maybe Int
+                       ,xheader_minor_version :: Maybe Int
                        ,xheader_decls :: [XDecl]
                        }
  deriving (Show)
@@ -30,7 +39,7 @@ data StructElem = Pad Int
  deriving (Show)
 
 type Name = String
-type Type = String
+data Type = UnQualType Name | QualType Name Name deriving Show
 type XReply = [StructElem]
 type Ref = String
 

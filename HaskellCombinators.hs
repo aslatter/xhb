@@ -1,6 +1,36 @@
 module HaskellCombinators
 
-    where
+    (-- *Morphisms on modules
+     addImport
+    ,addExport
+    ,addDecl
+    -- *Constructors, in no particular order
+    ,mkModule
+    ,mkExportAbs
+    ,mkExportAll
+    ,mkImport
+    ,mkHidingImport
+    ,mkQualImport
+    ,mkTypeDecl
+    ,mkSimpleFun
+    ,mkTypeSig
+    ,mkConsMatch
+    ,mkLitMatch
+    ,mkNumLit
+    ,mkNewtype
+    ,mkInstDecl
+    ,mkQName
+    ,mkUnQName
+    ,mkPVar
+    ,mkTyVar
+    ,mkTyCon
+    ,mkVar
+    ,mkAsExp
+    ,mkDataDecl
+    ,mkCon
+    ,mkRCon
+    ,mkClass
+    ) where
 
 import Language.Haskell.Syntax
 import Language.Haskell.Pretty
@@ -35,7 +65,19 @@ testDecls = [mkTypeSig "testfun" [] (HsTyFun (mkTyCon "Int") (mkTyCon "Int"))
 
 dummLoc = SrcLoc "dummy location" 0 0
 
+-- |Simple import statement
 mkImport str = HsImportDecl dummLoc (Module str) False Nothing Nothing
+
+mkHidingImport :: String -> [String] -> HsImportDecl
+mkHidingImport name hidings = HsImportDecl
+                dummLoc
+                (Module name)
+                False
+                Nothing
+                (Just (True, map (HsIVar . HsIdent) hidings)) 
+
+mkQualImport :: String -> HsImportDecl
+mkQualImport name = HsImportDecl dummLoc (Module name) True Nothing Nothing
 
 mkTypeSig var context typ = HsTypeSig dummLoc [HsIdent var] (HsQualType context typ)
 
@@ -101,11 +143,17 @@ mkNewtype ctxt nam args con drv =
      con
      drv
 
-mkInstDecl :: HsContext -> HsQName -> [HsType] -> [HsDecl] -> HsDecl
+mkInstDecl :: HsContext
+           -> HsQName  -- ^Class
+           -> [HsType] -- ^Type
+           -> [HsDecl] -- ^Function definitions
+           -> HsDecl
 mkInstDecl ctxt clss args decls =
     HsInstDecl dummLoc ctxt clss args decls
 
-mkQName :: String -> String -> HsQName
+mkQName :: String -- ^Module
+        -> String -- ^Identifier
+        -> HsQName
 mkQName
  mod nm = Qual (Module mod) (HsIdent nm)
 
@@ -121,7 +169,12 @@ mkTyVar = HsTyVar . HsIdent
 mkVar :: String -> HsExp
 mkVar = HsVar . UnQual . HsIdent
 
-mkDataDecl :: HsContext -> String -> [String] -> [HsConDecl] -> [HsQName] -> HsDecl
+mkDataDecl :: HsContext
+           -> String -- ^Constructor
+           -> [String] -- ^Type args
+           -> [HsConDecl] -- ^Constructors
+           -> [HsQName] -- ^Deriving
+           -> HsDecl
 mkDataDecl ctx nm args cons drv =
     HsDataDecl
      dummLoc
@@ -145,10 +198,16 @@ mkRCon name fields =
 
 
 -- |A class declaration
-mkClass :: HsContext -> String -> [String] -> [HsDecl] -> HsDecl
+mkClass :: HsContext
+        -> String   -- ^Name
+        -> [String] -- ^Type vars
+        -> [HsDecl] -- ^Function signatures & default definitions
+        -> HsDecl
 mkClass ctxt name vars = HsClassDecl dummLoc ctxt (HsIdent name) (map HsIdent vars)
 
-
+-- |Expression with type declaration.
+-- You'll probably want to wrap this in parens - the Syntax
+-- package doesn't do much about fixities.
 mkAsExp :: HsExp -> HsType -> HsExp
 mkAsExp exp typ = HsExpTypeSig dummLoc exp (HsQualType [] typ)
 
@@ -156,7 +215,8 @@ mkAsExp exp typ = HsExpTypeSig dummLoc exp (HsQualType [] typ)
 
 -- |Creates a module with the given name with no imports,
 -- no exports and no declarations.
-mkModule :: String -> HsModule
+mkModule :: String  -- ^Name
+         -> HsModule
 mkModule name = HsModule dummLoc (Module name) Nothing [] []
 
 -- |Adds an export to a module
