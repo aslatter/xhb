@@ -139,12 +139,12 @@ mkEventType name namesMap =
 
         eventExports :: [HsExportSpec]
         eventExports = [mkExportAll tyName
-                       ,mkExportAbs toCodeFunName
+                       --,mkExportAbs toCodeFunName
                        ]
 
     in appMany (map addExport eventExports)
-           . addDecl toCodeFnDec
-           . addDecl toCodeFnTyp
+           -- . addDecl toCodeFnDec
+           -- . addDecl toCodeFnTyp
            . addDecl eventTypDec
 
 mkRequestType :: String -- Module name
@@ -181,16 +181,16 @@ mkRequestType name namesMap =
 
         requestExports :: [HsExportSpec]
         requestExports = [mkExportAll tyName
-                         ,mkExportAbs toCodeFunName
-                         ,mkExportAbs hasRepFunName
+                         -- ,mkExportAbs toCodeFunName
+                         -- ,mkExportAbs hasRepFunName
                          ]
 
     in appMany (map addExport requestExports)
        . appMany (map addDecl [requestTypDec
-                              ,toCodeFnTyp
-                              ,toCodeFnDec
-                              ,hasRepFnTyp
-                              ,hasRepFnDec
+                              -- ,toCodeFnTyp
+                              -- ,toCodeFnDec
+                              -- ,hasRepFnTyp
+                              -- ,hasRepFnDec
                               ]) 
 
 mkErrorType :: String -- Module name
@@ -218,12 +218,12 @@ mkErrorType name namesMap =
 
         errorExports :: [HsExportSpec]
         errorExports = [mkExportAll tyName
-                       ,mkExportAbs toCodeFunName
+                       -- ,mkExportAbs toCodeFunName
                        ]
 
     in appMany (map addExport errorExports)
-           . addDecl toCodeFnDec
-           . addDecl toCodeFnTyp
+           -- . addDecl toCodeFnDec
+           -- . addDecl toCodeFnTyp
            . addDecl errorTypDec
 
 appMany :: [a -> a] -> (a -> a)

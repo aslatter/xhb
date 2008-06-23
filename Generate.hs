@@ -62,11 +62,11 @@ xDecl (XError name opcode fields) = do
   exportType name
   logError name opcode
 xDecl dec@(XEnum nm elems') = do
-  let elems = cleanEnum elems'
+  let elems = cleanEnum . fillEnum $ elems'
       typ = verifyEnum dec elems
   declareEnumTycon nm elems
   declareEnumInstance typ nm elems
-  -- export something
+  exportType nm
 xDecl (XUnion _ _) = return () -- Unions are currently unhandled
 xDecl x = error $ "Pattern match failed in \"xDecl\" with argument:\n" ++ (show $ toDoc x)
 
@@ -80,9 +80,9 @@ declareEnumInstance ETypeValue name els = buildDecl $
       [HsFunBind (map toVal els)
       ,HsFunBind (map fromVal els)
       ]
-  where toVal (EnumElem nm (Value n))
+  where toVal (EnumElem nm (Just (Value n)))
             = mkConsMatch "toValue" (name ++ nm) (mkNumLit n)
-        fromVal (EnumElem nm (Value n))
+        fromVal (EnumElem nm (Just (Value n)))
             = mkLitMatch "fromValue" (HsInt $ fromIntegral n) (HsCon (mkUnQName (name ++ nm)))
 
 declareEnumInstance ETypeBit name els = buildDecl $
@@ -93,9 +93,9 @@ declareEnumInstance ETypeBit name els = buildDecl $
        [HsFunBind (map toBit els)
        ,HsFunBind (map fromBit els)
        ]
-   where toBit (EnumElem nm (Bit n))
+   where toBit (EnumElem nm (Just (Bit n)))
              = mkConsMatch "toBit" (name ++ nm) (mkNumLit n)
-         fromBit (EnumElem nm (Bit n))
+         fromBit (EnumElem nm (Just (Bit n)))
              = mkLitMatch "fromBit" (HsInt (fromIntegral n)) $ HsCon $ mkUnQName $ name++nm
 
 declareEnumTycon :: Name -> [EnumElem] -> Gen
@@ -120,7 +120,7 @@ cleanEnum xs =
 
       justBits = filter bitElem xs
 
-      bitElem (EnumElem _ (Bit {})) = True
+      bitElem (EnumElem _ (Just (Bit {}))) = True
       bitElem _ = False
 
   in if containsBits
@@ -142,14 +142,20 @@ enumType xs = case L.foldl' (flip go) Nothing xs of
           go x jr@(Just r) | etyp x == r = jr
           go _ _ = Just ETypeError
 
-          etyp (EnumElem _ (Value {})) = ETypeValue
-          etyp (EnumElem _ (Bit {}))   = ETypeBit
+          etyp (EnumElem _ (Just (Value {}))) = ETypeValue
+          etyp (EnumElem _ (Just (Bit {})))   = ETypeBit
           etyp _                       = ETypeError
 
 enumTypPanic :: XDecl -> a
 enumTypPanic dec = error $
                    ("Error in enum:\n\n" ++) $
                    show $ toDoc dec
+
+-- |If an enum doesn't ave defined values, fill them in
+fillEnum :: [EnumElem] -> [EnumElem]
+fillEnum xs@((EnumElem _ Nothing):_) = map f $ zip xs [0..]
+    where f (EnumElem name _, n) = EnumElem name (Just (Value n))
+fillEnum x = x
 
 xImport :: String -> Gen
 xImport str = do

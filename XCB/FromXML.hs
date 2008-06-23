@@ -42,7 +42,7 @@ fromFiles xs = do
 
 fromStrings :: [String] -> [XHeader]
 fromStrings xs =
-   let rs = mapMaybeParse fromString xs
+   let rs = mapAlt fromString xs
        Just headers = runReaderT rs headers
    in headers 
 
@@ -124,16 +124,7 @@ fromString str = do
                    }
 
 extractDecls :: [Content] -> Parse [XDecl]
-extractDecls = mapMaybeParse declFromElem . onlyElems
-
--- |Elements which evaluate to failure are dropped
-mapMaybeParse :: (a -> ReaderT r Maybe b)
-              -> [a]
-              -> ReaderT r Maybe [b]
-mapMaybeParse f xs = ReaderT $ \r -> 
-        let ms = map ((\m -> runReaderT m r) . f) xs
-        in  Just $ mapMaybe id ms
-                         
+extractDecls = mapAlt declFromElem . onlyElems
 
 declFromElem :: Element -> Parse XDecl
 declFromElem elem 
@@ -158,7 +149,7 @@ ximport = return . XImport . strContent
 xenum :: Element -> Parse XDecl
 xenum elem = do
   nm <- elem `attr` "name"
-  fields <- mapMaybeParse enumField $ elChildren elem
+  fields <- mapAlt enumField $ elChildren elem
   guard $ not $ null fields
   return $ XEnum nm fields
 
@@ -166,14 +157,14 @@ enumField :: Element -> Parse EnumElem
 enumField elem = do
   guard $ elem `named` "item"
   name <- elem `attr` "name"
-  expr <- firstChild elem >>= expression
+  let expr = firstChild elem >>= expression
   return $ EnumElem name expr
 
 xrequest :: Element -> Parse XDecl
 xrequest elem = do
   nm <- elem `attr` "name"
   code <- elem `attr` "opcode" >>= readM
-  fields <- mapMaybeParse structField $ elChildren elem
+  fields <- mapAlt structField $ elChildren elem
   let reply = getReply elem
   guard $ not (null fields) || not (isNothing reply)
   return $ XRequest nm code fields reply
@@ -189,7 +180,7 @@ xevent :: Element -> Parse XDecl
 xevent elem = do
   name <- elem `attr` "name"
   number <- elem `attr` "number" >>= readM
-  fields <- mapMaybeParse structField $ elChildren elem
+  fields <- mapAlt structField $ elChildren elem
   guard $ not $ null fields
   return $ XEvent name number fields
 
@@ -232,7 +223,7 @@ xerror :: Element -> Parse XDecl
 xerror elem = do
   name <- elem `attr` "name"
   number <- elem `attr` "number" >>= readM
-  fields <- mapMaybeParse structField $ elChildren elem
+  fields <- mapAlt structField $ elChildren elem
   guard $ not $ null fields
   return $ XError name number fields
 
@@ -251,14 +242,14 @@ xercopy elem = do
 xstruct :: Element -> Parse XDecl
 xstruct elem = do
   name <- elem `attr` "name"
-  fields <- mapMaybeParse structField $ elChildren elem
+  fields <- mapAlt structField $ elChildren elem
   guard $ not $ null fields
   return $ XStruct name fields
 
 xunion :: Element -> Parse XDecl
 xunion elem = do
   name <- elem `attr` "name"
-  fields <- mapMaybeParse structField $ elChildren elem
+  fields <- mapAlt structField $ elChildren elem
   guard $ not $ null fields
   return $ XUnion name fields
 

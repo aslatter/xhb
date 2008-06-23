@@ -55,7 +55,7 @@ data XidUnionElem = XidUnionElem Type
  deriving (Show)
 
 -- Should only ever have expressions of type 'Value' or 'Bit'.
-data EnumElem = EnumElem Name Expression
+data EnumElem = EnumElem Name (Maybe Expression)
  deriving (Show)
 
 data Expression = Value Int

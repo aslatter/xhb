@@ -120,13 +120,6 @@ instance (Monad m, Monoid w) => MonadReader r (RWT r w m) where
 embed :: (Monoid w, Monad m) => ReaderT r m a -> RW r w (m a)
 embed m = RW $ \r -> (runReaderT m r, mempty)
 
--- |Like mapMaybe, but for any Alternative.
--- Never returns 'empty', instead returns 'pure []'
-mapAlt :: Alternative f => (a -> f b) -> [a] -> f [b]
-mapAlt f xs = go xs
- where go [] = pure []
-       go (y:ys) = pure (:) <*> f y <*> go ys
-               <|> go ys
 
 -- |always succeds.  failing elements of the input list are discarded.
 filterAlt :: Alternative f => [f a] -> f [a]

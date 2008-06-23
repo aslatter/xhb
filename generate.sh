@@ -65,5 +65,14 @@ runghc ${TEST_PROG} ${XML_DIR}/${XML_FILES} || {
     exit ${GENERAL_ERROR}
 }
 
+[ -f patch ] && {
+
+    [ -d patched ] && rm -rf patched
+    cp -r generated patched
+    cd patched
+    patch -u < ../patch
+    cd ..
+}
+
 echo "success!"
 exit

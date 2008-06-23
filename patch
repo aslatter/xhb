@@ -1,0 +1,95 @@
+diff -u generated/XHB.Gen.RandR.hs working/XHB.Gen.RandR.hs
+--- generated/XHB.Gen.RandR.hs	2008-06-22 19:50:57.000000000 -0500
++++ working/XHB.Gen.RandR.hs	2008-06-22 18:08:22.000000000 -0500
+@@ -17,7 +17,7 @@
+         SetCrtcConfigReply(..), GetCrtcGammaSize(..),
+         GetCrtcGammaSizeReply(..), GetCrtcGamma(..), GetCrtcGammaReply(..),
+         SetCrtcGamma(..), NotifyMask(..), ScreenChangeNotify(..),
+-        Notify(..), CrtcChange(..), OutputChange(..), OutputProperty(..),
++        NotifyEnum(..), CrtcChange(..), OutputChange(..), OutputProperty(..),
+         Notify(..))
+        where
+ import XHB.Shared
+@@ -458,11 +458,11 @@
+                                                mwidth_ScreenChangeNotify :: CARD16,
+                                                mheight_ScreenChangeNotify :: CARD16}
+  
+-data Notify = NotifyCrtcChange
+-            | NotifyOutputChange
+-            | NotifyOutputProperty
++data NotifyEnum = NotifyCrtcChange
++                | NotifyOutputChange
++                | NotifyOutputProperty
+  
+-instance SimpleEnum Notify where
++instance SimpleEnum NotifyEnum where
+         toValue NotifyCrtcChange{} = 0
+         toValue NotifyOutputChange{} = 1
+         toValue NotifyOutputProperty{} = 2
+@@ -551,5 +551,7 @@
+               + size (status_OutputProperty x)
+               + 11
+  
++type NotifyData = ()
++
+ data Notify = MkNotify{subCode_Notify :: CARD8,
+                        u_Notify :: NotifyData}
+\ No newline at end of file
+diff -u generated/XHB.Gen.Sync.hs working/XHB.Gen.Sync.hs
+--- generated/XHB.Gen.Sync.hs	2008-06-22 19:50:58.000000000 -0500
++++ working/XHB.Gen.Sync.hs	2008-06-22 18:08:22.000000000 -0500
+@@ -132,13 +132,14 @@
+ instance Serialize TRIGGER where
+         serialize bo x
+           = do serialize bo (counter_TRIGGER x)
+-               serialize bo (wait_type_TRIGGER x)
++               serialize bo (toValue (wait_type_TRIGGER x) :: CARD8)
+                serialize bo (wait_value_TRIGGER x)
+-               serialize bo (test_type_TRIGGER x)
++               serialize bo (toValue (test_type_TRIGGER x) :: CARD8)
+         size x
+-          = size (counter_TRIGGER x) + size (wait_type_TRIGGER x) +
++          = size (counter_TRIGGER x) + 
++             size (toValue (wait_type_TRIGGER x) :: CARD8) +
+               size (wait_value_TRIGGER x)
+-              + size (test_type_TRIGGER x)
++              + size (toValue (test_type_TRIGGER x) :: CARD8)
+  
+ data WAITCONDITION = MkWAITCONDITION{trigger_WAITCONDITION ::
+                                      TRIGGER,
+diff -u generated/XHB.Gen.XFixes.hs working/XHB.Gen.XFixes.hs
+--- generated/XHB.Gen.XFixes.hs	2008-06-22 19:50:58.000000000 -0500
++++ working/XHB.Gen.XFixes.hs	2008-06-22 18:08:22.000000000 -0500
+@@ -3,7 +3,7 @@
+         QueryVersionReply(..), SaveSetMode(..), SaveSetTarget(..),
+         SaveSetMapping(..), ChangeSaveSet(..), SelectionEvent(..),
+         SelectionEventMask(..), SelectionNotify(..),
+-        SelectSelectionInput(..), CursorNotify(..), CursorNotifyMask(..),
++        SelectSelectionInput(..), CursorNotifyEnum(..), CursorNotifyMask(..),
+         CursorNotify(..), SelectCursorInput(..), GetCursorImage(..),
+         GetCursorImageReply(..), REGION, CreateRegion(..),
+         CreateRegionFromBitmap(..), CreateRegionFromWindow(..),
+@@ -140,9 +140,9 @@
+                                                    selection_SelectSelectionInput :: ATOM,
+                                                    event_mask_SelectSelectionInput :: CARD32}
+  
+-data CursorNotify = CursorNotifyDisplayCursor
++data CursorNotifyEnum = CursorNotifyDisplayCursor
+  
+-instance SimpleEnum CursorNotify where
++instance SimpleEnum CursorNotifyEnum where
+         toValue CursorNotifyDisplayCursor{} = 0
+         fromValue 0 = CursorNotifyDisplayCursor
+  
+diff -u generated/XHB.Gen.Xv.hs working/XHB.Gen.Xv.hs
+--- generated/XHB.Gen.Xv.hs	2008-06-22 19:50:58.000000000 -0500
++++ working/XHB.Gen.Xv.hs	2008-06-22 18:08:22.000000000 -0500
+@@ -24,6 +24,8 @@
+ import qualified XHB.Gen.Xproto
+ import XHB.Gen.Shm hiding (PutImage)
+ import qualified XHB.Gen.Shm
++
++import Prelude hiding (Rational)
+  
+ data XvRequest = GetPortAttribute GetPortAttribute
+                | GetStill GetStill

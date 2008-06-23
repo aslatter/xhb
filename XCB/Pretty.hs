@@ -6,6 +6,8 @@ import XCB.Types
 
 import Text.PrettyPrint.HughesPJ
 
+import Control.Monad.RW()
+
 -- |Minimal complete definition:
 --
 -- One of 'pretty' or 'toDoc'.
@@ -24,11 +26,12 @@ instance Pretty String where
 instance Pretty Int where
     pretty = show
 
-instance Pretty a => Pretty [a] where
-    toDoc = brackets . hsep . punctuate (char ',') . map toDoc
+instance Pretty a => Pretty (Maybe a) where
+    toDoc Nothing = empty
+    toDoc (Just a) = toDoc a
 
-instance (Pretty a, Pretty b) => Pretty (a,b) where
-    toDoc (x,y) = parens $ hsep $ punctuate (char ',') $ [toDoc x, toDoc y]
+    pretty Nothing = ""
+    pretty (Just a) = pretty a
 
 -- Simple stuff
 

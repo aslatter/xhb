@@ -29,7 +29,8 @@ declaredTypes xhd =
         tyName (XStruct name _) = return name
         tyName (XTypeDef name _) = return name
         tyName (XEvent name _ _) = return name
-        tyName (XRequest name _ _ _) = return name
+        tyName (XRequest name _ _ Nothing) = return name
+        tyName (XRequest name _ _ _) = [name, name ++ "Reply"]
         tyName (XidType name) = return name
         tyName (XidUnion name _) = return name
         tyName (XEnum name _) = return name
@@ -37,4 +38,4 @@ declaredTypes xhd =
         tyName XImport{} = empty
         tyName (XError name _ _) = return name
 
-    in mapMaybe tyName decls
+    in concatMap tyName decls
