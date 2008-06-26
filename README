@@ -1,4 +1,5 @@
 X Haskell Bindings
+------------------
 
 The goal of this project is to provide a Haskell library for interacting
 with an X server, using XCB as a model.
@@ -11,5 +12,33 @@ To see what the current progress is, try the following:
   chmod +x generate.sh
   ./generate.sh
 
-and then look around in the "generated" directory.
+and then look around in the "patched" directory.
+
+
+How To Hack
+----------
+
+There are three bash scripts that live in the top-level of this project:
+
+./generate.sh
+
+  This file generates Haskell source from the X Protocol XML description into
+  the directory "generated".
+
+  If the file "./patch" is found, it is used to patch the generated files.
+  The result of patching is placed into the directory "patched".
+
+./makepatch.sh
+
+  The difference between the "generated" directory and "working" directory
+  is saved into the file "patch".  The script "./generate.sh" is then called.
+
+./parse.sh
+
+  The XML files are parsed and then pretty-printed to a human-readable form
+  into the directory "parsed".
+
+  The intent is that the results of parsing can be isolated from the results
+  of code generation to make finding bugs easier.
+
 
