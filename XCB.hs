@@ -20,8 +20,9 @@ import Data.Maybe
 
 -- Helper funcions
 
+-- TODO: move to Generate group of modules, as it assumes
+-- details of how generation is carried out.
 -- |A list of all of the type defined by the modue.
--- This function does not take replies into account.
 declaredTypes :: XHeader -> [Name]
 declaredTypes xhd =
     let decls = xheader_decls xhd

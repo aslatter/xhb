@@ -58,6 +58,11 @@ localName = snd `liftM` ask
 allModules :: Parse [XHeader]
 allModules = fst `liftM` ask
 
+-- a generic function for looking up something from
+-- a named XHeader.
+--
+-- this implements searching both the current module and
+-- the xproto module if the name is not specified.
 lookupThingy :: ([XDecl] -> Maybe a)
              -> (Maybe Name)
              -> Parse (Maybe a)
@@ -71,10 +76,12 @@ lookupThingy f (Just mname) = do
     x <- findXHeader mname xs
     f $ xheader_decls x
 
+-- lookup an event declaration by name.
 lookupEvent :: Maybe Name -> Name -> Parse (Maybe EventDetails)
 lookupEvent mname evname = flip lookupThingy mname $ \decls ->
                  findEvent evname decls
 
+-- lookup an error declaration by name.
 lookupError :: Maybe Name -> Name -> Parse (Maybe ErrorDetails)
 lookupError mname ername = flip lookupThingy mname $ \decls ->
                  findError ername decls
@@ -103,6 +110,7 @@ data ErrorDetails = ErrorDetails Name Int [StructElem]
 
 ---
 
+-- extract a single XHeader from a single XML document
 fromString :: String -> ReaderT [XHeader] Maybe XHeader
 fromString str = do
   el@(Element qname ats cnt _) <- lift $ parseXMLDoc str
@@ -123,9 +131,11 @@ fromString str = do
                    ,xheader_decls = decls
                    }
 
+-- attempts to extract declarations from XML content, discarding failures.
 extractDecls :: [Content] -> Parse [XDecl]
 extractDecls = mapAlt declFromElem . onlyElems
 
+-- attempt to extract a module declaration from an XML element
 declFromElem :: Element -> Parse XDecl
 declFromElem elem 
     | elem `named` "request" = xrequest elem
@@ -196,6 +206,8 @@ xevcopy elem = do
                Nothing -> error $ "Unresolved event: " ++ show mname ++ " " ++ ref
                Just (EventDetails _ _ x) -> x
 
+-- we need to do string processing to distinguish qualified from
+-- unqualified types.
 mkType :: String -> Type
 mkType str =
     let (mname, name) = splitRef str
@@ -325,6 +337,7 @@ expression elem | elem `named` "fieldref"
                     [exprLhs,exprRhs] <- mapM expression $ elChildren elem
                     return $ Op binop exprLhs exprRhs
 
+
 toBinop :: MonadPlus m => String -> m Binop
 toBinop "+"  = return Add
 toBinop "-"  = return Sub
@@ -368,5 +381,3 @@ readM = liftM fst . listToM . reads
 
 maybeRead :: Read a => String -> Maybe a
 maybeRead = readM
-
-
