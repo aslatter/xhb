@@ -49,10 +49,6 @@ instance XidLike Xid where
     fromXid = id
     toXid   = id
 
--- TEMPORARY FIX
-type ClientMessageData = CARD32
-string_len_QueryTextExtents = undefined
-
 -- Enums and ValueParams
 
 class SimpleEnum a where
