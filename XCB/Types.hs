@@ -32,7 +32,7 @@ data XDecl = XStruct  Name [StructElem]
  deriving (Show)
 
 data StructElem = Pad Int
-                | List Name Type Expression
+                | List Name Type (Maybe Expression)
                 | SField Name Type
                 | ExprField Name Type Expression
                 | ValueParam Type MaskName ListName

@@ -289,7 +289,7 @@ structField elem
     | elem `named` "list" = do
         typ <- liftM mkType $ elem `attr` "type"
         name <- elem `attr` "name"
-        expr <- firstChild elem >>= expression
+        let expr = firstChild elem >>= expression
         return $ List name typ expr
 
     | elem `named` "valueparam" = do
