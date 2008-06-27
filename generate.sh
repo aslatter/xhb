@@ -70,7 +70,11 @@ runghc ${TEST_PROG} ${XML_DIR}/${XML_FILES} || {
     [ -d patched ] && rm -rf patched
     cp -r generated patched
     cd patched
-    patch -u < ../patch
+    patch -u < ../patch || {
+        cd ..
+        echo "failed to patch properly"
+        exit ${GENERAL_ERROR}
+    }
     cd ..
 }
 

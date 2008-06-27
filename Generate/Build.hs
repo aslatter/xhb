@@ -104,6 +104,11 @@ newXhbModule = addStandardImports . mkModule . modulePrefix
               ,"Data.Word"
               ,"Foreign.C.Types"
               ,"Data.Bits"
+              ,"Data.Binary.Put"
+              ,"Data.Binary.Get"
+              ,"Control.Monad"
+              ,"Control.Exception"
+              ,"Data.List"
               ]
 
 -- takes all of the results of running 'logEvent' and turns it into to two things:

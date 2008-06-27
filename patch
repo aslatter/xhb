@@ -1,16 +1,7 @@
 diff -u generated/XHB.Gen.RandR.hs working/XHB.Gen.RandR.hs
---- generated/XHB.Gen.RandR.hs	2008-06-22 19:50:57.000000000 -0500
-+++ working/XHB.Gen.RandR.hs	2008-06-22 18:08:22.000000000 -0500
-@@ -17,7 +17,7 @@
-         SetCrtcConfigReply(..), GetCrtcGammaSize(..),
-         GetCrtcGammaSizeReply(..), GetCrtcGamma(..), GetCrtcGammaReply(..),
-         SetCrtcGamma(..), NotifyMask(..), ScreenChangeNotify(..),
--        Notify(..), CrtcChange(..), OutputChange(..), OutputProperty(..),
-+        NotifyEnum(..), CrtcChange(..), OutputChange(..), OutputProperty(..),
-         Notify(..))
-        where
- import XHB.Shared
-@@ -458,11 +458,11 @@
+--- generated/XHB.Gen.RandR.hs	2008-06-26 21:30:15.000000000 -0500
++++ working/XHB.Gen.RandR.hs	2008-06-26 21:27:45.000000000 -0500
+@@ -465,11 +465,11 @@
                                                 mwidth_ScreenChangeNotify :: CARD16,
                                                 mheight_ScreenChangeNotify :: CARD16}
   
@@ -26,7 +17,7 @@ diff -u generated/XHB.Gen.RandR.hs working/XHB.Gen.RandR.hs
          toValue NotifyCrtcChange{} = 0
          toValue NotifyOutputChange{} = 1
          toValue NotifyOutputProperty{} = 2
-@@ -551,5 +551,7 @@
+@@ -558,5 +558,7 @@
                + size (status_OutputProperty x)
                + 11
   
@@ -35,10 +26,11 @@ diff -u generated/XHB.Gen.RandR.hs working/XHB.Gen.RandR.hs
  data Notify = MkNotify{subCode_Notify :: CARD8,
                         u_Notify :: NotifyData}
 \ No newline at end of file
+Only in working: XHB.Gen.RandR.hs.orig
 diff -u generated/XHB.Gen.Sync.hs working/XHB.Gen.Sync.hs
---- generated/XHB.Gen.Sync.hs	2008-06-22 19:50:58.000000000 -0500
-+++ working/XHB.Gen.Sync.hs	2008-06-22 18:08:22.000000000 -0500
-@@ -132,13 +132,14 @@
+--- generated/XHB.Gen.Sync.hs	2008-06-26 21:30:15.000000000 -0500
++++ working/XHB.Gen.Sync.hs	2008-06-26 21:27:45.000000000 -0500
+@@ -139,13 +139,14 @@
  instance Serialize TRIGGER where
          serialize bo x
            = do serialize bo (counter_TRIGGER x)
@@ -57,9 +49,10 @@ diff -u generated/XHB.Gen.Sync.hs working/XHB.Gen.Sync.hs
   
  data WAITCONDITION = MkWAITCONDITION{trigger_WAITCONDITION ::
                                       TRIGGER,
+Only in working: XHB.Gen.Sync.hs.orig
 diff -u generated/XHB.Gen.XFixes.hs working/XHB.Gen.XFixes.hs
---- generated/XHB.Gen.XFixes.hs	2008-06-22 19:50:58.000000000 -0500
-+++ working/XHB.Gen.XFixes.hs	2008-06-22 18:08:22.000000000 -0500
+--- generated/XHB.Gen.XFixes.hs	2008-06-26 21:30:15.000000000 -0500
++++ working/XHB.Gen.XFixes.hs	2008-06-26 21:27:45.000000000 -0500
 @@ -3,7 +3,7 @@
          QueryVersionReply(..), SaveSetMode(..), SaveSetTarget(..),
          SaveSetMapping(..), ChangeSaveSet(..), SelectionEvent(..),
@@ -69,7 +62,7 @@ diff -u generated/XHB.Gen.XFixes.hs working/XHB.Gen.XFixes.hs
          CursorNotify(..), SelectCursorInput(..), GetCursorImage(..),
          GetCursorImageReply(..), REGION, CreateRegion(..),
          CreateRegionFromBitmap(..), CreateRegionFromWindow(..),
-@@ -140,9 +140,9 @@
+@@ -145,9 +145,9 @@
                                                     selection_SelectSelectionInput :: ATOM,
                                                     event_mask_SelectSelectionInput :: CARD32}
   
@@ -81,15 +74,75 @@ diff -u generated/XHB.Gen.XFixes.hs working/XHB.Gen.XFixes.hs
          toValue CursorNotifyDisplayCursor{} = 0
          fromValue 0 = CursorNotifyDisplayCursor
   
-diff -u generated/XHB.Gen.Xv.hs working/XHB.Gen.Xv.hs
---- generated/XHB.Gen.Xv.hs	2008-06-22 19:50:58.000000000 -0500
-+++ working/XHB.Gen.Xv.hs	2008-06-22 18:08:22.000000000 -0500
-@@ -24,6 +24,8 @@
- import qualified XHB.Gen.Xproto
- import XHB.Gen.Shm hiding (PutImage)
- import qualified XHB.Gen.Shm
+Only in working: XHB.Gen.XFixes.hs.orig
+diff -u generated/XHB.Gen.Xproto.hs working/XHB.Gen.Xproto.hs
+--- generated/XHB.Gen.Xproto.hs	2008-06-26 21:30:15.000000000 -0500
++++ working/XHB.Gen.Xproto.hs	2008-06-26 21:28:34.000000000 -0500
+@@ -938,7 +938,44 @@
+                                        WINDOW,
+                                        colormap_ColormapNotify :: COLORMAP,
+                                        new_ColormapNotify :: BOOL, state_ColormapNotify :: BYTE}
+- 
 +
-+import Prelude hiding (Rational)
++data ClientMessageData = ClientData8  [CARD8]  -- ^length 20
++                       | ClientData16 [CARD16] -- ^length 10
++                       | ClientData32 [CARD32] -- ^length 5
++
++data ClientMessageDataType = CDType8
++                           | CDType16
++                           | CDType32
++
++clientMessageDataType :: ClientMessageData -> ClientMessageDataType
++clientMessageDataType ClientData8{}  = CDType8
++clientMessageDataType ClientData16{} = CDType16
++clientMessageDataType ClientData32{} = CDType32
++
++instance Serialize ClientMessageData where
++    serialize bo (ClientData8 xs) = assert (length xs == 20) $
++                                    serializeList bo xs
++    serialize bo (ClientData16 xs) = assert (length xs == 10) $
++                                     serializeList bo xs
++    serialize bo (ClientData32 xs) = assert (length xs == 5) $
++                                     serializeList bo xs
++
++    size cd = assert
++         (case cd of
++            ClientData8  xs -> length xs == 20
++            ClientData16 xs -> length xs == 10
++            ClientData32 xs -> length xs == 5)
++         20
++
++deserializeClientData :: BO -> ClientMessageDataType -> Get ClientMessageData
++deserializeClientData bo CDType8
++    = ClientData8 `liftM` deserializeList bo 20
++deserializeClientData bo CDType16
++    = ClientData16 `liftM` deserializeList bo 10
++deserializeClientData bo CDType32
++    = ClientData32 `liftM` deserializeList bo 5
++
++
+ data ClientMessage = MkClientMessage{format_ClientMessage :: CARD8,
+                                      window_ClientMessage :: WINDOW, type_ClientMessage :: ATOM,
+                                      data_ClientMessage :: ClientMessageData}
+@@ -1756,6 +1793,9 @@
+ odd_length_QueryTextExtents :: QueryTextExtents -> BOOL
+ odd_length_QueryTextExtents x
+   = (string_len_QueryTextExtents x .&. 1)
++
++string_len_QueryTextExtents :: QueryTextExtents -> Word8
++string_len_QueryTextExtents x = genericLength $ string_QueryTextExtents x
   
- data XvRequest = GetPortAttribute GetPortAttribute
-                | GetStill GetStill
+ data QueryTextExtentsReply = MkQueryTextExtentsReply{draw_direction_QueryTextExtentsReply
+                                                      :: BYTE,
+Only in working: XHB.Gen.Xproto.hs.orig
+diff -u generated/XHB.Gen.Xv.hs working/XHB.Gen.Xv.hs
+--- generated/XHB.Gen.Xv.hs	2008-06-26 21:30:15.000000000 -0500
++++ working/XHB.Gen.Xv.hs	2008-06-26 21:29:49.000000000 -0500
+@@ -15,6 +15,7 @@
+         ListImageFormatsReply(..), QueryImageAttributes(..),
+         QueryImageAttributesReply(..), PutImage(..), ShmPutImage(..))
+        where
++import Prelude hiding (Rational)
+ import XHB.Shared
+ import Data.Word
+ import Foreign.C.Types
