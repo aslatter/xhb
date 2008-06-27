@@ -151,7 +151,7 @@ enumTypPanic dec = error $
                    ("Error in enum:\n\n" ++) $
                    show $ toDoc dec
 
--- |If an enum doesn't ave defined values, fill them in
+-- |If an enum doesn't have defined values fill them in
 fillEnum :: [EnumElem] -> [EnumElem]
 fillEnum xs@((EnumElem _ Nothing):_) = map f $ zip xs [0..]
     where f (EnumElem name _, n) = EnumElem name (Just (Value n))
@@ -168,6 +168,26 @@ xImport str = do
    else do
     modifyModule . addImport $ mkHidingImport impName shared_types
     modifyModule . addImport . mkQualImport $ impName
+
+-- |A list of all of the type defined by a modue.
+declaredTypes :: XHeader -> [Name]
+declaredTypes xhd =
+    let decls = xheader_decls xhd
+
+        tyName (XStruct name _) = return name
+        tyName (XTypeDef name _) = return name
+        tyName (XEvent name _ _) = return name
+        tyName (XRequest name _ _ Nothing) = return name
+        tyName (XRequest name _ _ _) = [name, name ++ "Reply"]
+        tyName (XidType name) = return name
+        tyName (XidUnion name _) = return name
+        tyName (XEnum name _) = return name
+        tyName (XUnion name _) = return name
+        tyName XImport{} = empty
+        tyName (XError name _ _) = return name
+
+    in concatMap tyName decls
+
 
 typeDecl :: String -> Type -> Gen
 typeDecl nm tp = do
