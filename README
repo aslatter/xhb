@@ -41,4 +41,3 @@ There are three bash scripts that live in the top-level of this project:
   The intent is that the results of parsing can be isolated from the results
   of code generation to make finding bugs easier.
 
-
