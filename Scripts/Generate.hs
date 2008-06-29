@@ -1,5 +1,5 @@
 
-import XCB
+import Data.XCB
 import Generate
 
 import System.IO

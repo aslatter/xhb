@@ -10,7 +10,7 @@
  -}
 
 
-import XCB
+import Data.XCB
 
 import System.IO
 import System.Environment

@@ -3,8 +3,8 @@ module Generate where
 import Generate.Build
 import Generate.Types
 
-import XCB
-import XCB.Utils
+import Data.XCB
+ -- import XCB.Utils
 
 import HaskellCombinators
 import Language.Haskell.Syntax
@@ -406,3 +406,11 @@ exportType = modifyModule . addExport . mkExportAll
 -- |Export the named variable
 exportVar :: String -> Gen
 exportVar = modifyModule . addExport . HsEVar . mkUnQName
+
+-- |Like mapMaybe, but for any Alternative.
+-- Never returns 'empty', instead returns 'pure []'
+mapAlt :: Alternative f => (a -> f b) -> [a] -> f [b]
+mapAlt f xs = go xs
+ where go [] = pure []
+       go (y:ys) = pure (:) <*> f y <*> go ys
+               <|> go ys

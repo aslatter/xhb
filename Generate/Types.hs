@@ -10,7 +10,7 @@ import Control.Monad.RW
 import Data.Monoid
 
 import BuildData
-import XCB.Types
+import Data.XCB.Types
 
 {-
 

@@ -3,8 +3,7 @@
 module Generate.Build where
 
 import Generate.Types
-import XCB
-import XCB.Utils
+import Data.XCB
 import HaskellCombinators
 import BuildData
 
@@ -18,6 +17,7 @@ import Control.Monad.Writer
 import Control.Applicative
 
 import qualified Data.List as L
+import Data.Char
 
 {-
   Functions in the 'Generate' monad
@@ -234,3 +234,8 @@ mkErrorType name namesMap =
 appMany :: [a -> a] -> (a -> a)
 appMany = foldr (flip (.)) id
 
+
+
+ensureUpper :: String -> String
+ensureUpper [] = []
+ensureUpper (x:xs) = (toUpper x) : xs

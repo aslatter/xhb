@@ -86,17 +86,6 @@ instance (MonadPlus m, Monoid w) => Alternative (RWT r w m) where
     empty = unwrapMonad empty
     m1 <|> m2 = unwrapMonad $ (WrapMonad m1) <|> (WrapMonad m2) 
 
-
--- Applicative/Alternative instances for ReaderT
-
-instance Monad m => Applicative (ReaderT r m) where
-    pure = unwrapMonad . pure
-    f <*> a = unwrapMonad $ (WrapMonad f) <*> (WrapMonad a)
-
-instance MonadPlus m => Alternative (ReaderT r m) where
-    empty = unwrapMonad empty
-    m1 <|> m2 = unwrapMonad $ (WrapMonad m1) <|> (WrapMonad m2)
-
 --
 
 instance Monoid w => MonadTrans (RWT r w) where
