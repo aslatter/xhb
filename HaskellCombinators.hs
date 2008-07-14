@@ -25,16 +25,20 @@ module HaskellCombinators
     ,mkTyVar
     ,mkTyCon
     ,mkVar
+    ,mkConExp
+    ,hsAppMany
     ,mkAsExp
     ,mkDataDecl
     ,mkCon
     ,mkRCon
     ,mkClass
+    ,mkGenerator
     ) where
 
 import Language.Haskell.Syntax
 import Language.Haskell.Pretty
 
+import qualified Data.List as List
 
 -- Example of usage
 
@@ -64,6 +68,12 @@ testDecls = [mkTypeSig "testfun" [] (HsTyFun (mkTyCon "Int") (mkTyCon "Int"))
 -- instead of HsNames, and assume them to be for indetifiers.
 
 dummLoc = SrcLoc "dummy location" 0 0
+
+
+-- |Statement of the form ([pattern]  <-  [expression]).
+-- Part of a 'do' block or list comprehension.
+mkGenerator :: HsPat -> HsExp -> HsStmt
+mkGenerator = HsGenerator dummLoc
 
 -- |Simple import statement
 mkImport str = HsImportDecl dummLoc (Module str) False Nothing Nothing
@@ -128,6 +138,12 @@ mkLitMatch fName lit res
 mkNumLit :: Integral n => n -> HsExp
 mkNumLit = HsLit . HsInt . fromIntegral
 
+-- |Must be called on a non-empty list.
+-- 'hsAppMany [x1, x2, x3 ...] -> x1 `HsApp` x2 `HsApp` x3 ...'
+hsAppMany :: [HsExp] -> HsExp
+hsAppMany [] = error "hsAppMany called on empty list"
+hsAppMany xs = List.foldl1' HsApp xs
+
 mkNewtype :: HsContext
           -> String    -- ^name
           -> [String]  -- ^type args
@@ -168,6 +184,10 @@ mkTyVar = HsTyVar . HsIdent
 
 mkVar :: String -> HsExp
 mkVar = HsVar . UnQual . HsIdent
+
+-- |An indentifier-style data constructor expression.
+mkConExp :: String -> HsExp
+mkConExp = HsCon . mkUnQName
 
 mkDataDecl :: HsContext
            -> String -- ^Constructor

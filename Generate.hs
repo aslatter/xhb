@@ -35,6 +35,7 @@ xDecl (XidUnion name _fields) = xDecl $ XidType name  -- Pretend it's a declarat
 xDecl (XStruct name fields) = do
   declareStruct name fields
   declareSerStruct name fields
+  declareDeserStruct name fields
   exportType name
 xDecl (XTypeDef name typ) = do
   typeDecl name typ
@@ -261,37 +262,41 @@ exprFields name elems = mapM_ go elems
             let funName = accessor nm name
                 retTyp = mkTyCon tyname
                 funTyp = HsTyFun (mkTyCon name) retTyp
+                inVar = "x"
             -- Type signature
             buildDecl $ mkTypeSig funName [] funTyp
             
-            let inVar = "x"
-                
-                mkExpr :: Expression -> HsExp
-                mkExpr (Value n) = mkNumLit n
-                mkExpr (Bit n) = mkNumLit $ 2^n
-                mkExpr (FieldRef field)
-                    = HsApp
-                      (mkVar $ accessor field name)
-                      (mkVar inVar)
-                mkExpr (Op op lhs rhs) =
-                    let eLhs = mkExpr lhs
-                        eRhs = mkExpr rhs
-                    in HsParen $ HsInfixApp eLhs (mkOp op) eRhs
-
-                mkOp :: Binop -> HsQOp
-                mkOp Add  = HsQVarOp . UnQual . HsSymbol $ "+"
-                mkOp Sub  = HsQVarOp . UnQual . HsSymbol $ "-"
-                mkOp Mult = HsQVarOp . UnQual . HsSymbol $ "*"
-                mkOp Div  = HsQVarOp . UnQual . HsSymbol $ "/"
-                mkOp And  = HsQVarOp . UnQual . HsSymbol $ ".&."
-                mkOp RShift = HsQVarOp . UnQual . HsIdent $ "shiftR"
-
             -- function body
-            buildDecl $ mkSimpleFun funName [mkPVar inVar] (mkExpr expr)
+            buildDecl $ mkSimpleFun funName [mkPVar inVar] $ 
+                      mkExpr (Just (inVar, name)) expr
 
             -- export
             exportVar funName
           go _ = return ()
+
+
+mkExpr :: Maybe (Name, Name) -> Expression -> HsExp
+mkExpr _ (Value n) = mkNumLit n
+mkExpr _ (Bit n) = mkNumLit $ 2^n
+mkExpr (Just (rec, name)) (FieldRef field)
+    = HsApp
+      (mkVar $ accessor field name)
+      (mkVar rec)
+mkExpr Nothing (FieldRef field) = mkVar field
+mkExpr rec (Op op lhs rhs) =
+    let eLhs = mkExpr rec lhs
+        eRhs = mkExpr rec rhs
+    in HsParen $ HsInfixApp eLhs (mkOp op) eRhs
+
+mkOp :: Binop -> HsQOp
+mkOp Add  = stringToQOpSymbol "+"
+mkOp Sub  = stringToQOpSymbol "-"
+mkOp Mult = stringToQOpSymbol "*"
+mkOp Div  = stringToQOpSymbol "/"
+mkOp And  = stringToQOpSymbol ".&."
+mkOp RShift = HsQVarOp . UnQual . HsIdent $ "shiftR"
+
+stringToQOpSymbol = HsQVarOp . UnQual . HsSymbol
 
 
 -- |For the named newtype wrapper around an Xid,
@@ -313,6 +318,49 @@ instanceXid tyname = modifyModule . addDecl $
 
 
 ----- Declaring serialize and deserialize instances
+
+declareDeserStruct :: Name -> [StructElem] -> Gen
+declareDeserStruct name fields = modifyModule . addDecl $
+    mkInstDecl
+      []
+      (mkUnQName "Deserialize")
+      [HsTyCon $ mkUnQName name]
+      [deserFunc]
+   where
+     deserFunc :: HsDecl
+     deserFunc = mkSimpleFun
+                  "deserialize"
+                  [mkPVar "bo"
+                  ]
+                 (HsDo $ deserIns)
+
+     deserIns :: [HsStmt]
+     deserIns = mapMaybe go fields ++ [returnIt]
+
+     go (Pad n) = return $ HsQualifier $ mkVar "skip" `HsApp` mkNumLit n 
+     go (List nm typ Nothing) = error "cannot deserialize list with no length"
+     go (List nm typ (Just exp))
+         = return $ mkGenerator (mkPVar nm) $ hsAppMany
+           [mkVar "deserializeList"
+           ,mkVar "bo"
+           ,HsParen $ mkVar "fromIntegral" `HsApp` mkExpr Nothing exp
+           ]
+     go (SField nm typ) = return $ mkGenerator (mkPVar nm) $
+             mkVar "deserialize" `HsApp` mkVar "bo"
+     go ExprField{} = empty
+
+     returnIt :: HsStmt
+     returnIt = HsQualifier $ mkVar "return" `HsApp` HsParen cons
+
+     cons :: HsExp
+     cons = hsAppMany $
+        mkConExp (conPrefix name) : mapMaybe (liftM mkVar . fieldName) fields
+
+     fieldName :: StructElem -> Maybe Name
+     fieldName Pad{} = empty
+     fieldName (List name _ _) = Just name
+     fieldName (SField name _) = Just name
+     fieldName ExprField{} = empty -- has a name, but we don't want it
 
 declareSerStruct :: Name -> [StructElem] -> Gen
 declareSerStruct name fields = modifyModule . addDecl $

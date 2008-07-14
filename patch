@@ -1,7 +1,7 @@
 diff -u generated/XHB.Gen.RandR.hs working/XHB.Gen.RandR.hs
---- generated/XHB.Gen.RandR.hs	2008-06-26 21:30:15.000000000 -0500
-+++ working/XHB.Gen.RandR.hs	2008-06-26 21:27:45.000000000 -0500
-@@ -465,11 +465,11 @@
+--- generated/XHB.Gen.RandR.hs	2008-07-13 22:02:09.000000000 -0500
++++ working/XHB.Gen.RandR.hs	2008-07-13 21:50:37.000000000 -0500
+@@ -503,11 +503,11 @@
                                                 mwidth_ScreenChangeNotify :: CARD16,
                                                 mheight_ScreenChangeNotify :: CARD16}
   
@@ -17,20 +17,53 @@ diff -u generated/XHB.Gen.RandR.hs working/XHB.Gen.RandR.hs
          toValue NotifyCrtcChange{} = 0
          toValue NotifyOutputChange{} = 1
          toValue NotifyOutputProperty{} = 2
-@@ -558,5 +558,7 @@
-               + size (status_OutputProperty x)
-               + 11
+@@ -638,5 +638,23 @@
+                skip 11
+                return (MkOutputProperty window output atom timestamp status)
   
-+type NotifyData = ()
++data NotifyData = NotifyDataCrtcChange CrtcChange
++                | NotifyDataOutputChange OutputChange
++                | NotifyDataOutputProperty OutputProperty
++
++instance Serialize NotifyData where
++    serialize bo (NotifyDataCrtcChange x) = serialize bo x
++    serialize bo (NotifyDataOutputChange x) = serialize bo x
++    serialize bo (NotifyDataOutputProperty x) = serialize bo x
++
++    size (NotifyDataCrtcChange x) = size x
++    size (NotifyDataOutputChange x) = size x
++    size (NotifyDataOutputProperty x) = size x
++
++deserializeNotifyData :: NotifyEnum -> BO -> Get NotifyData
++deserializeNotifyData NotifyCrtcChange bo = NotifyDataCrtcChange `liftM` deserialize bo
++deserializeNotifyData NotifyOutputChange bo = NotifyDataOutputChange `liftM` deserialize bo
++deserializeNotifyData NotifyOutputProperty bo = NotifyDataOutputProperty `liftM` deserialize bo
 +
  data Notify = MkNotify{subCode_Notify :: CARD8,
                         u_Notify :: NotifyData}
 \ No newline at end of file
-Only in working: XHB.Gen.RandR.hs.orig
+diff -u generated/XHB.Gen.Render.hs working/XHB.Gen.Render.hs
+--- generated/XHB.Gen.Render.hs	2008-07-13 22:02:09.000000000 -0500
++++ working/XHB.Gen.Render.hs	2008-07-13 21:54:03.000000000 -0500
+@@ -367,12 +367,12 @@
+ instance Deserialize PICTFORMINFO where
+         deserialize bo
+           = do id <- deserialize bo
+-               type <- deserialize bo
++               type_ <- deserialize bo
+                depth <- deserialize bo
+                skip 2
+                direct <- deserialize bo
+                colormap <- deserialize bo
+-               return (MkPICTFORMINFO id type depth direct colormap)
++               return (MkPICTFORMINFO id type_ depth direct colormap)
+  
+ data PICTVISUAL = MkPICTVISUAL{visual_PICTVISUAL :: VISUALID,
+                                format_PICTVISUAL :: PICTFORMAT}
 diff -u generated/XHB.Gen.Sync.hs working/XHB.Gen.Sync.hs
---- generated/XHB.Gen.Sync.hs	2008-06-26 21:30:15.000000000 -0500
-+++ working/XHB.Gen.Sync.hs	2008-06-26 21:27:45.000000000 -0500
-@@ -139,13 +139,14 @@
+--- generated/XHB.Gen.Sync.hs	2008-07-13 22:02:09.000000000 -0500
++++ working/XHB.Gen.Sync.hs	2008-07-13 21:58:48.000000000 -0500
+@@ -153,21 +153,22 @@
  instance Serialize TRIGGER where
          serialize bo x
            = do serialize bo (counter_TRIGGER x)
@@ -47,12 +80,22 @@ diff -u generated/XHB.Gen.Sync.hs working/XHB.Gen.Sync.hs
 -              + size (test_type_TRIGGER x)
 +              + size (toValue (test_type_TRIGGER x) :: CARD8)
   
+ instance Deserialize TRIGGER where
+         deserialize bo
+           = do counter <- deserialize bo
+-               wait_type <- deserialize bo
++               wait_type :: CARD8  <- deserialize bo
+                wait_value <- deserialize bo
+-               test_type <- deserialize bo
+-               return (MkTRIGGER counter wait_type wait_value test_type)
++               test_type  :: CARD8 <- deserialize bo
++               return (MkTRIGGER counter (fromValue wait_type) wait_value (fromValue test_type))
+  
  data WAITCONDITION = MkWAITCONDITION{trigger_WAITCONDITION ::
                                       TRIGGER,
-Only in working: XHB.Gen.Sync.hs.orig
 diff -u generated/XHB.Gen.XFixes.hs working/XHB.Gen.XFixes.hs
---- generated/XHB.Gen.XFixes.hs	2008-06-26 21:30:15.000000000 -0500
-+++ working/XHB.Gen.XFixes.hs	2008-06-26 21:27:45.000000000 -0500
+--- generated/XHB.Gen.XFixes.hs	2008-07-13 22:02:09.000000000 -0500
++++ working/XHB.Gen.XFixes.hs	2008-07-13 21:50:37.000000000 -0500
 @@ -3,7 +3,7 @@
          QueryVersionReply(..), SaveSetMode(..), SaveSetTarget(..),
          SaveSetMapping(..), ChangeSaveSet(..), SelectionEvent(..),
@@ -74,11 +117,28 @@ diff -u generated/XHB.Gen.XFixes.hs working/XHB.Gen.XFixes.hs
          toValue CursorNotifyDisplayCursor{} = 0
          fromValue 0 = CursorNotifyDisplayCursor
   
-Only in working: XHB.Gen.XFixes.hs.orig
 diff -u generated/XHB.Gen.Xproto.hs working/XHB.Gen.Xproto.hs
---- generated/XHB.Gen.Xproto.hs	2008-06-26 21:30:15.000000000 -0500
-+++ working/XHB.Gen.Xproto.hs	2008-06-26 21:28:34.000000000 -0500
-@@ -938,7 +938,44 @@
+--- generated/XHB.Gen.Xproto.hs	2008-07-13 22:02:10.000000000 -0500
++++ working/XHB.Gen.Xproto.hs	2008-07-13 21:50:37.000000000 -0500
+@@ -461,7 +461,7 @@
+ instance Deserialize VISUALTYPE where
+         deserialize bo
+           = do visual_id <- deserialize bo
+-               class <- deserialize bo
++               class_ <- deserialize bo
+                bits_per_rgb_value <- deserialize bo
+                colormap_entries <- deserialize bo
+                red_mask <- deserialize bo
+@@ -469,7 +469,7 @@
+                blue_mask <- deserialize bo
+                skip 4
+                return
+-                 (MkVISUALTYPE visual_id class bits_per_rgb_value colormap_entries
++                 (MkVISUALTYPE visual_id class_ bits_per_rgb_value colormap_entries
+                     red_mask
+                     green_mask
+                     blue_mask)
+@@ -1126,7 +1126,44 @@
                                         WINDOW,
                                         colormap_ColormapNotify :: COLORMAP,
                                         new_ColormapNotify :: BOOL, state_ColormapNotify :: BYTE}
@@ -124,7 +184,7 @@ diff -u generated/XHB.Gen.Xproto.hs working/XHB.Gen.Xproto.hs
  data ClientMessage = MkClientMessage{format_ClientMessage :: CARD8,
                                       window_ClientMessage :: WINDOW, type_ClientMessage :: ATOM,
                                       data_ClientMessage :: ClientMessageData}
-@@ -1756,6 +1793,9 @@
+@@ -1971,6 +2008,9 @@
  odd_length_QueryTextExtents :: QueryTextExtents -> BOOL
  odd_length_QueryTextExtents x
    = (string_len_QueryTextExtents x .&. 1)
@@ -136,8 +196,8 @@ diff -u generated/XHB.Gen.Xproto.hs working/XHB.Gen.Xproto.hs
                                                       :: BYTE,
 Only in working: XHB.Gen.Xproto.hs.orig
 diff -u generated/XHB.Gen.Xv.hs working/XHB.Gen.Xv.hs
---- generated/XHB.Gen.Xv.hs	2008-06-26 21:30:15.000000000 -0500
-+++ working/XHB.Gen.Xv.hs	2008-06-26 21:29:49.000000000 -0500
+--- generated/XHB.Gen.Xv.hs	2008-07-13 22:02:10.000000000 -0500
++++ working/XHB.Gen.Xv.hs	2008-07-13 22:01:30.000000000 -0500
 @@ -15,6 +15,7 @@
          ListImageFormatsReply(..), QueryImageAttributes(..),
          QueryImageAttributesReply(..), PutImage(..), ShmPutImage(..))
@@ -146,3 +206,48 @@ diff -u generated/XHB.Gen.Xv.hs working/XHB.Gen.Xv.hs
  import XHB.Shared
  import Data.Word
  import Foreign.C.Types
+@@ -152,12 +153,12 @@
+                name_size <- deserialize bo
+                num_ports <- deserialize bo
+                num_formats <- deserialize bo
+-               type <- deserialize bo
++               type_ <- deserialize bo
+                pad <- deserialize bo
+                name <- deserializeList bo (fromIntegral name_size)
+                formats <- deserializeList bo (fromIntegral num_formats)
+                return
+-                 (MkAdaptorInfo base_id name_size num_ports num_formats type pad
++                 (MkAdaptorInfo base_id name_size num_ports num_formats type_ pad
+                     name
+                     formats)
+  
+@@ -239,9 +240,9 @@
+                num_planes <- deserialize bo
+                pitches <- deserializeList bo (fromIntegral num_planes)
+                offsets <- deserializeList bo (fromIntegral num_planes)
+-               data <- deserializeList bo (fromIntegral data_size)
++               data_ <- deserializeList bo (fromIntegral data_size)
+                return
+-                 (MkImage id width height data_size num_planes pitches offsets data)
++                 (MkImage id width height data_size num_planes pitches offsets data_)
+  
+ data AttributeInfo = MkAttributeInfo{flags_AttributeInfo :: CARD32,
+                                      min_AttributeInfo :: INT32, max_AttributeInfo :: INT32,
+@@ -373,7 +374,7 @@
+ instance Deserialize ImageFormatInfo where
+         deserialize bo
+           = do id <- deserialize bo
+-               type <- deserialize bo
++               type_ <- deserialize bo
+                byte_order <- deserialize bo
+                pad1 <- deserialize bo
+                guid <- deserializeList bo (fromIntegral 16)
+@@ -405,7 +406,7 @@
+                vpad9 <- deserialize bo
+                vpad10 <- deserialize bo
+                return
+-                 (MkImageFormatInfo id type byte_order pad1 guid bpp num_planes pad2
++                 (MkImageFormatInfo id type_ byte_order pad1 guid bpp num_planes pad2
+                     depth
+                     pad3
+                     pad4

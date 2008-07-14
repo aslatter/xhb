@@ -19,8 +19,8 @@ import Data.List as L
 import Foreign.C.Types (CChar)
 
 -- |Byte-ordering.
-data BO = BE
-        | LE
+data BO = BE -- ^Big-endian
+        | LE -- ^Little-endian
  deriving (Show, Ord, Eq)
 
 type CARD8  = Word8
@@ -182,6 +182,10 @@ instance Deserialize CChar where
 
 
 -- Binary.Missing
+
+-- All of this relies on being able to roundtrip:
+-- (IntN -> WordN) and (WordN -> IntN) using 'fromIntegral'
+
 putInt8 :: Int8 -> Put
 putInt8 = putWord8 . fromIntegral
 
@@ -247,5 +251,3 @@ setBits a = foldl' go 0 [0 .. (bitSize a) - 1]
 putSkip :: Int -> Put
 putSkip n = replicateM_ n $ putWord8 0
 
----
---- A monad for serilization
