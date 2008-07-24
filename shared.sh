@@ -50,7 +50,7 @@ OUT_DIR=${OUT_DIR}/${XPROTO_VERSION}
 if [ -d ${OUT_DIR} ]; then
     rm -rf ${OUT_DIR}
 fi
-mkdir ${OUT_DIR}
+mkdir -p ${OUT_DIR}
 
 
 #Go!
