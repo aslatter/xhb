@@ -18,7 +18,7 @@ TEST_PROG=Scripts/Generate
 [ -f patch ] && {
 
     [ -d patched ] && rm -rf patched
-    cp -r generated patched
+    cp -r ${OUT_DIR} patched
     cd patched
     patch -u < ../patch || {
         cd ..

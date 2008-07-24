@@ -1,12 +1,17 @@
 
-XPROTO_VERSION=xcb-proto-1.1
+XPROTO_VERSION=1.1
+
+XPROTO_PACKAGE=xcb-proto-${XPROTO_VERSION}
 
 DOWNLOAD_PATH=resources
-XML_TARBALL=http://xcb.freedesktop.org/dist/${XPROTO_VERSION}.tar.gz
-XML_DIR=${DOWNLOAD_PATH}/${XPROTO_VERSION}/src
+XML_TARBALL=http://xcb.freedesktop.org/dist/${XPROTO_PACKAGE}.tar.gz
+XML_DIR=${DOWNLOAD_PATH}/${XPROTO_PACKAGE}/src
 XML_FILES=*.xml
 
 GENERAL_ERROR=1
+
+#include the xproto version in the output-dir
+OUT_DIR=${OUT_DIR}/${XPROTO_VERSION}
 
 #Do we have runhaskell?
 [ $(which runhaskell) ] || {
