@@ -11,21 +11,19 @@ import Language.Haskell.Syntax
 import Language.Haskell.Pretty
 
 main = do
-  fs <- getArgs
+  out:fs <- getArgs
   xheaders <- fromFiles fs
-  writeModules xheaders
+  writeModules out xheaders
 
-writeModules :: [XHeader] -> IO ()
-writeModules = sequence_ . map writeModule . toHsModules
+writeModules :: FilePath -> [XHeader] -> IO ()
+writeModules out = sequence_ . map (writeModule out) . toHsModules
 
-writeModule :: HsModule -> IO ()
-writeModule hsmod = 
+writeModule :: FilePath -> HsModule -> IO ()
+writeModule outdir hsmod = 
     let modname = getHsModName hsmod
         outString = prettyPrint hsmod
     in writeFile (outdir </> modname <.> "hs") outString
 
 getHsModName :: HsModule -> String
 getHsModName (HsModule _ mod _ _ _) = prettyPrint mod
-
-outdir = "generated"
 

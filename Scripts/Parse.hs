@@ -19,18 +19,17 @@ import System.Exit
 import System.FilePath
 
 main = do
-  fps <- getArgs
+  out:fps <- getArgs
   xheaders <- fromFiles fps
-  writeHeaders xheaders
+  writeHeaders out xheaders
 
-writeHeaders :: [XHeader] -> IO ()
-writeHeaders = sequence_ . map writeHeader
+writeHeaders :: FilePath -> [XHeader] -> IO ()
+writeHeaders out = sequence_ . map (writeHeader out)
 
-writeHeader :: XHeader -> IO ()
-writeHeader xhd =
+writeHeader :: FilePath -> XHeader -> IO ()
+writeHeader outdir xhd =
     let fname = outdir </> xname <.> "out"
         xname = xheader_header xhd
         outString = pretty xhd
     in writeFile fname outString
 
-outdir = "parsed"
