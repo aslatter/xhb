@@ -1,5 +1,5 @@
 
-XPROTO_VERSION=1.1
+. version.sh
 
 XPROTO_PACKAGE=xcb-proto-${XPROTO_VERSION}
 

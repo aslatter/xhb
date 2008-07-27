@@ -163,7 +163,7 @@ xImport str = do
   cur <- current
   impMod <- fromJust `liftM` oneModule str -- bad error message
   let shared_types = (L.intersect `on` declaredTypes) cur impMod
-      impName = modulePrefix $ modName impMod
+      impName = typesModulePrefix $ modName impMod
   if null shared_types
    then modifyModule . addImport . mkImport $ impName
    else do

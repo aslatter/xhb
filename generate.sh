@@ -15,6 +15,8 @@ TEST_PROG=Scripts/Generate
 
 . shared.sh
 
+# apply hacks to generated code
+
 [ -f patch ] && {
 
     [ -d patched ] && rm -rf patched

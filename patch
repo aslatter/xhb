@@ -1,6 +1,6 @@
-diff -u generated/XHB.Gen.RandR.hs working/XHB.Gen.RandR.hs
---- generated/XHB.Gen.RandR.hs	2008-07-13 22:02:09.000000000 -0500
-+++ working/XHB.Gen.RandR.hs	2008-07-13 21:50:37.000000000 -0500
+diff -u generated/1.1/XHB.Gen.RandR.Types.hs working/XHB.Gen.RandR.Types.hs
+--- generated/1.1/XHB.Gen.RandR.Types.hs	2008-07-27 11:05:53.000000000 -0500
++++ working/XHB.Gen.RandR.Types.hs	2008-07-27 11:05:20.000000000 -0500
 @@ -503,11 +503,11 @@
                                                 mwidth_ScreenChangeNotify :: CARD16,
                                                 mheight_ScreenChangeNotify :: CARD16}
@@ -42,9 +42,9 @@ diff -u generated/XHB.Gen.RandR.hs working/XHB.Gen.RandR.hs
  data Notify = MkNotify{subCode_Notify :: CARD8,
                         u_Notify :: NotifyData}
 \ No newline at end of file
-diff -u generated/XHB.Gen.Render.hs working/XHB.Gen.Render.hs
---- generated/XHB.Gen.Render.hs	2008-07-13 22:02:09.000000000 -0500
-+++ working/XHB.Gen.Render.hs	2008-07-13 21:54:03.000000000 -0500
+diff -u generated/1.1/XHB.Gen.Render.Types.hs working/XHB.Gen.Render.Types.hs
+--- generated/1.1/XHB.Gen.Render.Types.hs	2008-07-27 11:05:53.000000000 -0500
++++ working/XHB.Gen.Render.Types.hs	2008-07-27 11:05:20.000000000 -0500
 @@ -367,12 +367,12 @@
  instance Deserialize PICTFORMINFO where
          deserialize bo
@@ -60,9 +60,9 @@ diff -u generated/XHB.Gen.Render.hs working/XHB.Gen.Render.hs
   
  data PICTVISUAL = MkPICTVISUAL{visual_PICTVISUAL :: VISUALID,
                                 format_PICTVISUAL :: PICTFORMAT}
-diff -u generated/XHB.Gen.Sync.hs working/XHB.Gen.Sync.hs
---- generated/XHB.Gen.Sync.hs	2008-07-13 22:02:09.000000000 -0500
-+++ working/XHB.Gen.Sync.hs	2008-07-13 21:58:48.000000000 -0500
+diff -u generated/1.1/XHB.Gen.Sync.Types.hs working/XHB.Gen.Sync.Types.hs
+--- generated/1.1/XHB.Gen.Sync.Types.hs	2008-07-27 11:05:53.000000000 -0500
++++ working/XHB.Gen.Sync.Types.hs	2008-07-27 11:05:20.000000000 -0500
 @@ -153,21 +153,22 @@
  instance Serialize TRIGGER where
          serialize bo x
@@ -93,9 +93,9 @@ diff -u generated/XHB.Gen.Sync.hs working/XHB.Gen.Sync.hs
   
  data WAITCONDITION = MkWAITCONDITION{trigger_WAITCONDITION ::
                                       TRIGGER,
-diff -u generated/XHB.Gen.XFixes.hs working/XHB.Gen.XFixes.hs
---- generated/XHB.Gen.XFixes.hs	2008-07-13 22:02:09.000000000 -0500
-+++ working/XHB.Gen.XFixes.hs	2008-07-13 21:50:37.000000000 -0500
+diff -u generated/1.1/XHB.Gen.XFixes.Types.hs working/XHB.Gen.XFixes.Types.hs
+--- generated/1.1/XHB.Gen.XFixes.Types.hs	2008-07-27 11:05:53.000000000 -0500
++++ working/XHB.Gen.XFixes.Types.hs	2008-07-27 11:05:20.000000000 -0500
 @@ -3,7 +3,7 @@
          QueryVersionReply(..), SaveSetMode(..), SaveSetTarget(..),
          SaveSetMapping(..), ChangeSaveSet(..), SelectionEvent(..),
@@ -105,7 +105,7 @@ diff -u generated/XHB.Gen.XFixes.hs working/XHB.Gen.XFixes.hs
          CursorNotify(..), SelectCursorInput(..), GetCursorImage(..),
          GetCursorImageReply(..), REGION, CreateRegion(..),
          CreateRegionFromBitmap(..), CreateRegionFromWindow(..),
-@@ -145,9 +145,9 @@
+@@ -146,9 +146,9 @@
                                                     selection_SelectSelectionInput :: ATOM,
                                                     event_mask_SelectSelectionInput :: CARD32}
   
@@ -117,9 +117,9 @@ diff -u generated/XHB.Gen.XFixes.hs working/XHB.Gen.XFixes.hs
          toValue CursorNotifyDisplayCursor{} = 0
          fromValue 0 = CursorNotifyDisplayCursor
   
-diff -u generated/XHB.Gen.Xproto.hs working/XHB.Gen.Xproto.hs
---- generated/XHB.Gen.Xproto.hs	2008-07-13 22:02:10.000000000 -0500
-+++ working/XHB.Gen.Xproto.hs	2008-07-13 21:50:37.000000000 -0500
+diff -u generated/1.1/XHB.Gen.Xproto.Types.hs working/XHB.Gen.Xproto.Types.hs
+--- generated/1.1/XHB.Gen.Xproto.Types.hs	2008-07-27 11:05:53.000000000 -0500
++++ working/XHB.Gen.Xproto.Types.hs	2008-07-27 11:05:20.000000000 -0500
 @@ -461,7 +461,7 @@
  instance Deserialize VISUALTYPE where
          deserialize bo
@@ -194,10 +194,9 @@ diff -u generated/XHB.Gen.Xproto.hs working/XHB.Gen.Xproto.hs
   
  data QueryTextExtentsReply = MkQueryTextExtentsReply{draw_direction_QueryTextExtentsReply
                                                       :: BYTE,
-Only in working: XHB.Gen.Xproto.hs.orig
-diff -u generated/XHB.Gen.Xv.hs working/XHB.Gen.Xv.hs
---- generated/XHB.Gen.Xv.hs	2008-07-13 22:02:10.000000000 -0500
-+++ working/XHB.Gen.Xv.hs	2008-07-13 22:01:30.000000000 -0500
+diff -u generated/1.1/XHB.Gen.Xv.Types.hs working/XHB.Gen.Xv.Types.hs
+--- generated/1.1/XHB.Gen.Xv.Types.hs	2008-07-27 11:05:53.000000000 -0500
++++ working/XHB.Gen.Xv.Types.hs	2008-07-27 11:05:20.000000000 -0500
 @@ -15,6 +15,7 @@
          ListImageFormatsReply(..), QueryImageAttributes(..),
          QueryImageAttributesReply(..), PutImage(..), ShmPutImage(..))
@@ -206,7 +205,7 @@ diff -u generated/XHB.Gen.Xv.hs working/XHB.Gen.Xv.hs
  import XHB.Shared
  import Data.Word
  import Foreign.C.Types
-@@ -152,12 +153,12 @@
+@@ -153,12 +154,12 @@
                 name_size <- deserialize bo
                 num_ports <- deserialize bo
                 num_formats <- deserialize bo
@@ -221,7 +220,7 @@ diff -u generated/XHB.Gen.Xv.hs working/XHB.Gen.Xv.hs
                      name
                      formats)
   
-@@ -239,9 +240,9 @@
+@@ -240,9 +241,9 @@
                 num_planes <- deserialize bo
                 pitches <- deserializeList bo (fromIntegral num_planes)
                 offsets <- deserializeList bo (fromIntegral num_planes)
@@ -233,7 +232,7 @@ diff -u generated/XHB.Gen.Xv.hs working/XHB.Gen.Xv.hs
   
  data AttributeInfo = MkAttributeInfo{flags_AttributeInfo :: CARD32,
                                       min_AttributeInfo :: INT32, max_AttributeInfo :: INT32,
-@@ -373,7 +374,7 @@
+@@ -374,7 +375,7 @@
  instance Deserialize ImageFormatInfo where
          deserialize bo
            = do id <- deserialize bo
@@ -242,7 +241,7 @@ diff -u generated/XHB.Gen.Xv.hs working/XHB.Gen.Xv.hs
                 byte_order <- deserialize bo
                 pad1 <- deserialize bo
                 guid <- deserializeList bo (fromIntegral 16)
-@@ -405,7 +406,7 @@
+@@ -406,7 +407,7 @@
                 vpad9 <- deserialize bo
                 vpad10 <- deserialize bo
                 return

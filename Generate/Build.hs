@@ -25,7 +25,7 @@ import Data.Char
 
 
 conPrefix = ("Mk" ++)
-modulePrefix = ("XHB.Gen." ++)
+typesModulePrefix modName = ("XHB.Gen." ++ modName ++ ".Types")
 accessor field typ = field ++ "_" ++ typ
 
 -- reader accessors
@@ -46,7 +46,7 @@ fancyTypeName (UnQualType name) = return name
 fancyTypeName (QualType qual name) = do
   qname <- fancyName qual
   case qname of
-    Just n -> return $ modulePrefix $ n ++ "." ++ name
+    Just n -> return $ typesModulePrefix $ n ++ "." ++ name
     Nothing -> return $ ensureUpper qual ++ "." ++ name
 
 -- fancyName :: Name -> Generate (Maybe Name)
@@ -85,7 +85,7 @@ logError name code = tell $ buildError name code
 runGenerate :: Name -> ReaderData -> Generate a -> (a, HsModule)
 runGenerate nm r m =
     let (x, bdata) = runRW m r
-        newModule = fModExtras $ newXhbModule name
+        newModule = fModExtras $ newXhbTypesModule name
         BuildResult mod mapEvent mapReq mapErr = applyBuildData bdata newModule
         name = ensureUpper nm
 
@@ -97,8 +97,8 @@ runGenerate nm r m =
 runGen :: Name -> ReaderData -> Gen -> HsModule
 runGen n r m = snd $ runGenerate n r m
 
-newXhbModule :: String -> HsModule
-newXhbModule = addStandardImports . mkModule . modulePrefix
+newXhbTypesModule :: String -> HsModule
+newXhbTypesModule = addStandardImports . mkModule . typesModulePrefix
     where addStandardImports = appMany $ map (addImport . mkImport)
               ["XHB.Shared"
               ,"Data.Word"
