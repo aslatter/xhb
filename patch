@@ -1,6 +1,6 @@
-diff -u generated/1.1/XHB.Gen.RandR.Types.hs working/XHB.Gen.RandR.Types.hs
---- generated/1.1/XHB.Gen.RandR.Types.hs	2008-07-27 11:05:53.000000000 -0500
-+++ working/XHB.Gen.RandR.Types.hs	2008-07-27 11:05:20.000000000 -0500
+diff -u generated/1.2/XHB.Gen.RandR.Types.hs working/XHB.Gen.RandR.Types.hs
+--- generated/1.2/XHB.Gen.RandR.Types.hs	2008-07-27 11:23:10.000000000 -0500
++++ working/XHB.Gen.RandR.Types.hs	2008-07-27 11:22:57.000000000 -0500
 @@ -503,11 +503,11 @@
                                                 mwidth_ScreenChangeNotify :: CARD16,
                                                 mheight_ScreenChangeNotify :: CARD16}
@@ -42,9 +42,9 @@ diff -u generated/1.1/XHB.Gen.RandR.Types.hs working/XHB.Gen.RandR.Types.hs
  data Notify = MkNotify{subCode_Notify :: CARD8,
                         u_Notify :: NotifyData}
 \ No newline at end of file
-diff -u generated/1.1/XHB.Gen.Render.Types.hs working/XHB.Gen.Render.Types.hs
---- generated/1.1/XHB.Gen.Render.Types.hs	2008-07-27 11:05:53.000000000 -0500
-+++ working/XHB.Gen.Render.Types.hs	2008-07-27 11:05:20.000000000 -0500
+diff -u generated/1.2/XHB.Gen.Render.Types.hs working/XHB.Gen.Render.Types.hs
+--- generated/1.2/XHB.Gen.Render.Types.hs	2008-07-27 11:23:10.000000000 -0500
++++ working/XHB.Gen.Render.Types.hs	2008-07-27 11:22:57.000000000 -0500
 @@ -367,12 +367,12 @@
  instance Deserialize PICTFORMINFO where
          deserialize bo
@@ -60,42 +60,9 @@ diff -u generated/1.1/XHB.Gen.Render.Types.hs working/XHB.Gen.Render.Types.hs
   
  data PICTVISUAL = MkPICTVISUAL{visual_PICTVISUAL :: VISUALID,
                                 format_PICTVISUAL :: PICTFORMAT}
-diff -u generated/1.1/XHB.Gen.Sync.Types.hs working/XHB.Gen.Sync.Types.hs
---- generated/1.1/XHB.Gen.Sync.Types.hs	2008-07-27 11:05:53.000000000 -0500
-+++ working/XHB.Gen.Sync.Types.hs	2008-07-27 11:05:20.000000000 -0500
-@@ -153,21 +153,22 @@
- instance Serialize TRIGGER where
-         serialize bo x
-           = do serialize bo (counter_TRIGGER x)
--               serialize bo (wait_type_TRIGGER x)
-+               serialize bo (toValue (wait_type_TRIGGER x) :: CARD8)
-                serialize bo (wait_value_TRIGGER x)
--               serialize bo (test_type_TRIGGER x)
-+               serialize bo (toValue (test_type_TRIGGER x) :: CARD8)
-         size x
--          = size (counter_TRIGGER x) + size (wait_type_TRIGGER x) +
-+          = size (counter_TRIGGER x) + 
-+             size (toValue (wait_type_TRIGGER x) :: CARD8) +
-               size (wait_value_TRIGGER x)
--              + size (test_type_TRIGGER x)
-+              + size (toValue (test_type_TRIGGER x) :: CARD8)
-  
- instance Deserialize TRIGGER where
-         deserialize bo
-           = do counter <- deserialize bo
--               wait_type <- deserialize bo
-+               wait_type :: CARD8  <- deserialize bo
-                wait_value <- deserialize bo
--               test_type <- deserialize bo
--               return (MkTRIGGER counter wait_type wait_value test_type)
-+               test_type  :: CARD8 <- deserialize bo
-+               return (MkTRIGGER counter (fromValue wait_type) wait_value (fromValue test_type))
-  
- data WAITCONDITION = MkWAITCONDITION{trigger_WAITCONDITION ::
-                                      TRIGGER,
-diff -u generated/1.1/XHB.Gen.XFixes.Types.hs working/XHB.Gen.XFixes.Types.hs
---- generated/1.1/XHB.Gen.XFixes.Types.hs	2008-07-27 11:05:53.000000000 -0500
-+++ working/XHB.Gen.XFixes.Types.hs	2008-07-27 11:05:20.000000000 -0500
+diff -u generated/1.2/XHB.Gen.XFixes.Types.hs working/XHB.Gen.XFixes.Types.hs
+--- generated/1.2/XHB.Gen.XFixes.Types.hs	2008-07-27 11:23:10.000000000 -0500
++++ working/XHB.Gen.XFixes.Types.hs	2008-07-27 11:22:57.000000000 -0500
 @@ -3,7 +3,7 @@
          QueryVersionReply(..), SaveSetMode(..), SaveSetTarget(..),
          SaveSetMapping(..), ChangeSaveSet(..), SelectionEvent(..),
@@ -117,9 +84,9 @@ diff -u generated/1.1/XHB.Gen.XFixes.Types.hs working/XHB.Gen.XFixes.Types.hs
          toValue CursorNotifyDisplayCursor{} = 0
          fromValue 0 = CursorNotifyDisplayCursor
   
-diff -u generated/1.1/XHB.Gen.Xproto.Types.hs working/XHB.Gen.Xproto.Types.hs
---- generated/1.1/XHB.Gen.Xproto.Types.hs	2008-07-27 11:05:53.000000000 -0500
-+++ working/XHB.Gen.Xproto.Types.hs	2008-07-27 11:05:20.000000000 -0500
+diff -u generated/1.2/XHB.Gen.Xproto.Types.hs working/XHB.Gen.Xproto.Types.hs
+--- generated/1.2/XHB.Gen.Xproto.Types.hs	2008-07-27 11:23:10.000000000 -0500
++++ working/XHB.Gen.Xproto.Types.hs	2008-07-27 11:22:57.000000000 -0500
 @@ -461,7 +461,7 @@
  instance Deserialize VISUALTYPE where
          deserialize bo
@@ -194,9 +161,9 @@ diff -u generated/1.1/XHB.Gen.Xproto.Types.hs working/XHB.Gen.Xproto.Types.hs
   
  data QueryTextExtentsReply = MkQueryTextExtentsReply{draw_direction_QueryTextExtentsReply
                                                       :: BYTE,
-diff -u generated/1.1/XHB.Gen.Xv.Types.hs working/XHB.Gen.Xv.Types.hs
---- generated/1.1/XHB.Gen.Xv.Types.hs	2008-07-27 11:05:53.000000000 -0500
-+++ working/XHB.Gen.Xv.Types.hs	2008-07-27 11:05:20.000000000 -0500
+diff -u generated/1.2/XHB.Gen.Xv.Types.hs working/XHB.Gen.Xv.Types.hs
+--- generated/1.2/XHB.Gen.Xv.Types.hs	2008-07-27 11:23:10.000000000 -0500
++++ working/XHB.Gen.Xv.Types.hs	2008-07-27 11:22:57.000000000 -0500
 @@ -15,6 +15,7 @@
          ListImageFormatsReply(..), QueryImageAttributes(..),
          QueryImageAttributesReply(..), PutImage(..), ShmPutImage(..))

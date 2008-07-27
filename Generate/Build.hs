@@ -46,7 +46,7 @@ fancyTypeName (UnQualType name) = return name
 fancyTypeName (QualType qual name) = do
   qname <- fancyName qual
   case qname of
-    Just n -> return $ typesModulePrefix $ n ++ "." ++ name
+    Just n -> return $ typesModulePrefix n ++ "." ++ name
     Nothing -> return $ ensureUpper qual ++ "." ++ name
 
 -- fancyName :: Name -> Generate (Maybe Name)
