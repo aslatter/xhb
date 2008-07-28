@@ -13,6 +13,7 @@ module HaskellCombinators
     ,mkQualImport
     ,mkTypeDecl
     ,mkSimpleFun
+    ,mkPatBind
     ,mkTypeSig
     ,mkConsMatch
     ,mkLitMatch
@@ -84,7 +85,7 @@ mkHidingImport name hidings = HsImportDecl
                 (Module name)
                 False
                 Nothing
-                (Just (True, map (HsIVar . HsIdent) hidings)) 
+                (Just (True, map (HsIThingAll . HsIdent) hidings)) 
 
 mkQualImport :: String -> HsImportDecl
 mkQualImport name = HsImportDecl dummLoc (Module name) True Nothing Nothing
@@ -101,6 +102,9 @@ mkExportAll = HsEThingAll . mkUnQName
 
 mkTypeDecl :: String -> [String] -> HsType -> HsDecl
 mkTypeDecl nm args ty = HsTypeDecl dummLoc (HsIdent nm) (map HsIdent args) ty
+
+mkPatBind :: HsPat -> HsExp -> HsDecl
+mkPatBind pat exp = HsPatBind dummLoc pat (HsUnGuardedRhs exp) []
 
 mkSimpleFun :: String  -- ^name
             -> [HsPat] -- ^args
@@ -143,6 +147,7 @@ mkNumLit = HsLit . HsInt . fromIntegral
 hsAppMany :: [HsExp] -> HsExp
 hsAppMany [] = error "hsAppMany called on empty list"
 hsAppMany xs = List.foldl1' HsApp xs
+
 
 mkNewtype :: HsContext
           -> String    -- ^name

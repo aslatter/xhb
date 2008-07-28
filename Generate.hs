@@ -4,7 +4,6 @@ import Generate.Build
 import Generate.Types
 
 import Data.XCB
- -- import XCB.Utils
 
 import HaskellCombinators
 import Language.Haskell.Syntax
@@ -51,7 +50,7 @@ xDecl (XRequest name opcode fields resp) = do
               let rName = (name ++ "Reply")
               declareStruct rName rFields
               exportType rName
-              -- declare instances of serialize/deserialize?
+              declareDeserReply rName rFields
               return True
   logRequest name opcode hasReply
 xDecl (XEvent name opcode fields) = do
@@ -255,6 +254,12 @@ mapTyNames "float" = "CFloat"
 mapTyNames "double" = "CDouble"
 mapTyNames x = x
 
+mapIdents :: String -> String
+mapIdents "data" = "data_"
+mapIdents "type" = "type_"
+mapIdents "class" = "class_"
+mapIdents x = x
+
 exprFields :: Name -> [StructElem] -> Gen
 exprFields name elems = mapM_ go elems
     where go (ExprField nm tp expr) = do
@@ -286,13 +291,13 @@ mkExpr Nothing (FieldRef field) = mkVar field
 mkExpr rec (Op op lhs rhs) =
     let eLhs = mkExpr rec lhs
         eRhs = mkExpr rec rhs
-    in HsParen $ HsInfixApp eLhs (mkOp op) eRhs
+    in HsParen $ HsApp (mkVar "fromIntegral") $ HsParen $ HsInfixApp eLhs (mkOp op) eRhs
 
 mkOp :: Binop -> HsQOp
 mkOp Add  = stringToQOpSymbol "+"
 mkOp Sub  = stringToQOpSymbol "-"
 mkOp Mult = stringToQOpSymbol "*"
-mkOp Div  = stringToQOpSymbol "/"
+mkOp Div  = stringToQOpSymbol "`div`"
 mkOp And  = stringToQOpSymbol ".&."
 mkOp RShift = HsQVarOp . UnQual . HsIdent $ "shiftR"
 
@@ -332,35 +337,65 @@ declareDeserStruct name fields = modifyModule . addDecl $
                   "deserialize"
                   [mkPVar "bo"
                   ]
-                 (HsDo $ deserIns)
+                 (HsDo $ deserIns fields ++ [returnIt name fields])
 
-     deserIns :: [HsStmt]
-     deserIns = mapMaybe go fields ++ [returnIt]
+declareDeserReply :: Name -> [StructElem] -> Gen
+declareDeserReply name fields = modifyModule . addDecl $
+    mkInstDecl
+      []
+      (mkUnQName "Deserialize")
+      [HsTyCon $ mkUnQName name]
+      [deserFunc]
+   where
+     deserFunc :: HsDecl
+     deserFunc = mkSimpleFun
+                 "deserialize"
+                 [mkPVar "bo"]
+                 (HsDo $ deserIns (doFields fields) ++ [declareLengthType, returnIt name fields])
 
+     -- the same as the regular fields, except with more padding
+     -- and the implicit length thrown in
+     doFields (x1 : xs) = Pad 1 : x1 : Pad 2 : SField "length" (UnQualType "CARD32") : xs
+
+     declareLengthType :: HsStmt
+     declareLengthType = HsLetStmt [mkPatBind HsPWildCard $ mkVar "isCard32" `HsApp` mkVar "length"]
+
+deserIns :: [StructElem] -> [HsStmt]
+deserIns fields = mapMaybe go fields
+ where
      go (Pad n) = return $ HsQualifier $ mkVar "skip" `HsApp` mkNumLit n 
      go (List nm typ Nothing) = error "cannot deserialize list with no length"
      go (List nm typ (Just exp))
-         = return $ mkGenerator (mkPVar nm) $ hsAppMany
+         = return $ mkGenerator (mkPVar $ mapIdents nm) $ hsAppMany
            [mkVar "deserializeList"
            ,mkVar "bo"
            ,HsParen $ mkVar "fromIntegral" `HsApp` mkExpr Nothing exp
            ]
-     go (SField nm typ) = return $ mkGenerator (mkPVar nm) $
+
+     go (SField nm typ) = return $ mkGenerator (mkPVar $ mapIdents nm) $
              mkVar "deserialize" `HsApp` mkVar "bo"
      go ExprField{} = empty
+     go v@(ValueParam _ vname _) = let nm = mapIdents $ valueParamName vname
+                         in return $ mkGenerator (mkPVar nm) $
+                            mkVar "deserialize" `HsApp` mkVar "bo"
+     go n = error $ "Pattern match fail in deserIns.go with: " ++ show n
 
-     returnIt :: HsStmt
-     returnIt = HsQualifier $ mkVar "return" `HsApp` HsParen cons
 
-     cons :: HsExp
-     cons = hsAppMany $
-        mkConExp (conPrefix name) : mapMaybe (liftM mkVar . fieldName) fields
+returnIt :: Name -> [StructElem] -> HsStmt
+returnIt name fields = HsQualifier $ mkVar "return" `HsApp` HsParen (cons name fields)
 
-     fieldName :: StructElem -> Maybe Name
-     fieldName Pad{} = empty
-     fieldName (List name _ _) = Just name
-     fieldName (SField name _) = Just name
-     fieldName ExprField{} = empty -- has a name, but we don't want it
+cons :: Name -> [StructElem] -> HsExp
+cons name fields = hsAppMany $
+       mkConExp (conPrefix name) : mapMaybe (liftM (mkVar . mapIdents) . fieldName) fields
+
+fieldName :: StructElem -> Maybe Name
+fieldName Pad{} = empty
+fieldName (List name _ _) = Just name
+fieldName (SField name _) = Just name
+fieldName ExprField{} = empty -- has a name, but we don't want it
+fieldName (ValueParam _ name _) = return $ valueParamName name
+
+
 
 declareSerStruct :: Name -> [StructElem] -> Gen
 declareSerStruct name fields = modifyModule . addDecl $

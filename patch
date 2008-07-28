@@ -1,7 +1,7 @@
 diff -u generated/1.2/XHB.Gen.RandR.Types.hs working/XHB.Gen.RandR.Types.hs
---- generated/1.2/XHB.Gen.RandR.Types.hs	2008-07-27 11:23:10.000000000 -0500
-+++ working/XHB.Gen.RandR.Types.hs	2008-07-27 11:22:57.000000000 -0500
-@@ -503,11 +503,11 @@
+--- generated/1.2/XHB.Gen.RandR.Types.hs	2008-07-27 18:32:38.000000000 -0500
++++ working/XHB.Gen.RandR.Types.hs	2008-07-27 17:59:28.000000000 -0500
+@@ -752,11 +752,11 @@
                                                 mwidth_ScreenChangeNotify :: CARD16,
                                                 mheight_ScreenChangeNotify :: CARD16}
   
@@ -17,7 +17,7 @@ diff -u generated/1.2/XHB.Gen.RandR.Types.hs working/XHB.Gen.RandR.Types.hs
          toValue NotifyCrtcChange{} = 0
          toValue NotifyOutputChange{} = 1
          toValue NotifyOutputProperty{} = 2
-@@ -638,5 +638,23 @@
+@@ -887,5 +887,23 @@
                 skip 11
                 return (MkOutputProperty window output atom timestamp status)
   
@@ -42,27 +42,10 @@ diff -u generated/1.2/XHB.Gen.RandR.Types.hs working/XHB.Gen.RandR.Types.hs
  data Notify = MkNotify{subCode_Notify :: CARD8,
                         u_Notify :: NotifyData}
 \ No newline at end of file
-diff -u generated/1.2/XHB.Gen.Render.Types.hs working/XHB.Gen.Render.Types.hs
---- generated/1.2/XHB.Gen.Render.Types.hs	2008-07-27 11:23:10.000000000 -0500
-+++ working/XHB.Gen.Render.Types.hs	2008-07-27 11:22:57.000000000 -0500
-@@ -367,12 +367,12 @@
- instance Deserialize PICTFORMINFO where
-         deserialize bo
-           = do id <- deserialize bo
--               type <- deserialize bo
-+               type_ <- deserialize bo
-                depth <- deserialize bo
-                skip 2
-                direct <- deserialize bo
-                colormap <- deserialize bo
--               return (MkPICTFORMINFO id type depth direct colormap)
-+               return (MkPICTFORMINFO id type_ depth direct colormap)
-  
- data PICTVISUAL = MkPICTVISUAL{visual_PICTVISUAL :: VISUALID,
-                                format_PICTVISUAL :: PICTFORMAT}
+Only in working: XHB.Gen.RandR.Types.hs.orig
 diff -u generated/1.2/XHB.Gen.XFixes.Types.hs working/XHB.Gen.XFixes.Types.hs
---- generated/1.2/XHB.Gen.XFixes.Types.hs	2008-07-27 11:23:10.000000000 -0500
-+++ working/XHB.Gen.XFixes.Types.hs	2008-07-27 11:22:57.000000000 -0500
+--- generated/1.2/XHB.Gen.XFixes.Types.hs	2008-07-27 18:32:38.000000000 -0500
++++ working/XHB.Gen.XFixes.Types.hs	2008-07-27 17:59:28.000000000 -0500
 @@ -3,7 +3,7 @@
          QueryVersionReply(..), SaveSetMode(..), SaveSetTarget(..),
          SaveSetMapping(..), ChangeSaveSet(..), SelectionEvent(..),
@@ -72,7 +55,7 @@ diff -u generated/1.2/XHB.Gen.XFixes.Types.hs working/XHB.Gen.XFixes.Types.hs
          CursorNotify(..), SelectCursorInput(..), GetCursorImage(..),
          GetCursorImageReply(..), REGION, CreateRegion(..),
          CreateRegionFromBitmap(..), CreateRegionFromWindow(..),
-@@ -146,9 +146,9 @@
+@@ -158,9 +158,9 @@
                                                     selection_SelectSelectionInput :: ATOM,
                                                     event_mask_SelectSelectionInput :: CARD32}
   
@@ -84,27 +67,10 @@ diff -u generated/1.2/XHB.Gen.XFixes.Types.hs working/XHB.Gen.XFixes.Types.hs
          toValue CursorNotifyDisplayCursor{} = 0
          fromValue 0 = CursorNotifyDisplayCursor
   
+Only in working: XHB.Gen.XFixes.Types.hs.orig
 diff -u generated/1.2/XHB.Gen.Xproto.Types.hs working/XHB.Gen.Xproto.Types.hs
---- generated/1.2/XHB.Gen.Xproto.Types.hs	2008-07-27 11:23:10.000000000 -0500
-+++ working/XHB.Gen.Xproto.Types.hs	2008-07-27 11:22:57.000000000 -0500
-@@ -461,7 +461,7 @@
- instance Deserialize VISUALTYPE where
-         deserialize bo
-           = do visual_id <- deserialize bo
--               class <- deserialize bo
-+               class_ <- deserialize bo
-                bits_per_rgb_value <- deserialize bo
-                colormap_entries <- deserialize bo
-                red_mask <- deserialize bo
-@@ -469,7 +469,7 @@
-                blue_mask <- deserialize bo
-                skip 4
-                return
--                 (MkVISUALTYPE visual_id class bits_per_rgb_value colormap_entries
-+                 (MkVISUALTYPE visual_id class_ bits_per_rgb_value colormap_entries
-                     red_mask
-                     green_mask
-                     blue_mask)
+--- generated/1.2/XHB.Gen.Xproto.Types.hs	2008-07-27 18:32:39.000000000 -0500
++++ working/XHB.Gen.Xproto.Types.hs	2008-07-27 17:59:28.000000000 -0500
 @@ -1126,7 +1126,44 @@
                                         WINDOW,
                                         colormap_ColormapNotify :: COLORMAP,
@@ -151,19 +117,20 @@ diff -u generated/1.2/XHB.Gen.Xproto.Types.hs working/XHB.Gen.Xproto.Types.hs
  data ClientMessage = MkClientMessage{format_ClientMessage :: CARD8,
                                       window_ClientMessage :: WINDOW, type_ClientMessage :: ATOM,
                                       data_ClientMessage :: ClientMessageData}
-@@ -1971,6 +2008,9 @@
+@@ -2215,6 +2252,9 @@
  odd_length_QueryTextExtents :: QueryTextExtents -> BOOL
  odd_length_QueryTextExtents x
-   = (string_len_QueryTextExtents x .&. 1)
+   = (fromIntegral (string_len_QueryTextExtents x .&. 1))
 +
 +string_len_QueryTextExtents :: QueryTextExtents -> Word8
 +string_len_QueryTextExtents x = genericLength $ string_QueryTextExtents x
   
  data QueryTextExtentsReply = MkQueryTextExtentsReply{draw_direction_QueryTextExtentsReply
                                                       :: BYTE,
+Only in working: XHB.Gen.Xproto.Types.hs.orig
 diff -u generated/1.2/XHB.Gen.Xv.Types.hs working/XHB.Gen.Xv.Types.hs
---- generated/1.2/XHB.Gen.Xv.Types.hs	2008-07-27 11:23:10.000000000 -0500
-+++ working/XHB.Gen.Xv.Types.hs	2008-07-27 11:22:57.000000000 -0500
+--- generated/1.2/XHB.Gen.Xv.Types.hs	2008-07-27 18:32:39.000000000 -0500
++++ working/XHB.Gen.Xv.Types.hs	2008-07-27 17:59:28.000000000 -0500
 @@ -15,6 +15,7 @@
          ListImageFormatsReply(..), QueryImageAttributes(..),
          QueryImageAttributesReply(..), PutImage(..), ShmPutImage(..))
@@ -172,48 +139,3 @@ diff -u generated/1.2/XHB.Gen.Xv.Types.hs working/XHB.Gen.Xv.Types.hs
  import XHB.Shared
  import Data.Word
  import Foreign.C.Types
-@@ -153,12 +154,12 @@
-                name_size <- deserialize bo
-                num_ports <- deserialize bo
-                num_formats <- deserialize bo
--               type <- deserialize bo
-+               type_ <- deserialize bo
-                pad <- deserialize bo
-                name <- deserializeList bo (fromIntegral name_size)
-                formats <- deserializeList bo (fromIntegral num_formats)
-                return
--                 (MkAdaptorInfo base_id name_size num_ports num_formats type pad
-+                 (MkAdaptorInfo base_id name_size num_ports num_formats type_ pad
-                     name
-                     formats)
-  
-@@ -240,9 +241,9 @@
-                num_planes <- deserialize bo
-                pitches <- deserializeList bo (fromIntegral num_planes)
-                offsets <- deserializeList bo (fromIntegral num_planes)
--               data <- deserializeList bo (fromIntegral data_size)
-+               data_ <- deserializeList bo (fromIntegral data_size)
-                return
--                 (MkImage id width height data_size num_planes pitches offsets data)
-+                 (MkImage id width height data_size num_planes pitches offsets data_)
-  
- data AttributeInfo = MkAttributeInfo{flags_AttributeInfo :: CARD32,
-                                      min_AttributeInfo :: INT32, max_AttributeInfo :: INT32,
-@@ -374,7 +375,7 @@
- instance Deserialize ImageFormatInfo where
-         deserialize bo
-           = do id <- deserialize bo
--               type <- deserialize bo
-+               type_ <- deserialize bo
-                byte_order <- deserialize bo
-                pad1 <- deserialize bo
-                guid <- deserializeList bo (fromIntegral 16)
-@@ -406,7 +407,7 @@
-                vpad9 <- deserialize bo
-                vpad10 <- deserialize bo
-                return
--                 (MkImageFormatInfo id type byte_order pad1 guid bpp num_planes pad2
-+                 (MkImageFormatInfo id type_ byte_order pad1 guid bpp num_planes pad2
-                     depth
-                     pad3
-                     pad4

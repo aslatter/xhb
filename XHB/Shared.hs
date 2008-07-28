@@ -2,6 +2,8 @@
 
 module XHB.Shared where
 
+-- MAY NOT import any gnerated files
+
 import Data.Binary.Put
 import Data.Binary.Get
 
@@ -16,7 +18,20 @@ import Data.Function
 
 import Data.List as L
 
-import Foreign.C.Types (CChar)
+import Foreign.C.Types (CChar, CFloat, CDouble)
+
+import qualified Data.ByteString.Lazy as BS
+import Data.ByteString.Lazy (ByteString)
+
+import Control.Concurrent.STM (TMVar)
+
+-- crazy imports for put/get storable
+import qualified Data.ByteString.Internal as Strict
+import Foreign
+import Foreign.Storable
+import Foreign.Ptr
+import Foreign.ForeignPtr
+
 
 -- |Byte-ordering.
 data BO = BE -- ^Big-endian
@@ -111,7 +126,6 @@ serializeList :: Serialize a => BO -> [a] -> Put
 serializeList bo = mapM_ $ serialize bo
 
 --Instances
-
 
 -- Words
 instance Serialize Word8 where
@@ -216,7 +230,32 @@ getInt32be = liftM fromIntegral getWord32be
 getInt32le :: Get Int32
 getInt32le = liftM fromIntegral getWord32le
 
+-- Fun stuff
 
+-- this is wrong because we ignore byte-order.
+-- oh well.
+instance Deserialize CFloat where
+    deserialize _ = getStorable
+
+instance Deserialize CDouble where
+    deserialize _ = getStorable
+
+
+getStorable :: Storable a => Get a
+getStorable = (\dummy -> do
+       let n = sizeOf dummy
+       bytes <- getBytes n
+       return $ storableFromBS bytes `asTypeOf` dummy
+              ) undefined  
+
+putStorable :: Storable a => a -> Put
+putStorable = putByteString . bsFromStorable
+
+storableFromBS (Strict.PS fptr len off) = 
+    unsafePerformIO $ withForeignPtr fptr $ flip peekElemOff off . castPtr
+
+bsFromStorable x = Strict.unsafeCreate (sizeOf x) $ \p -> do
+                     poke (castPtr p) x
 
 -- Other
 instance Serialize BO where
@@ -251,3 +290,6 @@ setBits a = foldl' go 0 [0 .. (bitSize a) - 1]
 putSkip :: Int -> Put
 putSkip n = replicateM_ n $ putWord8 0
 
+
+isCard32 :: CARD32 -> a
+isCard32 = undefined
