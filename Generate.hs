@@ -204,7 +204,7 @@ declareStruct name fields = do
              name
              []
              [mkRCon (conPrefix name) (selems)]
-             []
+             [mkUnQName "Show"]
          exprFields name fields
     where selemsToRec :: [StructElem] -> Generate [(String,HsBangType)]
           selemsToRec xs = do

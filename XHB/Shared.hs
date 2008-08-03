@@ -38,6 +38,10 @@ data BO = BE -- ^Big-endian
         | LE -- ^Little-endian
  deriving (Show, Ord, Eq)
 
+byteOrderToNum :: BO -> Int
+byteOrderToNum BE = fromEnum '\o102' -- B
+byteOrderToNum LE = fromEnum '\o154' -- l
+
 type CARD8  = Word8
 type CARD16 = Word16
 type CARD32 = Word32
@@ -74,6 +78,10 @@ class BitEnum a where
     toBit :: a -> Int
     fromBit :: Int -> a
 
+instance BitEnum Integer where
+    toBit = fromIntegral
+    fromBit = fromIntegral
+
 fromMask :: (Bits b, BitEnum e) => b -> [e]
 fromMask x = mapMaybe go [0..(bitSize x) - 1]
     where go i | x `testBit` i = return $ fromBit i
@@ -95,16 +103,8 @@ fromValueParam (VP x ws) =
     let es = fromMask x
     in assert (length es == length ws) $ zip es ws
 
-
-{-
-  I really don't know what endianness any
-  of this should be, so I'm going to parameterize
-  over byte-ordering.
- -}
-
-data Config = MkConfig {byteorder :: BO
-                       ,image_byteorder :: BO
-                       }
+instance (Bits a, Show a) => Show (ValueParam a) where
+    show v = show (fromValueParam v :: [(Integer,Word32)])
 
 class Serialize a where
     serialize :: BO -> a -> Put
@@ -112,6 +112,24 @@ class Serialize a where
 
 class Deserialize a where
     deserialize :: BO -> Get a
+
+-- Similar to 'Deserialize', except with the 'ReplyLength'
+-- parameter passed in.
+class Reply a where
+    deserializeReply :: ReplyLength -> BO -> Get a
+
+-- extensions do not know their request opcode until
+-- runtime.
+class ExtRequest a where
+    serializeRequest :: a-> Word8 -> BO -> Put
+
+-- In units of four bytes
+type ReplyLength = Word32
+
+type Receipt a = TMVar (Either RawError a)
+
+type RawError = ByteString
+type RawEvent = ByteString
 
 
 deserializeList :: Deserialize a => BO -> Int -> Get [a]
@@ -258,11 +276,6 @@ bsFromStorable x = Strict.unsafeCreate (sizeOf x) $ \p -> do
                      poke (castPtr p) x
 
 -- Other
-instance Serialize BO where
-    serialize _ BE = putWord8 $ fromIntegral $ fromEnum '\102'
-    serialize _ LE = putWord8 $ fromIntegral $ fromEnum '\154'
-    
-    size _ = 1
 
 instance (Serialize a, Bits a) => Serialize (ValueParam a) where
     serialize bo (VP mask xs) = do
@@ -289,7 +302,6 @@ setBits a = foldl' go 0 [0 .. (bitSize a) - 1]
 
 putSkip :: Int -> Put
 putSkip n = replicateM_ n $ putWord8 0
-
 
 isCard32 :: CARD32 -> a
 isCard32 = undefined

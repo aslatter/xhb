@@ -1,9 +1,9 @@
-diff -u generated/1.2/XHB.Gen.RandR.Types.hs working/XHB.Gen.RandR.Types.hs
---- generated/1.2/XHB.Gen.RandR.Types.hs	2008-07-27 18:32:38.000000000 -0500
-+++ working/XHB.Gen.RandR.Types.hs	2008-07-27 17:59:28.000000000 -0500
-@@ -752,11 +752,11 @@
-                                                mwidth_ScreenChangeNotify :: CARD16,
+diff -u -r generated/1.2/XHB/Gen/RandR/Types.hs working/XHB/Gen/RandR/Types.hs
+--- generated/1.2/XHB/Gen/RandR/Types.hs	2008-08-03 12:42:30.000000000 -0500
++++ working/XHB/Gen/RandR/Types.hs	2008-08-03 12:42:30.000000000 -0500
+@@ -795,11 +795,11 @@
                                                 mheight_ScreenChangeNotify :: CARD16}
+                         deriving Show
   
 -data Notify = NotifyCrtcChange
 -            | NotifyOutputChange
@@ -17,7 +17,7 @@ diff -u generated/1.2/XHB.Gen.RandR.Types.hs working/XHB.Gen.RandR.Types.hs
          toValue NotifyCrtcChange{} = 0
          toValue NotifyOutputChange{} = 1
          toValue NotifyOutputProperty{} = 2
-@@ -887,5 +887,23 @@
+@@ -933,6 +933,24 @@
                 skip 11
                 return (MkOutputProperty window output atom timestamp status)
   
@@ -41,11 +41,12 @@ diff -u generated/1.2/XHB.Gen.RandR.Types.hs working/XHB.Gen.RandR.Types.hs
 +
  data Notify = MkNotify{subCode_Notify :: CARD8,
                         u_Notify :: NotifyData}
+             deriving Show
 \ No newline at end of file
-Only in working: XHB.Gen.RandR.Types.hs.orig
-diff -u generated/1.2/XHB.Gen.XFixes.Types.hs working/XHB.Gen.XFixes.Types.hs
---- generated/1.2/XHB.Gen.XFixes.Types.hs	2008-07-27 18:32:38.000000000 -0500
-+++ working/XHB.Gen.XFixes.Types.hs	2008-07-27 17:59:28.000000000 -0500
+Only in working/XHB/Gen/RandR: Types.hs.orig
+diff -u -r generated/1.2/XHB/Gen/XFixes/Types.hs working/XHB/Gen/XFixes/Types.hs
+--- generated/1.2/XHB/Gen/XFixes/Types.hs	2008-08-03 12:42:30.000000000 -0500
++++ working/XHB/Gen/XFixes/Types.hs	2008-08-03 12:42:30.000000000 -0500
 @@ -3,7 +3,7 @@
          QueryVersionReply(..), SaveSetMode(..), SaveSetTarget(..),
          SaveSetMapping(..), ChangeSaveSet(..), SelectionEvent(..),
@@ -55,9 +56,9 @@ diff -u generated/1.2/XHB.Gen.XFixes.Types.hs working/XHB.Gen.XFixes.Types.hs
          CursorNotify(..), SelectCursorInput(..), GetCursorImage(..),
          GetCursorImageReply(..), REGION, CreateRegion(..),
          CreateRegionFromBitmap(..), CreateRegionFromWindow(..),
-@@ -158,9 +158,9 @@
-                                                    selection_SelectSelectionInput :: ATOM,
+@@ -165,9 +165,9 @@
                                                     event_mask_SelectSelectionInput :: CARD32}
+                           deriving Show
   
 -data CursorNotify = CursorNotifyDisplayCursor
 +data CursorNotifyEnum = CursorNotifyDisplayCursor
@@ -67,29 +68,31 @@ diff -u generated/1.2/XHB.Gen.XFixes.Types.hs working/XHB.Gen.XFixes.Types.hs
          toValue CursorNotifyDisplayCursor{} = 0
          fromValue 0 = CursorNotifyDisplayCursor
   
-Only in working: XHB.Gen.XFixes.Types.hs.orig
-diff -u generated/1.2/XHB.Gen.Xproto.Types.hs working/XHB.Gen.Xproto.Types.hs
---- generated/1.2/XHB.Gen.Xproto.Types.hs	2008-07-27 18:32:39.000000000 -0500
-+++ working/XHB.Gen.Xproto.Types.hs	2008-07-27 17:59:28.000000000 -0500
-@@ -1126,7 +1126,44 @@
-                                        WINDOW,
+Only in working/XHB/Gen/XFixes: Types.hs.orig
+diff -u -r generated/1.2/XHB/Gen/Xproto/Types.hs working/XHB/Gen/Xproto/Types.hs
+--- generated/1.2/XHB/Gen/Xproto/Types.hs	2008-08-03 12:42:30.000000000 -0500
++++ working/XHB/Gen/Xproto/Types.hs	2008-08-03 12:48:13.000000000 -0500
+@@ -1170,6 +1170,48 @@
                                         colormap_ColormapNotify :: COLORMAP,
                                         new_ColormapNotify :: BOOL, state_ColormapNotify :: BYTE}
-- 
+                     deriving Show
 +
++ 
 +data ClientMessageData = ClientData8  [CARD8]  -- ^length 20
 +                       | ClientData16 [CARD16] -- ^length 10
 +                       | ClientData32 [CARD32] -- ^length 5
++                   deriving Show
 +
++ 
 +data ClientMessageDataType = CDType8
-+                           | CDType16
-+                           | CDType32
-+
++                            | CDType16
++                            | CDType32
++ 
 +clientMessageDataType :: ClientMessageData -> ClientMessageDataType
 +clientMessageDataType ClientData8{}  = CDType8
 +clientMessageDataType ClientData16{} = CDType16
 +clientMessageDataType ClientData32{} = CDType32
-+
++ 
 +instance Serialize ClientMessageData where
 +    serialize bo (ClientData8 xs) = assert (length xs == 20) $
 +                                    serializeList bo xs
@@ -97,14 +100,14 @@ diff -u generated/1.2/XHB.Gen.Xproto.Types.hs working/XHB.Gen.Xproto.Types.hs
 +                                     serializeList bo xs
 +    serialize bo (ClientData32 xs) = assert (length xs == 5) $
 +                                     serializeList bo xs
-+
++ 
 +    size cd = assert
 +         (case cd of
 +            ClientData8  xs -> length xs == 20
 +            ClientData16 xs -> length xs == 10
 +            ClientData32 xs -> length xs == 5)
 +         20
-+
++ 
 +deserializeClientData :: BO -> ClientMessageDataType -> Get ClientMessageData
 +deserializeClientData bo CDType8
 +    = ClientData8 `liftM` deserializeList bo 20
@@ -112,12 +115,13 @@ diff -u generated/1.2/XHB.Gen.Xproto.Types.hs working/XHB.Gen.Xproto.Types.hs
 +    = ClientData16 `liftM` deserializeList bo 10
 +deserializeClientData bo CDType32
 +    = ClientData32 `liftM` deserializeList bo 5
++ 
++ 
 +
-+
+  
  data ClientMessage = MkClientMessage{format_ClientMessage :: CARD8,
                                       window_ClientMessage :: WINDOW, type_ClientMessage :: ATOM,
-                                      data_ClientMessage :: ClientMessageData}
-@@ -2215,6 +2252,9 @@
+@@ -2343,6 +2385,9 @@
  odd_length_QueryTextExtents :: QueryTextExtents -> BOOL
  odd_length_QueryTextExtents x
    = (fromIntegral (string_len_QueryTextExtents x .&. 1))
@@ -127,10 +131,11 @@ diff -u generated/1.2/XHB.Gen.Xproto.Types.hs working/XHB.Gen.Xproto.Types.hs
   
  data QueryTextExtentsReply = MkQueryTextExtentsReply{draw_direction_QueryTextExtentsReply
                                                       :: BYTE,
-Only in working: XHB.Gen.Xproto.Types.hs.orig
-diff -u generated/1.2/XHB.Gen.Xv.Types.hs working/XHB.Gen.Xv.Types.hs
---- generated/1.2/XHB.Gen.Xv.Types.hs	2008-07-27 18:32:39.000000000 -0500
-+++ working/XHB.Gen.Xv.Types.hs	2008-07-27 17:59:28.000000000 -0500
+Only in working/XHB/Gen/Xproto: Types.hs.orig
+Only in working/XHB/Gen/Xproto: Types.hs.rej
+diff -u -r generated/1.2/XHB/Gen/Xv/Types.hs working/XHB/Gen/Xv/Types.hs
+--- generated/1.2/XHB/Gen/Xv/Types.hs	2008-08-03 12:42:30.000000000 -0500
++++ working/XHB/Gen/Xv/Types.hs	2008-08-03 12:42:30.000000000 -0500
 @@ -15,6 +15,7 @@
          ListImageFormatsReply(..), QueryImageAttributes(..),
          QueryImageAttributesReply(..), PutImage(..), ShmPutImage(..))

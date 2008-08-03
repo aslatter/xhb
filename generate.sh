@@ -22,7 +22,7 @@ TEST_PROG=Scripts/Generate
     [ -d patched ] && rm -rf patched
     cp -r ${OUT_DIR} patched
     cd patched
-    patch -u < ../patch || {
+    patch -u -p 1 < ../patch || {
         cd ..
         echo "failed to patch properly"
         exit ${GENERAL_ERROR}
