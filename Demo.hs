@@ -17,21 +17,15 @@ import qualified XHB.Gen.Xproto.Types as X
 import System.IO
 
 main = do
-  hM <- X.open Nothing
+  h <- X.openMac
 
-  case hM of
-    Nothing -> do
-            putStrLn "Failed to get handle"
-            return ()
-    Just h -> do
+  hSetBuffering h NoBuffering
 
-      hSetBuffering h NoBuffering
+  connectionM <- X.mkConnection h
 
-      connectionM <- X.mkConnection h
-
-      case connectionM of
-        Nothing -> putStrLn "failed to get connection"
-        Just c -> demo c
+  case connectionM of
+    Nothing -> putStrLn "failed to get connection"
+    Just c -> demo c
 
 demo :: X.Connection -> IO ()
 demo c = do

@@ -114,10 +114,10 @@ class Deserialize a where
     deserialize :: BO -> Get a
 
 
--- extensions do not know their request opcode until
--- runtime.
-class ExtRequest a where
-    serializeRequest :: a-> Word8 -> BO -> Put
+
+type RequestOpCode = Word8
+type ExtensionId = String -- limited to ASCII
+  
 
 -- In units of four bytes
 type ReplyLength = Word32

@@ -2,26 +2,29 @@
 module XHB.Connection.Open where
 
 import System.Environment(getEnv)
-import System.IO
+import System.IO hiding (openFile)
 
 import Control.Exception
 
 import Network.Socket
 
--- |This probably only works for me, but it's good enough for testing
-open :: Maybe String -> IO (Maybe Handle)
-open Nothing = do
-  envOrErr <- try $ getEnv "DISPLAY"
+-- | Opens the standard file-socket on unix for connecting
+-- to a local X11 display.
+openUnix :: IO Handle
+openUnix = openFile "/tmp/.X11-unix/X0"
 
-  case envOrErr of
-    Left{} -> return Nothing
-    Right displayName ->
-       let addr = SockAddrUnix displayName
-           family = AF_UNIX
-       in do
-         s <- socket family Stream defaultProtocol
-         connect s addr
-         
-         h <- socketToHandle s ReadWriteMode
+openFile file = do
+  let addr = SockAddrUnix file
+      family = AF_UNIX
 
-         return $ return $ h
+  s <- socket family Stream defaultProtocol
+  connect s addr
+
+  socketToHandle s ReadWriteMode
+
+-- | This works on my mac laptop
+openMac :: IO Handle
+openMac = do
+  file <- getEnv "DISPLAY"
+
+  openFile file
