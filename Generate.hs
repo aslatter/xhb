@@ -43,7 +43,7 @@ xDecl (XImport name) = xImport name
 xDecl (XRequest name opcode fields resp) = do
   declareStruct name fields
   exportType name
-  -- declare instances or serialize/deserialize?
+  declareSerRequest name opcode fields
   hasReply <- case resp of
     Nothing -> return False
     Just rFields -> do
@@ -396,7 +396,6 @@ fieldName ExprField{} = empty -- has a name, but we don't want it
 fieldName (ValueParam _ name _) = return $ valueParamName name
 
 
-
 declareSerStruct :: Name -> [StructElem] -> Gen
 declareSerStruct name fields = modifyModule . addDecl $
     mkInstDecl
@@ -408,59 +407,110 @@ declareSerStruct name fields = modifyModule . addDecl $
       ]
   where
     sizeFunc :: HsDecl
-    sizeFunc = mkSimpleFun
-                "size"
+    sizeFunc = mkSimpleFun "size"
                 [mkPVar "x"]
-                (L.foldl1' add $ mapMaybe toFieldSize fields)
-
-    add :: HsExp -> HsExp -> HsExp
-    add = expBinop "+"
-
-    mult :: HsExp -> HsExp -> HsExp
-    mult = expBinop "*"
-
-    expBinop op lhs rhs = HsInfixApp lhs (HsQVarOp . UnQual $ HsSymbol op) rhs
-
-    accessField fieldName =
-        mkVar (accessor fieldName name) `HsApp` mkVar "x"
-
-    sizeOfType typ = (mkVar "size" `HsApp`) $ HsParen $
-                     mkVar "undefined" `mkAsExp` HsTyCon (mkUnQName typ)
-
-    sizeOfMember fname = (mkVar "size" `HsApp`) $ HsParen $
-                           accessField fname
-
-    toFieldSize :: StructElem -> Maybe HsExp
-    toFieldSize (Pad n) = return $ mkNumLit n
-    toFieldSize (List lname typ _expr) = return $
-         (mkVar "sum" `HsApp`) $ HsParen $
-         ((mkVar "map" `HsApp` mkVar "size") `HsApp`) $ HsParen $
-         accessField lname
-    toFieldSize (SField fname _typ) = return $ sizeOfMember fname
-    toFieldSize (ExprField _ _ _) = Nothing
-    toFieldSize (ValueParam _ name _) = return $
-          sizeOfMember . valueParamName $ name
+                (L.foldl1' addExp $ mapMaybe (toFieldSize name) fields)
 
 
     serializeFunc = mkSimpleFun "serialize"
           [mkPVar "bo"
           ,mkPVar "x"]
-          (HsDo $ map HsQualifier $ mapMaybe serField fields)
+          (HsDo $ map HsQualifier $ mapMaybe (serField name) fields)
 
-    serField :: StructElem -> Maybe HsExp
-    serField (Pad n) -- "putSkip n"
+-- | Returns 'True' if code is being generated for an extension
+isExtension :: Generate Bool
+isExtension = do
+  xhd <- current
+  return $ not $ isNothing $ xheader_xname xhd
+
+declareSerRequest :: Name -> Int -> [StructElem] -> Gen
+declareSerRequest name opCode fields = do
+  ext <- isExtension
+  if ext then return () else
+      modifyModule . addDecl $
+        mkInstDecl
+        []
+        (mkUnQName "Serialize")
+        [HsTyCon $ mkUnQName name]
+        [serializeFunc,
+         sizeFunc
+        ]
+  where
+    sizeFunc :: HsDecl
+    sizeFunc = mkSimpleFun "size"
+                [mkPVar "x"]
+                (L.foldl1' addExp sizeExps)
+
+    sizeExps :: [HsExp]
+    sizeExps = case serActions of
+                 [] -> [mkNumLit 4]
+                 _ -> mkNumLit 3 : mapMaybe (toFieldSize name) fields
+
+    serializeFunc = mkSimpleFun "serialize"
+           [mkPVar "bo"
+           ,mkPVar "x"]
+           (HsDo $ map HsQualifier $ leadingActs ++ trailingActs)
+
+    serActions = mapMaybe (serField name) fields
+    leadingActs = [putIntExp opCode,firstAction serActions]
+    trailingActs = (putSize : drop 1 serActions) ++ [putPadding]
+
+    firstAction [] = mkVar "putSkip" `HsApp` mkNumLit 1
+    firstAction (x:_) = x
+
+    putIntExp n = mkVar "putInt8" `HsApp` mkNumLit n
+
+    putSize = HsApp serializeExp $ HsParen $ mkAsExp sizeExp $ mkTyCon "INT16"
+
+    serializeExp = mkVar "serialize" `HsApp` mkVar "bo"
+
+    sizeExp = HsApp (mkVar "convertBytesToRequestSize") $
+                HsParen $ mkVar "size" `HsApp` mkVar "x"
+
+    putPadding = HsApp (mkVar "putSkip") $ HsParen $
+                 HsApp (mkVar "requiredPadding") $  HsParen $
+                 mkVar "size" `HsApp` mkVar "x"
+
+serField :: Name -> StructElem -> Maybe HsExp
+serField _ (Pad n) -- "putSkip n"
         = return $ mkVar "putSkip" `HsApp` mkNumLit n
-    serField (List name _typ _expr) -- serializeList bo <list>
+serField name (List lname _typ _expr) -- serializeList bo <list>
         = return $ 
           HsApp (mkVar "serializeList" `HsApp` mkVar "bo") $ HsParen $
-          accessField name
-    serField (SField fname _typ) -- serialize bo <field>
+          accessField name lname
+serField name (SField fname _typ) -- serialize bo <field>
         = return $ HsApp (mkVar "serialize" `HsApp` mkVar "bo") $ HsParen $
-          accessField fname
-    serField ExprField{}  = Nothing
-    serField (ValueParam _ mname _) -- serialize bo <field>
+          accessField name fname
+serField _ ExprField{}  = Nothing
+serField name (ValueParam _ mname _) -- serialize bo <field>
         = return $ HsApp (mkVar "serialize" `HsApp` mkVar "bo") $ HsParen $
-          accessField $ valueParamName mname
+          accessField name $ valueParamName mname
+
+
+addExp :: HsExp -> HsExp -> HsExp
+addExp = expBinop "+"
+
+expBinop op lhs rhs = HsInfixApp lhs (HsQVarOp . UnQual $ HsSymbol op) rhs
+
+accessField name fieldName =
+        mkVar (accessor fieldName name) `HsApp` mkVar "x"
+
+    -- sizeOfType typ = (mkVar "size" `HsApp`) $ HsParen $
+    --                 mkVar "undefined" `mkAsExp` HsTyCon (mkUnQName typ)
+
+sizeOfMember name fname = (mkVar "size" `HsApp`) $ HsParen $
+                           accessField name fname
+
+toFieldSize :: Name -> StructElem -> Maybe HsExp
+toFieldSize _ (Pad n) = return $ mkNumLit n
+toFieldSize name (List lname typ _expr) = return $
+        (mkVar "sum" `HsApp`) $ HsParen $
+        ((mkVar "map" `HsApp` mkVar "size") `HsApp`) $ HsParen $
+        accessField name lname
+toFieldSize name (SField fname _typ) = return $ sizeOfMember name fname
+toFieldSize _ ExprField{} = Nothing
+toFieldSize name (ValueParam _ vname _) = return $
+                sizeOfMember name . valueParamName $ vname
 
 -- |Defines a newtype declaration.
 simpleNewtype :: String   -- typename

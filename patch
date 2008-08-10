@@ -1,5 +1,5 @@
 diff -u -r generated/1.2/XHB/Gen/RandR/Types.hs working/XHB/Gen/RandR/Types.hs
---- generated/1.2/XHB/Gen/RandR/Types.hs	2008-08-03 12:42:30.000000000 -0500
+--- generated/1.2/XHB/Gen/RandR/Types.hs	2008-08-05 22:49:15.000000000 -0500
 +++ working/XHB/Gen/RandR/Types.hs	2008-08-03 12:42:30.000000000 -0500
 @@ -795,11 +795,11 @@
                                                 mheight_ScreenChangeNotify :: CARD16}
@@ -45,7 +45,7 @@ diff -u -r generated/1.2/XHB/Gen/RandR/Types.hs working/XHB/Gen/RandR/Types.hs
 \ No newline at end of file
 Only in working/XHB/Gen/RandR: Types.hs.orig
 diff -u -r generated/1.2/XHB/Gen/XFixes/Types.hs working/XHB/Gen/XFixes/Types.hs
---- generated/1.2/XHB/Gen/XFixes/Types.hs	2008-08-03 12:42:30.000000000 -0500
+--- generated/1.2/XHB/Gen/XFixes/Types.hs	2008-08-05 22:49:15.000000000 -0500
 +++ working/XHB/Gen/XFixes/Types.hs	2008-08-03 12:42:30.000000000 -0500
 @@ -3,7 +3,7 @@
          QueryVersionReply(..), SaveSetMode(..), SaveSetTarget(..),
@@ -70,9 +70,33 @@ diff -u -r generated/1.2/XHB/Gen/XFixes/Types.hs working/XHB/Gen/XFixes/Types.hs
   
 Only in working/XHB/Gen/XFixes: Types.hs.orig
 diff -u -r generated/1.2/XHB/Gen/Xproto/Types.hs working/XHB/Gen/Xproto/Types.hs
---- generated/1.2/XHB/Gen/Xproto/Types.hs	2008-08-03 12:42:30.000000000 -0500
-+++ working/XHB/Gen/Xproto/Types.hs	2008-08-03 12:48:13.000000000 -0500
-@@ -1170,6 +1170,48 @@
+--- generated/1.2/XHB/Gen/Xproto/Types.hs	2008-08-05 22:49:15.000000000 -0500
++++ working/XHB/Gen/Xproto/Types.hs	2008-08-05 22:47:21.000000000 -0500
+@@ -610,6 +610,7 @@
+                serialize bo (protocol_minor_version_SetupRequest x)
+                serialize bo (authorization_protocol_name_len_SetupRequest x)
+                serialize bo (authorization_protocol_data_len_SetupRequest x)
++               putSkip 2
+                serializeList bo (authorization_protocol_name_SetupRequest x)
+                serializeList bo (authorization_protocol_data_SetupRequest x)
+         size x
+@@ -618,6 +619,7 @@
+               + size (protocol_minor_version_SetupRequest x)
+               + size (authorization_protocol_name_len_SetupRequest x)
+               + size (authorization_protocol_data_len_SetupRequest x)
++              + 2
+               + sum (map size (authorization_protocol_name_SetupRequest x))
+               + sum (map size (authorization_protocol_data_SetupRequest x))
+  
+@@ -629,6 +631,7 @@
+                protocol_minor_version <- deserialize bo
+                authorization_protocol_name_len <- deserialize bo
+                authorization_protocol_data_len <- deserialize bo
++               skip 2
+                authorization_protocol_name <- deserializeList bo
+                                                 (fromIntegral authorization_protocol_name_len)
+                authorization_protocol_data <- deserializeList bo
+@@ -1170,6 +1173,48 @@
                                         colormap_ColormapNotify :: COLORMAP,
                                         new_ColormapNotify :: BOOL, state_ColormapNotify :: BYTE}
                      deriving Show
@@ -121,7 +145,7 @@ diff -u -r generated/1.2/XHB/Gen/Xproto/Types.hs working/XHB/Gen/Xproto/Types.hs
   
  data ClientMessage = MkClientMessage{format_ClientMessage :: CARD8,
                                       window_ClientMessage :: WINDOW, type_ClientMessage :: ATOM,
-@@ -2343,6 +2385,9 @@
+@@ -2343,6 +2388,9 @@
  odd_length_QueryTextExtents :: QueryTextExtents -> BOOL
  odd_length_QueryTextExtents x
    = (fromIntegral (string_len_QueryTextExtents x .&. 1))
@@ -133,8 +157,9 @@ diff -u -r generated/1.2/XHB/Gen/Xproto/Types.hs working/XHB/Gen/Xproto/Types.hs
                                                       :: BYTE,
 Only in working/XHB/Gen/Xproto: Types.hs.orig
 Only in working/XHB/Gen/Xproto: Types.hs.rej
+Only in working/XHB/Gen/Xproto: Types.o
 diff -u -r generated/1.2/XHB/Gen/Xv/Types.hs working/XHB/Gen/Xv/Types.hs
---- generated/1.2/XHB/Gen/Xv/Types.hs	2008-08-03 12:42:30.000000000 -0500
+--- generated/1.2/XHB/Gen/Xv/Types.hs	2008-08-05 22:49:15.000000000 -0500
 +++ working/XHB/Gen/Xv/Types.hs	2008-08-03 12:42:30.000000000 -0500
 @@ -15,6 +15,7 @@
          ListImageFormatsReply(..), QueryImageAttributes(..),

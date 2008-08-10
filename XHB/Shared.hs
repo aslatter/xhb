@@ -113,10 +113,6 @@ class Serialize a where
 class Deserialize a where
     deserialize :: BO -> Get a
 
--- Similar to 'Deserialize', except with the 'ReplyLength'
--- parameter passed in.
-class Reply a where
-    deserializeReply :: ReplyLength -> BO -> Get a
 
 -- extensions do not know their request opcode until
 -- runtime.
@@ -142,6 +138,16 @@ deserializeList bo n = go n
 
 serializeList :: Serialize a => BO -> [a] -> Put
 serializeList bo = mapM_ $ serialize bo
+
+convertBytesToRequestSize n =
+    fromIntegral $ case quotRem n 4 of
+      (d,0) -> d
+      (d,r) -> d + 1
+
+requiredPadding n = 
+    fromIntegral $ case quotRem n 4 of
+      (_,0) -> 0
+      (_,r) -> 4 - r
 
 --Instances
 
