@@ -36,6 +36,7 @@ sendRequestWithReply c bytes r = withConnectionHandle c $ \h -> do
     seq <- nextSequence c
     writeTChan (conn_reps c) $ PendedReply seq $ WrappedReply r
 
+byteOrderFromConn = conf_byteorder . conn_conf 
 
 -- | convert an extension request to a put action
 {-

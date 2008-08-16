@@ -34,6 +34,7 @@ module HaskellCombinators
     ,mkRCon
     ,mkClass
     ,mkGenerator
+    ,mkLetStmt
     ) where
 
 import Language.Haskell.Syntax
@@ -75,6 +76,11 @@ dummLoc = SrcLoc "dummy location" 0 0
 -- Part of a 'do' block or list comprehension.
 mkGenerator :: HsPat -> HsExp -> HsStmt
 mkGenerator = HsGenerator dummLoc
+
+-- |Statement of the form (let [pattern] = [expression]).
+-- part of a 'do' block.
+mkLetStmt :: HsPat -> HsExp -> HsStmt
+mkLetStmt pat expr = HsLetStmt [HsPatBind dummLoc pat (HsUnGuardedRhs expr) []]
 
 -- |Simple import statement
 mkImport str = HsImportDecl dummLoc (Module str) False Nothing Nothing

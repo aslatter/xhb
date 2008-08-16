@@ -6,13 +6,12 @@ import Data.Word
 import qualified Data.ByteString.Lazy as BS
 
 import qualified XHB.Connection as X
-import qualified XHB.Connection.Types as X
 import qualified XHB.Connection.Open as X
-import qualified XHB.Connection.Internal as X
+import qualified XHB.Connection.Types as X
 import qualified XHB.Shared as X
 
 import qualified XHB.Gen.Xproto.Types as X
-
+import XHB.Gen.Xproto
 
 import System.IO
 
@@ -73,34 +72,6 @@ printSSRep r = sequence_ $ map putStrLn
 -- this could be in a library somewhere
 strToString :: X.STR -> String
 strToString = map castCCharToChar . X.name_STR
-
-
-
--- this will be automatically generated
-listExtensions :: X.Connection -> IO (X.Receipt (X.ListExtensionsReply))
-listExtensions c = do
-  receipt <- newEmptyTMVarIO
-  let chunk = runPut $ X.serialize X.BE X.MkListExtensions
-  X.sendRequestWithReply c chunk receipt
-  return receipt
-
--- this will be automatically generated
-getScreenSaver :: X.Connection -> IO (X.Receipt (X.GetScreenSaverReply))
-getScreenSaver c = do
-  receipt <- newEmptyTMVarIO
-  let chunk = runPut $ X.serialize X.BE X.MkGetScreenSaver
-  X.sendRequestWithReply c chunk receipt
-  return receipt
-
-createWindow :: X.Connection -> X.CreateWindow -> IO ()
-createWindow c req = do
-  let chunk = runPut $ X.serialize X.BE req
-  X.sendRequest c chunk
-
-mapWindow :: X.Connection -> X.WINDOW -> IO ()
-mapWindow c w = do
-  let chunk = runPut $ X.serialize X.BE $ X.MkMapWindow w
-  X.sendRequest c chunk
 
 demoCreateWindowReq :: X.Connection -> X.WINDOW -> X.CreateWindow
 demoCreateWindowReq c w

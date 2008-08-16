@@ -1,6 +1,8 @@
 
 import Data.XCB
+
 import Generate
+import Generate.Functions(functionsModules)
 
 import System.IO
 import System.Environment
@@ -16,10 +18,14 @@ import Language.Haskell.Pretty
 main = do
   out:fs <- getArgs
   xheaders <- fromFiles fs
-  writeModules out xheaders
+  let modules = mkModules xheaders
+  writeModules out modules
 
-writeModules :: FilePath -> [XHeader] -> IO ()
-writeModules out = sequence_ . map (writeModule out) . toHsModules
+mkModules :: [XHeader] -> [HsModule]
+mkModules xhds = toHsModules xhds ++ functionsModules xhds
+
+writeModules :: FilePath -> [HsModule] -> IO ()
+writeModules out = sequence_ . map (writeModule out)
 
 writeModule :: FilePath -> HsModule -> IO ()
 writeModule outdir hsmod = 
