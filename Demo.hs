@@ -1,6 +1,4 @@
-import Data.Binary.Put
 import Foreign.C.String
-import Control.Concurrent.STM
 import Data.Word
 
 import qualified Data.ByteString.Lazy as BS
