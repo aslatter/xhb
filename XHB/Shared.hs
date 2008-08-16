@@ -103,6 +103,9 @@ fromValueParam (VP x ws) =
     let es = fromMask x
     in assert (length es == length ws) $ zip es ws
 
+emptyValueParam :: Bits a => ValueParam a
+emptyValueParam = VP 0 []
+
 instance (Bits a, Show a) => Show (ValueParam a) where
     show v = show (fromValueParam v :: [(Integer,Word32)])
 

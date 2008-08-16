@@ -7,7 +7,6 @@ import qualified Data.ByteString.Lazy as BS
 
 import qualified XHB.Connection as X
 import qualified XHB.Connection.Open as X
-import qualified XHB.Connection.Types as X
 import qualified XHB.Shared as X
 
 import qualified XHB.Gen.Xproto.Types as X
@@ -73,12 +72,13 @@ printSSRep r = sequence_ $ map putStrLn
 strToString :: X.STR -> String
 strToString = map castCCharToChar . X.name_STR
 
+-- | Create the data needed for the 'createWindow' request
 demoCreateWindowReq :: X.Connection -> X.WINDOW -> X.CreateWindow
 demoCreateWindowReq c w
     = X.MkCreateWindow
       0
       w
-      (getRoot c)
+      (X.getRoot c)
       0
       0
       100
@@ -86,11 +86,9 @@ demoCreateWindowReq c w
       5
       0
       0
-      (X.toValueParam ([] :: [(Integer,Word32)]))
+      (X.emptyValueParam)
 
 -- errors are returned as bytestrings, currently
 showError :: X.RawError -> String
 showError = show . BS.unpack
 
-getRoot :: X.Connection -> X.WINDOW
-getRoot = X.root_SCREEN . head . X.roots_Setup . X.conf_setup . X.conn_conf

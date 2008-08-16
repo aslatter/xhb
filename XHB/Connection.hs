@@ -10,6 +10,7 @@ module XHB.Connection
     ,RawEvent
     ,RawError
     ,connectionSetup
+    ,getRoot
     ,getReply
     )
     where
@@ -323,3 +324,6 @@ setupRequest bo = MkSetupRequest
                   [] -- auth data
 
                   
+
+getRoot :: Connection -> WINDOW
+getRoot = root_SCREEN . head . roots_Setup . conf_setup . conn_conf
