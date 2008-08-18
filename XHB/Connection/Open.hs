@@ -7,24 +7,38 @@ import Control.Exception
 import Control.Monad
 
 import Network.Socket
+import Graphics.X11.Xauth
+import Foreign.C (CChar)
 
 
 -- | Open a Handle to the X11 server specified in the argument.  The DISPLAY
 -- environment variable is consulted if the argument is null.
-open :: String -> IO Handle
+open :: String -> IO (Handle , Maybe Xauth)
 open s = do
     name <- if null s then getEnv "DISPLAY" else return s
-    Just (family, addr, sn) <- return $ parse name
+    Just (family, addr, sn, dn) <- return $ parse name
 
     s <- socket family Stream defaultProtocol
     connect s addr
 
-    socketToHandle s ReadWriteMode
+    (mhn, _) <- getNameInfo [] True False addr
+    let auth hn = getAuthByAddr familyLocal (cstring hn) (cstring $ show dn) authType
+    mauth <- maybe (return Nothing) auth mhn
+
+    h <- socketToHandle s ReadWriteMode
+
+    return (h, mauth)
+ where
+    authType = cstring "MIT-MAGIC-COOKIE-1"
+
+cstring :: String -> [CChar]
+cstring xs = map (fromIntegral . fromEnum) xs
 
 -- | Parse the contents of an X11 DISPLAY string.
 parse :: String -> Maybe ( Family
                          , SockAddr
                          , Int -- ^ screen number
+                         , Int -- ^ display number
                          )
 parse name = do
     (host, displayscreen) <- splitLast ':' name
@@ -32,7 +46,7 @@ parse name = do
         Just (display, screen) -> liftM2 (,) (readM display) (readM screen)
         Nothing -> fmap (flip (,) 0) (readM displayscreen)
 
-    let file path = (AF_UNIX, SockAddrUnix path, s)
+    let file path = (AF_UNIX, SockAddrUnix path, s, d)
 
     case () of
         _ | null host        -> return . file $ unix (d :: Int)

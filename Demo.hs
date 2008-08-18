@@ -13,11 +13,11 @@ import XHB.Gen.Xproto
 import System.IO
 
 main = do
-  h <- X.open ""
+  (h, auth) <- X.open ""
 
   hSetBuffering h NoBuffering
 
-  connectionM <- X.mkConnection h
+  connectionM <- X.mkConnection h auth
 
   case connectionM of
     Nothing -> putStrLn "failed to get connection"

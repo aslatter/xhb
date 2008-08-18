@@ -28,6 +28,7 @@ import System.IO
 
 import Foreign.C.String
 
+import Data.List (genericLength)
 import Data.Maybe
 
 import Data.ByteString.Lazy(ByteString)
@@ -43,6 +44,8 @@ import XHB.Gen.Xproto.Types
 import XHB.Connection.Types
 import XHB.Connection.Internal
 import XHB.Shared
+
+import Graphics.X11.Xauth
 
 -- | Returns the 'Setup' information returned by the server
 -- during the initiation of the connection.
@@ -204,8 +207,8 @@ readLoopEvent rl genRep chunk =
 -- Handshake with the server
 -- parse result of handshake
 -- launch the thread which holds the handle for reading
-mkConnection :: Handle -> IO (Maybe Connection)
-mkConnection hnd = do
+mkConnection :: Handle -> Maybe Xauth -> IO (Maybe Connection)
+mkConnection hnd auth = do
   errorQueue <- newTChanIO
   eventQueue <- newTChanIO
   replies <- newTChanIO
@@ -213,7 +216,7 @@ mkConnection hnd = do
 
   wrappedHandle <- newMVar hnd 
 
-  confM <- handshake hnd
+  confM <- handshake hnd auth
   if isNothing confM then return Nothing else do
   let Just conf = confM
 
@@ -273,14 +276,14 @@ instance Deserialize SetupStatus where
 
 -- send the setup request to the server,
 -- receive the setup response
-handshake :: Handle -> IO (Maybe ConnectionConfig)
-handshake hnd = do
+handshake :: Handle -> Maybe Xauth -> IO (Maybe ConnectionConfig)
+handshake hnd auth = do
 
   let bo = BE
 
   -- send setup request
 
-  let requestChunk =  runPut $ serialize bo $ setupRequest bo
+  let requestChunk =  runPut $ serialize bo $ setupRequest bo auth
   BS.hPut hnd $ requestChunk
 
   -- grab an 8-byte chunk to get the response type and size
@@ -313,17 +316,24 @@ padBS n = BS.replicate n 0
 initialSequence :: IO (TVar SequenceId)
 initialSequence = newTVarIO 1
 
-setupRequest :: BO -> SetupRequest
-setupRequest bo = MkSetupRequest
+setupRequest :: BO -> Maybe Xauth -> SetupRequest
+setupRequest bo auth = MkSetupRequest
                   (fromIntegral $ byteOrderToNum bo)
-                  11 -- major version
-                  0  -- minor version
-                  0 -- auth name length
-                  0 -- auth data length
-                  [] -- auth name
-                  [] -- auth data
+                  11       -- major version
+                  0        -- minor version
+                  anamelen -- auth name length
+                  adatalen -- auth data length
+                  -- TODO this manual padding is a horrible hack, it should be
+                  -- done by the serialization instance
+                  (aname ++ replicate (requiredPadding anamelen) 0)
+                           -- auth name
+                  (adata ++ replicate (requiredPadding adatalen) 0)
+                           -- auth data
+ where
+    (anamelen, aname, adatalen, adata) = case auth of
+        Nothing -> (0, [], 0, [])
+        Just (Xauth n d) -> (genericLength n, n, genericLength d, d)
 
-                  
 
 getRoot :: Connection -> WINDOW
 getRoot = root_SCREEN . head . roots_Setup . conf_setup . conn_conf
