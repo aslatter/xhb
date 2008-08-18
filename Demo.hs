@@ -13,7 +13,7 @@ import XHB.Gen.Xproto
 import System.IO
 
 main = do
-  h <- X.openMac
+  h <- X.open ""
 
   hSetBuffering h NoBuffering
 
