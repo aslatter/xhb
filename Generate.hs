@@ -25,7 +25,7 @@ toHsModules :: [XHeader] -> [HsModule]
 toHsModules xs = map (toHsModule xs) xs
 
 
--- |Coverts a declartion to a mdification on a haskell module
+-- |Converts a declaration to a modification on a Haskell module
 xDecl :: XDecl -> Gen
 xDecl (XidType name) = do
   simpleNewtype name "Xid" ["Eq","Ord","Show","Serialize","Deserialize","XidLike"]
@@ -169,7 +169,7 @@ xImport str = do
     modifyModule . addImport $ mkHidingImport impName shared_types
     modifyModule . addImport . mkQualImport $ impName
 
--- |A list of all of the type defined by a modue.
+-- |A list of all of the types defined by a module.
 declaredTypes :: XHeader -> [Name]
 declaredTypes xhd =
     let decls = xheader_decls xhd
@@ -227,7 +227,7 @@ declareStruct name fields = do
                  vTyp = HsTyApp (mkTyCon "ValueParam") (mkTyCon tyname)
              in (accessor nme name, HsUnBangedTy $ vTyp)
   
-          go (ExprField{}) = empty -- deal wth these separate
+          go (ExprField{}) = empty -- deal with these separately
           go selem = selemsToRecPanic selem
 
 valueParamName :: Name -> Name
