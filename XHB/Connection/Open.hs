@@ -1,7 +1,7 @@
 module XHB.Connection.Open (open) where
 
 import System.Environment(getEnv)
-import System.IO hiding (openFile)
+import System.IO
 
 import Control.Exception
 import Control.Monad
