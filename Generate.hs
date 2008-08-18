@@ -1,3 +1,7 @@
+-- Generates the data types for a particular X module.
+-- Also includes class instance declarations for those types
+-- when appropriate.
+
 module Generate where
 
 import Generate.Build
@@ -16,13 +20,22 @@ import Control.Applicative
 import Data.Maybe
 import Data.Function
 
+-- | Converts X modules to Haskell modules declaring the
+-- appropriate data types.
+--
+-- All modules which are involved in corss-module
+-- qualified types must be converted at the same time.
+--
+-- All modules which are involved in importing each
+-- other must be converted at the same time.
+toHsModules :: [XHeader] -> [HsModule]
+toHsModules xs = map (toHsModule xs) xs
+
+-- | Performs a single step of the 'toHsModules' conversion.
 toHsModule :: [XHeader] -> XHeader -> HsModule
 toHsModule xs xhd =
     let rdata = ReaderData xhd xs
     in  runGen (modName xhd) rdata $ mapM_ xDecl (xheader_decls xhd)
-
-toHsModules :: [XHeader] -> [HsModule]
-toHsModules xs = map (toHsModule xs) xs
 
 
 -- |Converts a declaration to a modification on a Haskell module
@@ -70,6 +83,8 @@ xDecl dec@(XEnum nm elems') = do
 xDecl (XUnion _ _) = return () -- Unions are currently unhandled
 xDecl x = error $ "Pattern match failed in \"xDecl\" with argument:\n" ++ (show $ toDoc x)
 
+-- | For an X enum, declares an instance of 'SimpleEnum' of 'BitEnum'
+-- as appropriate.
 declareEnumInstance :: EnumType -> Name -> [EnumElem] -> Gen
 declareEnumInstance _typ _name [] = return ()
 declareEnumInstance ETypeValue name els = buildDecl $
@@ -98,6 +113,7 @@ declareEnumInstance ETypeBit name els = buildDecl $
          fromBit (EnumElem nm (Just (Bit n)))
              = mkLitMatch "fromBit" (HsInt (fromIntegral n)) $ HsCon $ mkUnQName $ name++nm
 
+-- | For an X enum, declares a Haskell data type.
 declareEnumTycon :: Name -> [EnumElem] -> Gen
 declareEnumTycon name elems = modifyModule . addDecl $ 
             mkDataDecl
@@ -107,6 +123,7 @@ declareEnumTycon name elems = modifyModule . addDecl $
             (map (mkEnumCon name) elems)
             [] -- derving
 
+-- | For an element of an X enum, declares a clause in the Haskell data constructor
 mkEnumCon :: Name -> EnumElem -> HsConDecl
 mkEnumCon tyname (EnumElem name _) = mkCon (tyname ++ name) []
 
@@ -127,12 +144,19 @@ cleanEnum xs =
       then justBits
       else xs
 
+-- | Throws an error if we're not prepared to generate code
+-- for an X enum.
+--
+-- In particular, we disallow enums with both regular numbers
+-- and bit-field numbers.
 verifyEnum :: XDecl -> [EnumElem] -> EnumType
 verifyEnum dec elems = case enumType elems of
         ETypeError -> enumTypPanic dec
         x -> x
 
--- spine strict. element strict under normal conditions
+-- | Returns the type of the enum elements.
+-- An enum is either a 'Value' enum or a 'Bit' enum.
+-- This is more strict than the xproto xml schema.
 enumType :: [EnumElem] -> EnumType
 enumType xs = case L.foldl' (flip go) Nothing xs of
                 Nothing -> ETypeError
@@ -157,6 +181,11 @@ fillEnum xs@((EnumElem _ Nothing):_) = map f $ zip xs [0..]
     where f (EnumElem name _, n) = EnumElem name (Just (Value n))
 fillEnum x = x
 
+-- | If the X module declares that it imports another X module,
+-- this function imports the corresponding Haskell module.
+--
+-- Conflicting declarations are imported qualified.
+-- Non-conflicted declarations are imported normally.
 xImport :: String -> Gen
 xImport str = do
   cur <- current
@@ -189,12 +218,16 @@ declaredTypes xhd =
     in concatMap tyName decls
 
 
+-- | An X type declaration.  Re-written to a Haskell type declaration.
+-- Cross-module lookups of qualified types are handled here.
 typeDecl :: String -> Type -> Gen
 typeDecl nm tp = do
   typName <- mapTyNames `liftM` fancyTypeName tp
   modifyModule . addDecl $
         mkTypeDecl nm [] (mkTyCon typName)
 
+-- | Given a type name and a list of X struct elements this declares
+-- a Haskell data type.
 declareStruct :: String -> [StructElem] -> Gen
 declareStruct name fields = do
          selems <- selemsToRec fields  
@@ -244,9 +277,13 @@ selemsToRecPanic x = error $
                      ("I dont know what to do with struct elem: " ++) $
                      show $ toDoc x
 
+-- | Adds a declaration to the module currently being generated.
 buildDecl :: HsDecl -> Gen
 buildDecl = modifyModule . addDecl
 
+-- | Some types in the X modules are given using C types.
+-- This function maps those strings to the appropriate Haskell
+-- types.
 mapTyNames :: String -> String
 mapTyNames "char" = "CChar"
 mapTyNames "void" = "Word8"
@@ -254,6 +291,8 @@ mapTyNames "float" = "CFloat"
 mapTyNames "double" = "CDouble"
 mapTyNames x = x
 
+-- | Some identifiers clash with Haskell key-words.
+-- This function renames those that do.
 mapIdents :: String -> String
 mapIdents "data" = "data_"
 mapIdents "type" = "type_"
@@ -280,6 +319,12 @@ exprFields name elems = mapM_ go elems
           go _ = return ()
 
 
+-- | Convert an 'Expression' to a Haskell expression.
+--
+-- The first argument is non-nothing when used in the context of
+-- writing a deserialization function.  The first element of the pair
+-- is the name of the variable which is being deserialized and the second
+-- element is the name of the type being deserialized.
 mkExpr :: Maybe (Name, Name) -> Expression -> HsExp
 mkExpr _ (Value n) = mkNumLit n
 mkExpr _ (Bit n) = mkNumLit $ 2^n
@@ -324,6 +369,8 @@ instanceXid tyname = modifyModule . addDecl $
 
 ----- Declaring serialize and deserialize instances
 
+-- | Declare a instance of 'Deserialize' for an X struct
+-- declaration.
 declareDeserStruct :: Name -> [StructElem] -> Gen
 declareDeserStruct name fields = modifyModule . addDecl $
     mkInstDecl
@@ -339,6 +386,7 @@ declareDeserStruct name fields = modifyModule . addDecl $
                   ]
                  (HsDo $ deserIns fields ++ [returnIt name fields])
 
+-- | Declare and instance of 'Deserialize' for a reply to an X request.
 declareDeserReply :: Name -> [StructElem] -> Gen
 declareDeserReply name fields = modifyModule . addDecl $
     mkInstDecl
@@ -360,6 +408,7 @@ declareDeserReply name fields = modifyModule . addDecl $
      declareLengthType :: HsStmt
      declareLengthType = HsLetStmt [mkPatBind HsPWildCard $ mkVar "isCard32" `HsApp` mkVar "length"]
 
+-- | Declare a statement in the 'do' block of the 'deserialize' function.
 deserIns :: [StructElem] -> [HsStmt]
 deserIns fields = mapMaybe go fields
  where
@@ -380,10 +429,11 @@ deserIns fields = mapMaybe go fields
                             mkVar "deserialize" `HsApp` mkVar "bo"
      go n = error $ "Pattern match fail in deserIns.go with: " ++ show n
 
-
+-- | Return and construct the deserialized value.
 returnIt :: Name -> [StructElem] -> HsStmt
 returnIt name fields = HsQualifier $ mkVar "return" `HsApp` HsParen (cons name fields)
 
+-- | Create and fill-in the constructor for the deserialized value.
 cons :: Name -> [StructElem] -> HsExp
 cons name fields = hsAppMany $
        mkConExp (conPrefix name) : mapMaybe (liftM (mkVar . mapIdents) . fieldName) fields
@@ -396,6 +446,7 @@ fieldName ExprField{} = empty -- has a name, but we don't want it
 fieldName (ValueParam _ name _) = return $ valueParamName name
 
 
+-- | Declare an instance of 'Serialize' for an X struct.
 declareSerStruct :: Name -> [StructElem] -> Gen
 declareSerStruct name fields = modifyModule . addDecl $
     mkInstDecl
@@ -423,6 +474,7 @@ isExtension = do
   xhd <- current
   return $ not $ isNothing $ xheader_xname xhd
 
+-- | Declare and instance of 'Serialize' for a non-extension request.
 declareSerRequest :: Name -> Int -> [StructElem] -> Gen
 declareSerRequest name opCode fields = do
   ext <- isExtension
@@ -470,7 +522,7 @@ declareSerRequest name opCode fields = do
     putPadding = HsApp (mkVar "putSkip") $ HsParen $
                  HsApp (mkVar "requiredPadding") $  HsParen $
                  mkVar "size" `HsApp` mkVar "x"
-
+-- | A statement in the "do" block for the 'serialize' function.
 serField :: Name -> StructElem -> Maybe HsExp
 serField _ (Pad n) -- "putSkip n"
         = return $ mkVar "putSkip" `HsApp` mkNumLit n
@@ -494,9 +546,6 @@ expBinop op lhs rhs = HsInfixApp lhs (HsQVarOp . UnQual $ HsSymbol op) rhs
 
 accessField name fieldName =
         mkVar (accessor fieldName name) `HsApp` mkVar "x"
-
-    -- sizeOfType typ = (mkVar "size" `HsApp`) $ HsParen $
-    --                 mkVar "undefined" `mkAsExp` HsTyCon (mkUnQName typ)
 
 sizeOfMember name fname = (mkVar "size" `HsApp`) $ HsParen $
                            accessField name fname

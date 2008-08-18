@@ -17,12 +17,17 @@ import Generate(valueParamName, mapTyNames)
 -- Hopefully I'm not duplicating too much between here
 -- and the types generation module.
 
+-- | Returns the name of the Haskell module containing the type
+-- declarations for a given XCB module.
 typesModuleName :: XHeader -> String
 typesModuleName xhd = "XHB.Gen." ++ interCapsName xhd ++ ".Types"
 
+-- | Returns the name of the Haskell module containing the function
+-- definitions for a given XCB module.
 functionsModuleName :: XHeader -> String
 functionsModuleName xhd = "XHB.Gen." ++ interCapsName xhd
 
+-- | Returns the name of an X module in InterCaps.
 interCapsName :: XHeader -> String
 interCapsName xhd = case xheader_name xhd of
                       Nothing -> ensureUpper $ xheader_header xhd
@@ -34,13 +39,18 @@ ensureUpper (x:xs) = (toUpper x) : xs
 ensureLower [] = []
 ensureLower (x:xs) = (toLower x) : xs
 
+-- | Given a list of X modules, returns a list of generated Haskell modules
+-- which contain the developer friendly functions for using XHB.
 functionsModules :: [XHeader] -> [HsModule]
 functionsModules = mapMaybe functionsModule
 
+-- | Generates the Haskell functions for using the functionality
+-- of the passed in X module.
 functionsModule :: XHeader -> Maybe HsModule
 functionsModule xhd | isCoreModule xhd = return $ buildCore xhd
                     | otherwise = Nothing
 
+-- | Retuns 'True' if the X module is NOT for an extension.
 isCoreModule = isNothing . xheader_xname
 
 -- | Builds a haskel functions module for the passed in xml
@@ -54,7 +64,8 @@ buildCore xhd =
 
 applyMany = foldr (flip (.)) id
 
--- name + standard imports
+-- Creates a nearly empty Haskell module for the passed-in
+-- X module.  Also inserts standard Haskell imports.
 newModule :: XHeader -> HsModule
 newModule xhd = 
     let name = functionsModuleName xhd
@@ -70,10 +81,12 @@ newModule xhd =
              ,"Foreign.C.Types"
              ]
 
--- each request adds stuff to a mdule
+-- | Declares Haskell functions for a "core" X module.  And by core I
+-- mean the "xproto.xml" module.
 declareCoreFunctions :: [RequestInfo] -> [HsModule -> HsModule]
 declareCoreFunctions = map declareCoreFunction
 
+-- | Handles a single request in the core functions module.
 declareCoreFunction :: RequestInfo -> HsModule -> HsModule
 declareCoreFunction req = applyMany
    [addDecl typDeclaration
@@ -200,10 +213,13 @@ declareCoreFunction req = applyMany
 
        replyType = mkTyCon $ replyName req
 
+-- | Fold Haskell expressions together in a right-fold fashion
 applyManyExp [] = undefined
 applyManyExp [x] = x
 applyManyExp (x:xs) = HsApp x $ HsParen $ applyManyExp xs
 
+-- | Maps the fields of a X-struct into argument names to be used
+-- in an arg-list for a Haskell function
 fieldsToArgNames :: [StructElem] -> [String]
 fieldsToArgNames = mapMaybe fieldToArgName
 
@@ -213,6 +229,7 @@ fieldToArgName (SField name _) = return name
 fieldToArgName (ValueParam _ mname _) = return $ valueParamName mname
 fieldToArgName _ = empty
 
+-- | The types corresponding to the args from "fieldsToArgNames".
 fieldsToTypes :: [StructElem] -> [HsType]
 fieldsToTypes = mapMaybe fieldToType
 
@@ -222,10 +239,13 @@ fieldToType (List _ typ _) = return $ list_tycon `HsTyApp` mkTyCon (simpleType t
 fieldToType (ValueParam typ _ _) = return $ mkTyCon "ValueParam" `HsTyApp` mkTyCon (simpleType typ)
 fieldToType _ = empty
 
-simpleType :: Type -> Name
-simpleType QualType{} = error "simpleType: Unexpected compound type"
+-- | Converts a 'Type' to a 'String' usable by 'mkTyCon'.
+-- Currently fails for qualified types.
+simpleType :: Type -> String
+simpleType QualType{} = error "simpleType: Unexpected qualified type"
 simpleType (UnQualType typ) = mapTyNames typ
 
+-- | Extracts the requests from an X module.
 requests :: XHeader -> [RequestInfo]
 requests = mapMaybe go . xheader_decls
  where go (XRequest name code elems reply) = return $
@@ -239,6 +259,8 @@ data RequestInfo = RequestInfo
     ,request_reply :: Maybe XReply
     }
 
+-- | Extracts only the fields in a request that must be specified
+-- by the library end-user.  That is, padding and such is excluded.
 requestFields :: RequestInfo -> [StructElem]
 requestFields = filter go . request_elems
  where go List{} = True
@@ -246,12 +268,17 @@ requestFields = filter go . request_elems
        go ValueParam{} = True
        go _ = False
 
+-- | Returns true if a request has a reply
 hasReply :: RequestInfo -> Bool
 hasReply = not . isNothing . request_reply
 
+-- | For a request, returns what the end-user Haskell function
+-- is to be named
 fnNameFromRequest :: RequestInfo -> String
 fnNameFromRequest = ensureLower . request_name
 
+-- | For a request, returns the name of the Haskell type constructor
+-- corresponding to its reply.
 replyName :: RequestInfo -> String
 replyName req = assert (hasReply req) $
                 request_name req ++ "Reply"
