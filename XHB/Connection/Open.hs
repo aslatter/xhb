@@ -21,9 +21,11 @@ open s = do
     s <- socket family Stream defaultProtocol
     connect s addr
 
-    (mhn, _) <- getNameInfo [] True False addr
-    let auth hn = getAuthByAddr familyLocal (cstring hn) (cstring $ show dn) authType
-    mauth <- maybe (return Nothing) auth mhn
+    -- for launchd, don't get auth data
+    mauth <- if take 11 name == "/tmp/launch" then return Nothing else do
+        (mhn, _) <- getNameInfo [] True False addr
+        let auth hn = getAuthByAddr familyLocal (cstring hn) (cstring $ show dn) authType
+        maybe (return Nothing) auth mhn
 
     h <- socketToHandle s ReadWriteMode
 
