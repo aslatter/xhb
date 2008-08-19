@@ -19,6 +19,7 @@ import Data.Function
 import Data.List as L
 
 import Foreign.C.Types (CChar, CFloat, CDouble)
+import Foreign.C.String
 
 import qualified Data.ByteString.Lazy as BS
 import Data.ByteString.Lazy (ByteString)
@@ -109,6 +110,11 @@ emptyValueParam = VP 0 []
 instance (Bits a, Show a) => Show (ValueParam a) where
     show v = show (fromValueParam v :: [(Integer,Word32)])
 
+
+stringToCList :: String -> [CChar]
+stringToCList = map castCharToCChar
+
+
 class Serialize a where
     serialize :: BO -> a -> Put
     size :: a -> Int -- Size in bytes
@@ -116,7 +122,9 @@ class Serialize a where
 class Deserialize a where
     deserialize :: BO -> Get a
 
-
+class ExtensionRequest a where
+    serializeRequest :: a -> RequestOpCode -> BO -> Put
+    extensionId :: a -> ExtensionId
 
 type RequestOpCode = Word8
 type ExtensionId = String -- limited to ASCII

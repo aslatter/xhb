@@ -30,6 +30,7 @@ import Foreign.C.String
 
 import Data.List (genericLength)
 import Data.Maybe
+import Data.Monoid(mempty)
 
 import Data.ByteString.Lazy(ByteString)
 import qualified Data.ByteString.Lazy as BS
@@ -110,7 +111,6 @@ setCrashOnError c = do
 -- this type.
 data GenericReply = GenericReply
     {grep_response_type :: ResponseType
-    ,grep_pad :: Word8
     ,grep_sequence :: Word16
     ,grep_reply_length :: Word32 -- only useful for replies
     }
@@ -127,10 +127,10 @@ instance Deserialize GenericReply where
                     0 -> ResponseTypeError
                     1 -> ResponseTypeReply
                     _ -> ResponseTypeEvent type_flag
-      pad <- deserialize bo
+      skip 1
       sequence <- deserialize bo
       reply_length <- deserialize bo
-      return $ GenericReply rType pad sequence reply_length
+      return $ GenericReply rType sequence reply_length
 
 
 
@@ -169,8 +169,6 @@ readLoopReply rl genRep chunk = do
   -- grab the rest of the response bytes
   let rlength = grep_reply_length genRep
   extra <- readBytes rl $ fromIntegral $ 4 * rlength
-
-  -- deserialize the response
   let bytes = chunk `BS.append` extra
 
   -- place the response into the pending reply TMVar, or discard it
@@ -213,6 +211,7 @@ mkConnection hnd auth = do
   eventQueue <- newTChanIO
   replies <- newTChanIO
   sequence <- initialSequence
+  extensions <- newTVarIO mempty
 
   wrappedHandle <- newMVar hnd 
 
@@ -236,6 +235,7 @@ mkConnection hnd auth = do
       conf
       sequence
       rIds
+      extensions
 
 resourceIds :: ConnectionConfig -> [Xid]
 resourceIds cc = resourceIdsFromSetup $ conf_setup cc
@@ -333,6 +333,7 @@ setupRequest bo auth = MkSetupRequest
     (anamelen, aname, adatalen, adata) = case auth of
         Nothing -> (0, [], 0, [])
         Just (Xauth n d) -> (genericLength n, n, genericLength d, d)
+
 
 
 getRoot :: Connection -> WINDOW

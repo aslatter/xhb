@@ -474,11 +474,76 @@ isExtension = do
   xhd <- current
   return $ not $ isNothing $ xheader_xname xhd
 
+
+declareExtRequest name opCode fields = do
+        extName <- (fromJust . xheader_xname) `liftM` current
+        modifyModule . addDecl $
+         mkInstDecl
+         []
+         (mkUnQName "ExtensionRequest")
+         [HsTyCon $ mkUnQName name]
+         [extensionIdFunc extName
+         ,serializeReqFunc
+         ]
+ where
+
+   serActions = mapMaybe (serField name) fields
+   sizeActions = mapMaybe (toFieldSize name) fields
+
+   extensionIdFunc :: Name -> HsDecl
+   extensionIdFunc name =
+       mkSimpleFun "extensionId"
+        [HsPWildCard]
+        (HsLit . HsString $  name)
+
+
+   serializeReqFunc :: HsDecl
+   serializeReqFunc = mkSimpleFun "serializeRequest"
+        [mkPVar "x"
+        ,mkPVar "extOpCode"
+        ,mkPVar "bo"
+        ]
+        (HsDo actions)
+
+   actions :: [HsStmt]
+   actions = (HsQualifier $ putIntExp $ mkVar "extOpCode")
+           : (HsQualifier $ putIntExp $ mkNumLit opCode)
+           : computeSize
+           : HsQualifier putSize
+           : map HsQualifier serActions
+           ++ map HsQualifier [putPadding]
+
+   computeSize :: HsStmt
+   computeSize = mkLetStmt (mkPVar "size__") sizeCalc
+
+   sizeCalc :: HsExp
+   sizeCalc = L.foldl1' addExp $ mkNumLit 4 : sizeActions
+
+   putSize = HsApp serializeExp $ HsParen $ mkAsExp sizeExp $ mkTyCon "INT16"
+
+   sizeExp = HsApp (mkVar "convertBytesToRequestSize") $
+             mkVar "size__"
+
+   putPadding = HsApp (mkVar "putSkip") $ HsParen $
+                HsApp (mkVar "requiredPadding") $
+                mkVar "size__"
+
+
+putIntExp exp = mkVar "putWord8" `HsApp` exp
+serializeExp = mkVar "serialize" `HsApp` mkVar "bo"
+
 -- | Declare and instance of 'Serialize' for a non-extension request.
 declareSerRequest :: Name -> Int -> [StructElem] -> Gen
 declareSerRequest name opCode fields = do
   ext <- isExtension
-  if ext then return () else
+  if ext
+   then
+      -- extension request
+      -- instance of "ExtensionRequest" instead
+      -- of serialize
+      declareExtRequest name opCode fields
+   else
+      -- Core request
       modifyModule . addDecl $
         mkInstDecl
         []
@@ -497,6 +562,7 @@ declareSerRequest name opCode fields = do
     sizeExps = case serActions of
                  [] -> [mkNumLit 4]
                  _ -> mkNumLit 3 : mapMaybe (toFieldSize name) fields
+    
 
     serializeFunc = mkSimpleFun "serialize"
            [mkPVar "bo"
@@ -504,17 +570,17 @@ declareSerRequest name opCode fields = do
            (HsDo $ map HsQualifier $ leadingActs ++ trailingActs)
 
     serActions = mapMaybe (serField name) fields
-    leadingActs = [putIntExp opCode,firstAction serActions]
+
+    leadingActs = [putIntExp $ mkNumLit opCode,firstAction serActions]
     trailingActs = (putSize : drop 1 serActions) ++ [putPadding]
 
     firstAction [] = mkVar "putSkip" `HsApp` mkNumLit 1
     firstAction (x:_) = x
 
-    putIntExp n = mkVar "putInt8" `HsApp` mkNumLit n
-
+    -- 'putSize', 'sizeExp' and 'putPadding' are similar to
+    -- but not quite the same as the functions for extension
+    -- reqeusts above.
     putSize = HsApp serializeExp $ HsParen $ mkAsExp sizeExp $ mkTyCon "INT16"
-
-    serializeExp = mkVar "serialize" `HsApp` mkVar "bo"
 
     sizeExp = HsApp (mkVar "convertBytesToRequestSize") $
                 HsParen $ mkVar "size" `HsApp` mkVar "x"
@@ -522,6 +588,7 @@ declareSerRequest name opCode fields = do
     putPadding = HsApp (mkVar "putSkip") $ HsParen $
                  HsApp (mkVar "requiredPadding") $  HsParen $
                  mkVar "size" `HsApp` mkVar "x"
+
 -- | A statement in the "do" block for the 'serialize' function.
 serField :: Name -> StructElem -> Maybe HsExp
 serField _ (Pad n) -- "putSkip n"
@@ -537,7 +604,6 @@ serField _ ExprField{}  = Nothing
 serField name (ValueParam _ mname _) -- serialize bo <field>
         = return $ HsApp (mkVar "serialize" `HsApp` mkVar "bo") $ HsParen $
           accessField name $ valueParamName mname
-
 
 addExp :: HsExp -> HsExp -> HsExp
 addExp = expBinop "+"

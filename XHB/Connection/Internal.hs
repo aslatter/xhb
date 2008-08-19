@@ -11,8 +11,13 @@ import System.IO
 import Data.ByteString.Lazy(ByteString)
 import qualified Data.ByteString.Lazy as BS
 
+import Data.Maybe
+import qualified Data.Map as M
+
 import XHB.Connection.Types
 import XHB.Shared
+
+import XHB.Gen.Xproto.Types
 
 -- Assumes that the input bytestring is a properly formatted
 -- and padded request.
@@ -38,20 +43,6 @@ sendRequestWithReply c bytes r = withConnectionHandle c $ \h -> do
 
 byteOrderFromConn = conf_byteorder . conn_conf 
 
--- | convert an extension request to a put action
-{-
-serializeExtensionRequest :: ExtRequest a => Connection -> a -> IO Put
-serializeExtensionRequest c req = do
-  extRep <- extensionInfo c $ extensionId req
-  let present = extensioPresent extRep
-      opCode = extensionOpCode extRep
-
-      bo = byteOrderFromConn c
-
-      putAction = serializeRequest req opCode bo
-
-  return putAction
--}
 
 -- Returns the next sequence ID
 nextSequence :: Connection -> STM SequenceId
@@ -75,3 +66,18 @@ withConnectionHandle c f = do
      f
 {-# INLINE withConnectionHandle #-}
 
+lookupExtension :: Connection -> ExtensionId -> IO (Maybe QueryExtensionReply)
+lookupExtension c extId = atomically $ do
+   m <- readTVar $ conn_extensions c
+   return $ M.lookup extId m
+
+cacheExtensionInfo :: Connection -> ExtensionId -> QueryExtensionReply -> IO ()
+cacheExtensionInfo c extId ext = atomically $ do
+   let tv = conn_extensions c
+
+   m <- readTVar tv
+   if isNothing (M.lookup extId m)
+    then 
+      let m' = M.insert extId ext m
+      in writeTVar tv m'
+    else return ()

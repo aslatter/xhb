@@ -8,6 +8,7 @@ import Control.Concurrent
 import System.IO
 
 import Data.Word
+import Data.Map(Map)
 
 import XHB.Gen.Xproto.Types
 
@@ -20,6 +21,7 @@ data Connection = Connection
     ,conn_conf :: ConnectionConfig
     ,conn_next_sequence :: TVar SequenceId
     ,conn_resource_ids :: TVar [Xid]
+    ,conn_extensions :: TVar (Map ExtensionId QueryExtensionReply)
     }
 
 data ConnectionConfig = ConnectionConfig
@@ -35,5 +37,3 @@ data PendedReply = PendedReply
     }
 
 data WrappedReply = forall a . Deserialize a => WrappedReply (Receipt a)
-
-
