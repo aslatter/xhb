@@ -66,11 +66,14 @@ withConnectionHandle c f = do
      f
 {-# INLINE withConnectionHandle #-}
 
+-- | Lookup an extension in the extension cache.  Returns 'Nothing'
+-- if queried extension is not cached
 lookupExtension :: Connection -> ExtensionId -> IO (Maybe QueryExtensionReply)
 lookupExtension c extId = atomically $ do
    m <- readTVar $ conn_extensions c
    return $ M.lookup extId m
 
+-- | Add an extension to the extension cache.
 cacheExtensionInfo :: Connection -> ExtensionId -> QueryExtensionReply -> IO ()
 cacheExtensionInfo c extId ext = atomically $ do
    let tv = conn_extensions c
