@@ -23,7 +23,7 @@ import Data.Function
 -- | Converts X modules to Haskell modules declaring the
 -- appropriate data types.
 --
--- All modules which are involved in corss-module
+-- All modules which are involved in cross-module
 -- qualified types must be converted at the same time.
 --
 -- All modules which are involved in importing each
@@ -475,6 +475,9 @@ isExtension = do
   return $ not $ isNothing $ xheader_xname xhd
 
 
+-- | Declare an instance of "ExtensionRequest".
+-- May not be called when generating code for a core
+-- module.
 declareExtRequest name opCode fields = do
         extName <- (fromJust . xheader_xname) `liftM` current
         modifyModule . addDecl $
@@ -532,15 +535,15 @@ declareExtRequest name opCode fields = do
 putIntExp exp = mkVar "putWord8" `HsApp` exp
 serializeExp = mkVar "serialize" `HsApp` mkVar "bo"
 
--- | Declare and instance of 'Serialize' for a non-extension request.
+-- | Declare and instance of 'Serialize' for a request.
 declareSerRequest :: Name -> Int -> [StructElem] -> Gen
 declareSerRequest name opCode fields = do
   ext <- isExtension
   if ext
    then
-      -- extension request
-      -- instance of "ExtensionRequest" instead
-      -- of serialize
+      -- extension request case:
+      -- declare instance of "ExtensionRequest"
+      -- instead of "Serialize"
       declareExtRequest name opCode fields
    else
       -- Core request
