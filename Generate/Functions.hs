@@ -42,22 +42,29 @@ ensureLower (x:xs) = (toLower x) : xs
 -- | Given a list of X modules, returns a list of generated Haskell modules
 -- which contain the developer friendly functions for using XHB.
 functionsModules :: [XHeader] -> [HsModule]
-functionsModules = mapMaybe functionsModule
+functionsModules = map functionsModule
 
 -- | Generates the Haskell functions for using the functionality
 -- of the passed in X module.
-functionsModule :: XHeader -> Maybe HsModule
-functionsModule xhd | isCoreModule xhd = return $ buildCore xhd
-                    | otherwise = Nothing
+functionsModule :: XHeader -> HsModule
+functionsModule xhd | isCoreModule xhd = buildCore xhd
+                    | otherwise = buildExtension xhd
 
 -- | Retuns 'True' if the X module is NOT for an extension.
 isCoreModule = isNothing . xheader_xname
+
+buildExtension :: XHeader -> HsModule
+buildExtension xhd =
+    let emptyModule = newExtensionModule xhd
+        rs = requests xhd
+        fns = declareExtensionFunctions rs
+    in applyMany fns emptyModule
 
 -- | Builds a haskel functions module for the passed in xml
 -- description.  Assumes it is not for extension requests.
 buildCore :: XHeader -> HsModule
 buildCore xhd = 
-    let emptyModule = newModule xhd
+    let emptyModule = newCoreModule xhd
         rs = requests xhd
         fns = declareCoreFunctions rs
     in applyMany fns emptyModule
@@ -66,8 +73,8 @@ applyMany = foldr (flip (.)) id
 
 -- Creates a nearly empty Haskell module for the passed-in
 -- X module.  Also inserts standard Haskell imports.
-newModule :: XHeader -> HsModule
-newModule xhd = 
+newCoreModule :: XHeader -> HsModule
+newCoreModule xhd = 
     let name = functionsModuleName xhd
         mod = mkModule name
     in doImports mod
@@ -81,11 +88,127 @@ newModule xhd =
              ,"Foreign.C.Types"
              ]
 
+newExtensionModule :: XHeader -> HsModule
+newExtensionModule xhd =
+    let name = functionsModuleName xhd
+        mod = mkModule name
+    in doImports mod
+ where doImports = applyMany $ map (addImport . mkImport) $
+             [typesModuleName xhd
+          -- ,"XHB.Gen.Xproto.Types"
+             ,"XHB.Connection.Internal"
+             ,"XHB.Connection.Extension"
+             ,"XHB.Connection.Types"
+             ,"XHB.Shared"
+             ,"Data.Binary.Put"
+             ,"Control.Concurrent.STM"
+             ]
+
+
+declareExtensionFunctions :: [RequestInfo] -> [HsModule -> HsModule]
+declareExtensionFunctions = map declareExtensionFunction
+
+declareExtensionFunction req = applyMany
+   [addDecl typDeclaration
+   ,addDecl fnDeclaration
+   ,addExport $ mkExportAbs fnName
+   ]
+
+ where fnName = fnNameFromRequest req
+
+       fields = requestFields req
+       noFields = null fields
+
+       typDeclaration = mkTypeSig fnName [] typeDec
+
+       typeDec | noFields = mkTyCon "Connection" `HsTyFun` resultType req
+               | otherwise = foldr1 HsTyFun $
+                             [mkTyCon "Connection"
+                             ,mkTyCon $ request_name req
+                             ,resultType req
+                             ]
+
+       fnDeclaration = mkSimpleFun fnName
+                       (map mkPVar fnArgs)
+                       (HsDo fnBody)
+
+       fnArgs :: [String]
+       fnArgs | noFields = ["c"]
+              | otherwise = ["c","req"]
+
+       fnBody :: [HsStmt]
+       fnBody = concat
+                [ makeReceipt req
+                , buildRequest
+                , serializeRequest
+                , sendRequest req
+                ]
+
+       buildRequest | noFields = return $ mkLetStmt
+                                 (mkPVar "req")
+                                 (HsCon . mkUnQName $ "Mk" ++ request_name req)
+                    | otherwise = empty
+
+       serializeRequest
+           = [ mkGenerator (mkPVar "putAction")
+                           (foldl1 HsApp $ map mkVar $
+                              ["serializeExtensionRequest"
+                              ,"c"
+                              ,"req"
+                              ]
+                           )
+             , mkLetStmt (mkPVar "chunk")
+                         (mkVar "runPut" `HsApp` mkVar "putAction")
+             ]
+
+
+makeReceipt :: RequestInfo -> [HsStmt]
+makeReceipt req | hasReply req = return $
+                   mkGenerator (mkPVar "receipt")
+                               (mkVar "newEmptyTMVarIO")
+                | otherwise = empty
+
+sendRequest :: RequestInfo -> [HsStmt]
+sendRequest req | hasReply req = map HsQualifier
+                   [foldl1 HsApp $ map mkVar $
+                    ["sendRequestWithReply"
+                    ,"c"
+                    ,"chunk"
+                    ,"receipt"
+                    ]
+                   ,mkVar "return" `HsApp` mkVar "receipt"
+                   ]
+                | otherwise = map HsQualifier $
+                    return $ (mkVar "sendRequest" `HsApp` mkVar "c")
+                          `HsApp` mkVar "chunk"
+
+getByteOrder :: HsStmt
+getByteOrder = mkLetStmt (mkPVar "bo")
+               (mkVar "byteOrderFromConn" `HsApp` mkVar "c")
+
+
+resultType :: RequestInfo -> HsType
+resultType req | hasReply req = foldr1 HsTyApp $
+                                [mkTyCon "IO"
+                                ,mkTyCon "Receipt"
+                                ,replyType req
+                                ]
+               | otherwise = foldr1 HsTyApp $
+                             [mkTyCon "IO"
+                             ,unit_tycon
+                             ]
+
+replyType :: RequestInfo -> HsType
+replyType req = mkTyCon $ replyName req
+
+
 -- | Declares Haskell functions for a "core" X module.  And by core I
 -- mean the "xproto.xml" module.
 declareCoreFunctions :: [RequestInfo] -> [HsModule -> HsModule]
 declareCoreFunctions = map declareCoreFunction
 
+-- for core requests, we can do the short form and long form
+-- because we don't have to import any other modules
 -- | Handles a single request in the core functions module.
 declareCoreFunction :: RequestInfo -> HsModule -> HsModule
 declareCoreFunction req = applyMany
@@ -113,13 +236,13 @@ declareCoreFunction req = applyMany
        longTypDec = mkTypeSig fnName [] longType
 
        shortTyp = foldr1 HsTyFun $
-         (mkTyCon "Connection") : fieldsToTypes fields ++ [resultType]
+         (mkTyCon "Connection") : fieldsToTypes fields ++ [resultType req]
                                 
 
        longType = foldr1 HsTyFun $
                   [mkTyCon "Connection"
                   ,mkTyCon  $ request_name req
-                  ] ++ [resultType]
+                  ] ++ [resultType req]
 
 
        shortFnDec = mkSimpleFun fnName
@@ -132,34 +255,11 @@ declareCoreFunction req = applyMany
 
        shortArgs = "c" : fieldsToArgNames fields
 
-       makeReceipt :: [HsStmt]
-       makeReceipt | hasReply req = return $
-                       mkGenerator (mkPVar "receipt")
-                            (mkVar "newEmptyTMVarIO")
-                   | otherwise = empty
-
-       sendRequest :: [HsStmt]
-       sendRequest | hasReply req = map HsQualifier
-                       [foldl1 HsApp $ map mkVar $
-                        ["sendRequestWithReply"
-                        ,"c"
-                        ,"chunk"
-                        ,"receipt"
-                        ]
-                       ,mkVar "return" `HsApp` mkVar "receipt"
-                       ]
-                   | otherwise = map HsQualifier $
-                       return $ (mkVar "sendRequest" `HsApp` mkVar "c")
-                        `HsApp` mkVar "chunk"
-
-       getByteOrder :: HsStmt
-       getByteOrder = mkLetStmt (mkPVar "bo")
-             (mkVar "byteOrderFromConn" `HsApp` mkVar "c")
 
        shortBody :: [HsStmt]
        shortBody = concat
                    [ -- make the receipt if we need one
-                     makeReceipt
+                     makeReceipt req
 
                      -- serialize the request to the var "chunk"
                    , [ getByteOrder
@@ -172,12 +272,12 @@ declareCoreFunction req = applyMany
                       ]
 
                      -- send the request
-                   , sendRequest
+                   , sendRequest req
                    ]
 
        longBody :: [HsStmt]
        longBody = concat
-                  [ makeReceipt
+                  [ makeReceipt req
 
                   , [ getByteOrder
                     , mkLetStmt (mkPVar "chunk")
@@ -187,7 +287,7 @@ declareCoreFunction req = applyMany
                        ])
                     ]                       
 
-                  , sendRequest
+                  , sendRequest req
                   ]
 
                          
@@ -201,17 +301,6 @@ declareCoreFunction req = applyMany
        constructor :: HsExp
        constructor = mkVar $ ("Mk"++) $ request_name req
 
-       resultType | hasReply req = foldr1 HsTyApp $
-                                    [mkTyCon "IO"
-                                    ,mkTyCon "Receipt"
-                                    ,replyType
-                                    ]
-                  | otherwise = foldr1 HsTyApp $
-                                 [mkTyCon "IO"
-                                 ,unit_tycon
-                                 ]
-
-       replyType = mkTyCon $ replyName req
 
 -- | Fold Haskell expressions together in a right-fold fashion
 applyManyExp [] = undefined
