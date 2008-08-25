@@ -66,7 +66,7 @@ xDecl (XRequest name opcode fields resp) = do
               declareDeserReply rName rFields
               return True
   logRequest name opcode hasReply
-xDecl (XEvent name opcode fields) = do
+xDecl (XEvent name opcode fields _) = do
   declareStruct name fields
   exportType name
   logEvent name opcode
@@ -205,7 +205,7 @@ declaredTypes xhd =
 
         tyName (XStruct name _) = return name
         tyName (XTypeDef name _) = return name
-        tyName (XEvent name _ _) = return name
+        tyName (XEvent name _ _ _) = return name
         tyName (XRequest name _ _ Nothing) = return name
         tyName (XRequest name _ _ _) = [name, name ++ "Reply"]
         tyName (XidType name) = return name
