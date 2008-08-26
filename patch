@@ -1,7 +1,7 @@
 diff -u -r generated/1.2/XHB/Gen/RandR/Types.hs working/XHB/Gen/RandR/Types.hs
---- generated/1.2/XHB/Gen/RandR/Types.hs	2008-08-05 22:49:15.000000000 -0500
-+++ working/XHB/Gen/RandR/Types.hs	2008-08-03 12:42:30.000000000 -0500
-@@ -795,11 +795,11 @@
+--- generated/1.2/XHB/Gen/RandR/Types.hs	2008-08-25 22:01:41.000000000 -0500
++++ working/XHB/Gen/RandR/Types.hs	2008-08-25 22:01:42.000000000 -0500
+@@ -1128,11 +1128,11 @@
                                                 mheight_ScreenChangeNotify :: CARD16}
                          deriving Show
   
@@ -17,7 +17,7 @@ diff -u -r generated/1.2/XHB/Gen/RandR/Types.hs working/XHB/Gen/RandR/Types.hs
          toValue NotifyCrtcChange{} = 0
          toValue NotifyOutputChange{} = 1
          toValue NotifyOutputProperty{} = 2
-@@ -933,6 +933,24 @@
+@@ -1266,6 +1266,24 @@
                 skip 11
                 return (MkOutputProperty window output atom timestamp status)
   
@@ -45,8 +45,8 @@ diff -u -r generated/1.2/XHB/Gen/RandR/Types.hs working/XHB/Gen/RandR/Types.hs
 \ No newline at end of file
 Only in working/XHB/Gen/RandR: Types.hs.orig
 diff -u -r generated/1.2/XHB/Gen/XFixes/Types.hs working/XHB/Gen/XFixes/Types.hs
---- generated/1.2/XHB/Gen/XFixes/Types.hs	2008-08-05 22:49:15.000000000 -0500
-+++ working/XHB/Gen/XFixes/Types.hs	2008-08-03 12:42:30.000000000 -0500
+--- generated/1.2/XHB/Gen/XFixes/Types.hs	2008-08-25 22:01:41.000000000 -0500
++++ working/XHB/Gen/XFixes/Types.hs	2008-08-25 22:01:42.000000000 -0500
 @@ -3,7 +3,7 @@
          QueryVersionReply(..), SaveSetMode(..), SaveSetTarget(..),
          SaveSetMapping(..), ChangeSaveSet(..), SelectionEvent(..),
@@ -56,9 +56,9 @@ diff -u -r generated/1.2/XHB/Gen/XFixes/Types.hs working/XHB/Gen/XFixes/Types.hs
          CursorNotify(..), SelectCursorInput(..), GetCursorImage(..),
          GetCursorImageReply(..), REGION, CreateRegion(..),
          CreateRegionFromBitmap(..), CreateRegionFromWindow(..),
-@@ -165,9 +165,9 @@
-                                                    event_mask_SelectSelectionInput :: CARD32}
-                           deriving Show
+@@ -211,9 +211,9 @@
+                serialize bo (event_mask_SelectSelectionInput x)
+                putSkip (requiredPadding size__)
   
 -data CursorNotify = CursorNotifyDisplayCursor
 +data CursorNotifyEnum = CursorNotifyDisplayCursor
@@ -70,8 +70,8 @@ diff -u -r generated/1.2/XHB/Gen/XFixes/Types.hs working/XHB/Gen/XFixes/Types.hs
   
 Only in working/XHB/Gen/XFixes: Types.hs.orig
 diff -u -r generated/1.2/XHB/Gen/Xproto/Types.hs working/XHB/Gen/Xproto/Types.hs
---- generated/1.2/XHB/Gen/Xproto/Types.hs	2008-08-05 22:49:15.000000000 -0500
-+++ working/XHB/Gen/Xproto/Types.hs	2008-08-05 22:47:21.000000000 -0500
+--- generated/1.2/XHB/Gen/Xproto/Types.hs	2008-08-25 22:01:41.000000000 -0500
++++ working/XHB/Gen/Xproto/Types.hs	2008-08-25 22:03:05.000000000 -0500
 @@ -610,6 +610,7 @@
                 serialize bo (protocol_minor_version_SetupRequest x)
                 serialize bo (authorization_protocol_name_len_SetupRequest x)
@@ -145,7 +145,7 @@ diff -u -r generated/1.2/XHB/Gen/Xproto/Types.hs working/XHB/Gen/Xproto/Types.hs
   
  data ClientMessage = MkClientMessage{format_ClientMessage :: CARD8,
                                       window_ClientMessage :: WINDOW, type_ClientMessage :: ATOM,
-@@ -2343,6 +2388,9 @@
+@@ -2929,6 +2974,9 @@
  odd_length_QueryTextExtents :: QueryTextExtents -> BOOL
  odd_length_QueryTextExtents x
    = (fromIntegral (string_len_QueryTextExtents x .&. 1))
@@ -153,14 +153,25 @@ diff -u -r generated/1.2/XHB/Gen/Xproto/Types.hs working/XHB/Gen/Xproto/Types.hs
 +string_len_QueryTextExtents :: QueryTextExtents -> Word8
 +string_len_QueryTextExtents x = genericLength $ string_QueryTextExtents x
   
- data QueryTextExtentsReply = MkQueryTextExtentsReply{draw_direction_QueryTextExtentsReply
-                                                      :: BYTE,
+ instance Serialize QueryTextExtents where
+         serialize bo x
+@@ -4674,10 +4722,11 @@
+                putSkip 1
+                serialize bo (convertBytesToRequestSize (size x) :: INT16)
+                serialize bo (name_len_QueryExtension x)
++               putSkip 2
+                serializeList bo (name_QueryExtension x)
+                putSkip (requiredPadding (size x))
+         size x
+-          = 3 + 1 + size (name_len_QueryExtension x) +
++          = 3 + 1 + size (name_len_QueryExtension x) + 2 +
+               sum (map size (name_QueryExtension x))
+  
+ data QueryExtensionReply = MkQueryExtensionReply{present_QueryExtensionReply
 Only in working/XHB/Gen/Xproto: Types.hs.orig
-Only in working/XHB/Gen/Xproto: Types.hs.rej
-Only in working/XHB/Gen/Xproto: Types.o
 diff -u -r generated/1.2/XHB/Gen/Xv/Types.hs working/XHB/Gen/Xv/Types.hs
---- generated/1.2/XHB/Gen/Xv/Types.hs	2008-08-05 22:49:15.000000000 -0500
-+++ working/XHB/Gen/Xv/Types.hs	2008-08-03 12:42:30.000000000 -0500
+--- generated/1.2/XHB/Gen/Xv/Types.hs	2008-08-25 22:01:41.000000000 -0500
++++ working/XHB/Gen/Xv/Types.hs	2008-08-25 22:01:42.000000000 -0500
 @@ -15,6 +15,7 @@
          ListImageFormatsReply(..), QueryImageAttributes(..),
          QueryImageAttributesReply(..), PutImage(..), ShmPutImage(..))

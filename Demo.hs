@@ -10,6 +10,9 @@ import qualified XHB.Shared as X
 import qualified XHB.Gen.Xproto.Types as X
 import XHB.Gen.Xproto
 
+import qualified XHB.Gen.Xinerama as Xinerama
+import qualified XHB.Gen.Xinerama.Types as Xinerama
+
 import System.IO
 
 main = do
@@ -47,11 +50,24 @@ demo c = do
     Left e -> putStrLn $ "error in screen saver request" ++ showError e
     Right ssRep -> printSSRep ssRep
 
+  isActiveReceipt <- Xinerama.isActive c
+  replyOrError <- X.getReply isActiveReceipt
+  case replyOrError of
+    Left e -> putStrLn $ "error checking if xinerama is active" ++ showError e
+    Right isActiveReply -> printIsActive isActiveReply
+
   putStrLn ""
   putStrLn "Press any key to continue"
   hSetBuffering stdin NoBuffering
   getChar
   putStrLn ""
+
+printIsActive rep | Xinerama.state_IsActiveReply rep == 0 = do
+                          putStrLn ""
+                          putStrLn "Xinerama is not active"
+                  | otherwise = do
+                          putStrLn ""
+                          putStrLn "Xinerama is active!"
 
 printExtReply :: X.ListExtensionsReply -> IO ()
 printExtReply r =
