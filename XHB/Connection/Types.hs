@@ -13,8 +13,8 @@ import Data.Map(Map)
 import XHB.Gen.Xproto.Types
 
 data Connection = Connection
-    {conn_error_queue :: TChan RawError -- read only
-    ,conn_event_queue :: TChan RawEvent -- read only
+    {conn_error_queue :: TChan SomeError -- read only
+    ,conn_event_queue :: TChan SomeEvent -- read only
     ,conn_read_loop_tid :: ThreadId
     ,conn_handle :: MVar Handle -- write only
     ,conn_reps :: TChan PendedReply -- insert only

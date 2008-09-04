@@ -1,6 +1,12 @@
 -- helper functions for working with extensions.
 
-module XHB.Connection.Extension where
+module XHB.Connection.Extension
+    ( serializeExtensionRequest
+    , extensionPresent
+    , extensionOpCode
+    , extensionInfo
+    )
+        where
 
 import Control.Exception(assert)
 
@@ -22,8 +28,8 @@ import XHB.Shared
 serializeExtensionRequest :: ExtensionRequest a => Connection -> a -> IO Put
 serializeExtensionRequest c req = do
   extRep <- extensionInfo c $ extensionId req
-  let present = extensionPresent extRep
-      opCode = extensionOpCode extRep
+  let present = _extensionPresent extRep
+      opCode = _extensionOpCode extRep
 
       bo = byteOrderFromConn c
       putAction = serializeRequest req opCode bo
@@ -36,22 +42,31 @@ serializeExtensionRequest c req = do
 -- Will cache the extension information when found.
 extensionInfo :: Connection -> ExtensionId -> IO (QueryExtensionReply)
 extensionInfo c extId = do
+
   extInfoMaybe <- lookupExtension c extId
+
   case extInfoMaybe of
     Just extInfo -> return extInfo
+
     Nothing -> do
       receipt <- queryExtension c (genericLength extId) (stringToCList extId)
       reply <- getReply receipt
       case reply of
-        Left{} -> error "Fatal error resolving extension info"
+        Left{} -> error $ "Fatal error resolving extension info"
         Right extInfo -> do
-           cacheExtensionInfo c extId extInfo
+           cacheExtension c extId extInfo
            return extInfo
 
 -- friendly helper functions.
 
-extensionOpCode :: QueryExtensionReply -> RequestOpCode
-extensionOpCode = major_opcode_QueryExtensionReply
+extensionOpCode :: Connection -> ExtensionId -> IO RequestOpCode
+extensionOpCode c x = _extensionOpCode `fmap` extensionInfo c x
 
-extensionPresent :: QueryExtensionReply -> Bool
-extensionPresent = (/= 0) . present_QueryExtensionReply
+extensionPresent :: Connection -> ExtensionId -> IO Bool
+extensionPresent c x = _extensionPresent `fmap` extensionInfo c x
+
+_extensionOpCode :: QueryExtensionReply -> RequestOpCode
+_extensionOpCode = major_opcode_QueryExtensionReply
+
+_extensionPresent :: QueryExtensionReply -> Bool
+_extensionPresent = (/= 0) . present_QueryExtensionReply

@@ -7,9 +7,9 @@ module XHB.Connection
     ,pollForError
     ,waitForError
     ,setCrashOnError
-    ,RawEvent
-    ,RawError
     ,connectionSetup
+    ,SomeError
+    ,SomeEvent
     ,getRoot
     ,getReply
     )
@@ -71,16 +71,16 @@ nextXid c = atomically $ do
                    return . return $ x
 
 
-pollForEvent :: Connection -> IO (Maybe RawEvent)
+pollForEvent :: Connection -> IO (Maybe SomeEvent)
 pollForEvent c = atomically $ pollTChan $ conn_event_queue c
 
-waitForEvent :: Connection -> IO RawEvent
+waitForEvent :: Connection -> IO SomeEvent
 waitForEvent c = atomically $ readTChan $ conn_event_queue c
                 
-pollForError :: Connection -> IO (Maybe RawError)
+pollForError :: Connection -> IO (Maybe SomeError)
 pollForError c = atomically $ pollTChan $ conn_error_queue c
 
-waitForError :: Connection -> IO RawError
+waitForError :: Connection -> IO SomeError
 waitForError c = atomically $ readTChan $ conn_error_queue c
 
 pollTChan :: TChan a -> STM (Maybe a)
@@ -89,7 +89,7 @@ pollTChan tc = do
   if empty then return Nothing
    else Just `liftM` readTChan tc
 
-getReply :: Receipt a -> IO (Either RawError a)
+getReply :: Receipt a -> IO (Either SomeError a)
 getReply r = atomically $ do
                a <- takeTMVar r
                putTMVar r a
@@ -136,13 +136,19 @@ instance Deserialize GenericReply where
 
 -- state maintained by the read loop
 data ReadLoop = ReadLoop
-    {read_error_queue :: TChan RawError -- write only
-    ,read_event_queue :: TChan RawEvent -- write only
+    {read_error_queue :: TChan SomeError -- write only
+    ,read_event_queue :: TChan SomeEvent -- write only
     ,read_input_queue :: Handle -- read only
     ,read_reps :: TChan PendedReply -- read only
     ,read_config :: ConnectionConfig
     }
 
+
+bsToError :: ByteString -> SomeError
+bsToError = SomeError . UnknownError
+
+bsToEvent :: ByteString -> SomeEvent
+bsToEvent = SomeEvent . UnknownEvent
 
 deserializeInReadLoop rl = deserialize (conf_byteorder $ read_config $ rl)
 
@@ -192,15 +198,16 @@ readLoopError rl genRep chunk = do
     nextPend <- readTChan $ read_reps rl
     if (pended_sequence nextPend) == (grep_sequence genRep)
      then case pended_reply nextPend of
-            WrappedReply replyHole -> putTMVar replyHole $ Left chunk
+            WrappedReply replyHole -> putTMVar replyHole $
+                                      Left $ bsToError chunk
      else do
        unGetTChan (read_reps rl) nextPend
-       writeTChan (read_error_queue rl) chunk
+       writeTChan (read_error_queue rl) $ bsToError chunk
 
 -- take the bytes making up the event response, shove it in
 -- a queue
 readLoopEvent rl genRep chunk =
-    atomically $ writeTChan (read_event_queue rl) chunk
+    atomically $ writeTChan (read_event_queue rl) $ bsToEvent chunk
 
 -- Handshake with the server
 -- parse result of handshake

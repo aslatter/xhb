@@ -1,4 +1,17 @@
-module XHB.Connection.Internal where
+
+-- | This module contains functioanlity only for use
+-- by other XHB modules, while still trying to ihde some
+-- of the implementation details of the 'Connection'
+-- data type.
+
+module XHB.Connection.Internal
+    (sendRequest
+    ,sendRequestWithReply
+    ,byteOrderFromConn
+    ,lookupExtension
+    ,cacheExtension
+    ,Connection
+    ) where
 
 import Data.Word(Word16)
 import Control.Exception(bracket)
@@ -74,8 +87,8 @@ lookupExtension c extId = atomically $ do
    return $ M.lookup extId m
 
 -- | Add an extension to the extension cache.
-cacheExtensionInfo :: Connection -> ExtensionId -> QueryExtensionReply -> IO ()
-cacheExtensionInfo c extId ext = atomically $ do
+cacheExtension :: Connection -> ExtensionId -> QueryExtensionReply -> IO ()
+cacheExtension c extId ext = atomically $ do
    let tv = conn_extensions c
 
    m <- readTVar tv

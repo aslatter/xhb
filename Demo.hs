@@ -103,6 +103,8 @@ demoCreateWindowReq c w
       (X.emptyValueParam)
 
 -- errors are returned as bytestrings, currently
-showError :: X.RawError -> String
-showError = show . BS.unpack
+showError :: X.SomeError -> String
+showError serr = case X.fromError serr of
+                   Just (X.UnknownError bs) -> show . BS.unpack $ bs
+                   Nothing -> "Unknown error"
 

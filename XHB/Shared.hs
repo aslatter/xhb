@@ -4,6 +4,8 @@ module XHB.Shared where
 
 -- MAY NOT import any gnerated files
 
+import Data.Typeable
+
 import Data.Binary.Put
 import Data.Binary.Get
 
@@ -133,10 +135,34 @@ type ExtensionId = String -- limited to ASCII
 -- In units of four bytes
 type ReplyLength = Word32
 
-type Receipt a = TMVar (Either RawError a)
+type Receipt a = TMVar (Either SomeError a)
 
-type RawError = ByteString
-type RawEvent = ByteString
+-- Because new errors and events are introduced with each extension,
+-- I don't want to give the users of this library pattern-match
+-- error every time a new extension is added.
+
+class Typeable a => Error a
+data SomeError = forall a . Error a => SomeError a
+
+fromError :: Error e => SomeError -> Maybe e
+fromError (SomeError e)= cast e
+
+data UnknownError = UnknownError BS.ByteString deriving (Typeable)
+instance Error UnknownError
+
+
+
+class Typeable a => Event a
+data SomeEvent = forall a . Event a => SomeEvent a
+
+fromEvent :: Event e => SomeEvent -> Maybe e
+fromEvent (SomeEvent e) = cast e
+
+data UnknownEvent = UnknownEvent BS.ByteString deriving (Typeable)
+instance Event UnknownEvent
+
+
+
 
 
 deserializeList :: Deserialize a => BO -> Int -> Get [a]
