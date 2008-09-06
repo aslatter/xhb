@@ -27,6 +27,7 @@ newXhbTypesModule = addStandardImports . mkModule . typesModuleName
               ,"Data.Bits"
               ,"Data.Binary.Put"
               ,"Data.Binary.Get"
+              ,"Data.Typeable"
               ,"Control.Monad"
               ,"Control.Exception"
               ,"Data.List"

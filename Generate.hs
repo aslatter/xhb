@@ -90,10 +90,14 @@ xDecl (XRequest name opcode fields resp) = appMany <$> sequence
   ]
 xDecl (XEvent name opcode fields _) = appMany <$> sequence
   [ declareStruct name fields
+  , return . addDecl $ declareEventInst name
+  , addDecl <$> declareDeserEvent name opcode fields
   , return $ exportType name
   ]
 xDecl (XError name opcode fields) = appMany <$> sequence
   [ declareStruct name fields
+  , return . addDecl $ declareErrorInst name
+  , return . addDecl $ declareDeserError name fields
   , return $ exportType name
   ]
 xDecl dec@(XEnum nm elems') =
@@ -106,6 +110,21 @@ xDecl dec@(XEnum nm elems') =
       ]
 xDecl (XUnion _ _) = return id -- Unions are currently unhandled
 xDecl x = error $ "Pattern match failed in \"xDecl\" with argument:\n" ++ (show $ toDoc x)
+
+declareEventInst :: Name -> HsDecl
+declareEventInst name = mkInstDecl
+                        []
+                        (mkUnQName "Event")
+                        [mkTyCon name]
+                        []
+
+declareErrorInst :: Name -> HsDecl
+declareErrorInst name = mkInstDecl
+                        []
+                        (mkUnQName "Error")
+                        [mkTyCon name]
+                        []
+
 
 -- | For an X enum, declares an instance of 'SimpleEnum' of 'BitEnum'
 -- as appropriate.
@@ -252,7 +271,9 @@ typeDecl nm tp =
 
 -- | Given a type name and a list of X struct elements this declares
 -- a Haskell data type.
-declareStruct :: String -> [StructElem] -> Generate (HsModule -> HsModule)
+declareStruct :: String
+              -> [StructElem]
+              -> Generate (HsModule -> HsModule)
 declareStruct name fields = do
          selems <- selemsToRec fields
          fExprFields <- exprFields name fields
@@ -262,7 +283,7 @@ declareStruct name fields = do
              name
              []
              [mkRCon (conPrefix name) (selems)]
-             [mkUnQName "Show"]
+             [mkUnQName "Show", mkUnQName "Typeable"]
           , fExprFields
           ]
     where selemsToRec :: [StructElem] -> Generate [(String,HsBangType)]
@@ -409,6 +430,45 @@ declareDeserReply name fields =
      declareLengthType :: HsStmt
      declareLengthType = HsLetStmt [mkPatBind HsPWildCard $ mkVar "isCard32" `HsApp` mkVar "length"]
 
+
+declareDeserError :: Name -> [StructElem] -> HsDecl
+declareDeserError name elems =
+    mkInstDecl
+    []
+    (mkUnQName "Deserialize")
+    [mkTyCon name]
+    [deserFunc]
+
+   where deserFunc :: HsDecl
+         deserFunc =
+             mkSimpleFun
+             "deserialize"
+             [mkPVar "bo"]
+             (HsDo $ deserIns (makeFields elems) ++ [returnIt name elems])
+
+         makeFields :: [StructElem] -> [StructElem]
+         makeFields xs =  Pad 4 : xs
+
+declareDeserEvent :: Name -> Int -> [StructElem] -> Generate HsDecl
+declareDeserEvent name code elems = do
+  ext <- isExtension
+
+  let isKeymapNotify = not ext && code == 11
+
+      makeFields :: [StructElem] -> [StructElem]
+      makeFields xs | isKeymapNotify = Pad 1 : xs
+                    | otherwise = case xs of
+                           -- assumes the first field is one byte
+                           (h:t) -> Pad 1 : h : Pad 2 : t
+                           [] -> []
+  return $ mkInstDecl
+         []
+         (mkUnQName "Deserialize")
+         [mkTyCon name]
+         [mkSimpleFun "deserialize"
+                [mkPVar "bo"]
+                (HsDo $ deserIns (makeFields elems) ++ [returnIt name elems])
+         ]
 -- | Declare a statement in the 'do' block of the 'deserialize' function.
 deserIns :: [StructElem] -> [HsStmt]
 deserIns fields = mapMaybe go fields

@@ -1,9 +1,9 @@
 diff -u -r generated/1.2/XHB/Gen/RandR/Types.hs working/XHB/Gen/RandR/Types.hs
---- generated/1.2/XHB/Gen/RandR/Types.hs	2008-09-06 12:47:28.000000000 -0500
-+++ working/XHB/Gen/RandR/Types.hs	2008-09-06 12:30:54.000000000 -0500
-@@ -1100,11 +1100,11 @@
-                                                mheight_ScreenChangeNotify :: CARD16}
-                         deriving Show
+--- generated/1.2/XHB/Gen/RandR/Types.hs	2008-09-06 16:48:02.000000000 -0500
++++ working/XHB/Gen/RandR/Types.hs	2008-09-06 16:28:43.000000000 -0500
+@@ -1128,11 +1128,11 @@
+                     mwidth
+                     mheight)
   
 -data Notify = NotifyCrtcChange
 -            | NotifyOutputChange
@@ -17,7 +17,7 @@ diff -u -r generated/1.2/XHB/Gen/RandR/Types.hs working/XHB/Gen/RandR/Types.hs
          toValue NotifyCrtcChange{} = 0
          toValue NotifyOutputChange{} = 1
          toValue NotifyOutputProperty{} = 2
-@@ -1238,6 +1238,24 @@
+@@ -1266,6 +1266,24 @@
                 skip 11
                 return (MkOutputProperty window output atom timestamp status)
   
@@ -41,12 +41,11 @@ diff -u -r generated/1.2/XHB/Gen/RandR/Types.hs working/XHB/Gen/RandR/Types.hs
 +
  data Notify = MkNotify{subCode_Notify :: CARD8,
                         u_Notify :: NotifyData}
-             deriving Show
-\ No newline at end of file
+             deriving (Show, Typeable)
 Only in working/XHB/Gen/RandR: Types.hs.orig
 diff -u -r generated/1.2/XHB/Gen/XFixes/Types.hs working/XHB/Gen/XFixes/Types.hs
---- generated/1.2/XHB/Gen/XFixes/Types.hs	2008-09-06 12:47:28.000000000 -0500
-+++ working/XHB/Gen/XFixes/Types.hs	2008-09-06 12:38:55.000000000 -0500
+--- generated/1.2/XHB/Gen/XFixes/Types.hs	2008-09-06 16:48:02.000000000 -0500
++++ working/XHB/Gen/XFixes/Types.hs	2008-09-06 16:28:43.000000000 -0500
 @@ -2,7 +2,7 @@
         (QueryVersion(..), QueryVersionReply(..), SaveSetMode(..),
          SaveSetTarget(..), SaveSetMapping(..), ChangeSaveSet(..),
@@ -56,7 +55,7 @@ diff -u -r generated/1.2/XHB/Gen/XFixes/Types.hs working/XHB/Gen/XFixes/Types.hs
          CursorNotify(..), SelectCursorInput(..), GetCursorImage(..),
          GetCursorImageReply(..), REGION, CreateRegion(..),
          CreateRegionFromBitmap(..), CreateRegionFromWindow(..),
-@@ -175,9 +175,9 @@
+@@ -193,9 +193,9 @@
                 serialize bo (event_mask_SelectSelectionInput x)
                 putSkip (requiredPadding size__)
   
@@ -69,11 +68,10 @@ diff -u -r generated/1.2/XHB/Gen/XFixes/Types.hs working/XHB/Gen/XFixes/Types.hs
          fromValue 0 = CursorNotifyDisplayCursor
   
 Only in working/XHB/Gen/XFixes: Types.hs.orig
-Only in working/XHB/Gen/XFixes: Types.hs.rej
 diff -u -r generated/1.2/XHB/Gen/Xproto/Types.hs working/XHB/Gen/Xproto/Types.hs
---- generated/1.2/XHB/Gen/Xproto/Types.hs	2008-09-06 12:47:28.000000000 -0500
-+++ working/XHB/Gen/Xproto/Types.hs	2008-09-06 12:30:54.000000000 -0500
-@@ -439,6 +439,7 @@
+--- generated/1.2/XHB/Gen/Xproto/Types.hs	2008-09-06 16:48:02.000000000 -0500
++++ working/XHB/Gen/Xproto/Types.hs	2008-09-06 16:43:16.000000000 -0500
+@@ -440,6 +440,7 @@
                 serialize bo (protocol_minor_version_SetupRequest x)
                 serialize bo (authorization_protocol_name_len_SetupRequest x)
                 serialize bo (authorization_protocol_data_len_SetupRequest x)
@@ -81,7 +79,7 @@ diff -u -r generated/1.2/XHB/Gen/Xproto/Types.hs working/XHB/Gen/Xproto/Types.hs
                 serializeList bo (authorization_protocol_name_SetupRequest x)
                 serializeList bo (authorization_protocol_data_SetupRequest x)
          size x
-@@ -447,6 +448,7 @@
+@@ -448,6 +449,7 @@
                + size (protocol_minor_version_SetupRequest x)
                + size (authorization_protocol_name_len_SetupRequest x)
                + size (authorization_protocol_data_len_SetupRequest x)
@@ -89,7 +87,7 @@ diff -u -r generated/1.2/XHB/Gen/Xproto/Types.hs working/XHB/Gen/Xproto/Types.hs
                + sum (map size (authorization_protocol_name_SetupRequest x))
                + sum (map size (authorization_protocol_data_SetupRequest x))
   
-@@ -458,6 +460,7 @@
+@@ -459,6 +461,7 @@
                 protocol_minor_version <- deserialize bo
                 authorization_protocol_name_len <- deserialize bo
                 authorization_protocol_data_len <- deserialize bo
@@ -97,21 +95,21 @@ diff -u -r generated/1.2/XHB/Gen/Xproto/Types.hs working/XHB/Gen/Xproto/Types.hs
                 authorization_protocol_name <- deserializeList bo
                                                  (fromIntegral authorization_protocol_name_len)
                 authorization_protocol_data <- deserializeList bo
-@@ -999,6 +1002,48 @@
-                                        colormap_ColormapNotify :: COLORMAP,
-                                        new_ColormapNotify :: BOOL, state_ColormapNotify :: BYTE}
-                     deriving Show
+@@ -1209,6 +1212,51 @@
+                                        y_ReparentNotify :: INT16,
+                                        override_redirect_ReparentNotify :: BOOL}
+                     deriving (Show, Typeable)
 +
 + 
 +data ClientMessageData = ClientData8  [CARD8]  -- ^length 20
 +                       | ClientData16 [CARD16] -- ^length 10
 +                       | ClientData32 [CARD32] -- ^length 5
-+                   deriving Show
++                   deriving (Show, Typeable)
 +
 + 
 +data ClientMessageDataType = CDType8
-+                            | CDType16
-+                            | CDType32
++                           | CDType16
++                           | CDType32
 + 
 +clientMessageDataType :: ClientMessageData -> ClientMessageDataType
 +clientMessageDataType ClientData8{}  = CDType8
@@ -125,14 +123,13 @@ diff -u -r generated/1.2/XHB/Gen/Xproto/Types.hs working/XHB/Gen/Xproto/Types.hs
 +                                     serializeList bo xs
 +    serialize bo (ClientData32 xs) = assert (length xs == 5) $
 +                                     serializeList bo xs
-+ 
 +    size cd = assert
 +         (case cd of
 +            ClientData8  xs -> length xs == 20
 +            ClientData16 xs -> length xs == 10
 +            ClientData32 xs -> length xs == 5)
 +         20
-+ 
++
 +deserializeClientData :: BO -> ClientMessageDataType -> Get ClientMessageData
 +deserializeClientData bo CDType8
 +    = ClientData8 `liftM` deserializeList bo 20
@@ -141,12 +138,25 @@ diff -u -r generated/1.2/XHB/Gen/Xproto/Types.hs working/XHB/Gen/Xproto/Types.hs
 +deserializeClientData bo CDType32
 +    = ClientData32 `liftM` deserializeList bo 5
 + 
-+ 
++clientDataFormatToType :: CARD8 -> ClientMessageDataType
++clientDataFormatToType 8 = CDType8
++clientDataFormatToType 16 = CDType16
++clientDataFormatToType 32 = CDType32
++clientDataFormatToType _ = CDType8 -- should we throw an error here?
 +
   
- data ClientMessage = MkClientMessage{format_ClientMessage :: CARD8,
-                                      window_ClientMessage :: WINDOW, type_ClientMessage :: ATOM,
-@@ -2758,6 +2803,9 @@
+ instance Event ReparentNotify
+  
+@@ -1509,7 +1557,7 @@
+                skip 2
+                window <- deserialize bo
+                type_ <- deserialize bo
+-               data_ <- deserialize bo
++               data_ <- deserializeClientData bo (clientDataFormatToType format)
+                return (MkClientMessage format window type_ data_)
+  
+ data Mapping = MappingModifier
+@@ -3447,6 +3495,9 @@
  odd_length_QueryTextExtents :: QueryTextExtents -> BOOL
  odd_length_QueryTextExtents x
    = (fromIntegral (string_len_QueryTextExtents x .&. 1))
@@ -156,7 +166,7 @@ diff -u -r generated/1.2/XHB/Gen/Xproto/Types.hs working/XHB/Gen/Xproto/Types.hs
   
  instance Serialize QueryTextExtents where
          serialize bo x
-@@ -4503,10 +4551,11 @@
+@@ -5194,10 +5245,11 @@
                 putSkip 1
                 serialize bo (convertBytesToRequestSize (size x) :: INT16)
                 serialize bo (name_len_QueryExtension x)
@@ -171,8 +181,8 @@ diff -u -r generated/1.2/XHB/Gen/Xproto/Types.hs working/XHB/Gen/Xproto/Types.hs
  data QueryExtensionReply = MkQueryExtensionReply{present_QueryExtensionReply
 Only in working/XHB/Gen/Xproto: Types.hs.orig
 diff -u -r generated/1.2/XHB/Gen/Xv/Types.hs working/XHB/Gen/Xv/Types.hs
---- generated/1.2/XHB/Gen/Xv/Types.hs	2008-09-06 12:47:28.000000000 -0500
-+++ working/XHB/Gen/Xv/Types.hs	2008-09-06 12:30:54.000000000 -0500
+--- generated/1.2/XHB/Gen/Xv/Types.hs	2008-09-06 16:48:02.000000000 -0500
++++ working/XHB/Gen/Xv/Types.hs	2008-09-06 16:28:43.000000000 -0500
 @@ -15,6 +15,7 @@
          ListImageFormatsReply(..), QueryImageAttributes(..),
          QueryImageAttributesReply(..), PutImage(..), ShmPutImage(..))
