@@ -1,7 +1,7 @@
 diff -u -r generated/1.2/XHB/Gen/RandR/Types.hs working/XHB/Gen/RandR/Types.hs
---- generated/1.2/XHB/Gen/RandR/Types.hs	2008-08-25 22:01:41.000000000 -0500
-+++ working/XHB/Gen/RandR/Types.hs	2008-08-25 22:01:42.000000000 -0500
-@@ -1128,11 +1128,11 @@
+--- generated/1.2/XHB/Gen/RandR/Types.hs	2008-09-06 12:47:28.000000000 -0500
++++ working/XHB/Gen/RandR/Types.hs	2008-09-06 12:30:54.000000000 -0500
+@@ -1100,11 +1100,11 @@
                                                 mheight_ScreenChangeNotify :: CARD16}
                          deriving Show
   
@@ -17,7 +17,7 @@ diff -u -r generated/1.2/XHB/Gen/RandR/Types.hs working/XHB/Gen/RandR/Types.hs
          toValue NotifyCrtcChange{} = 0
          toValue NotifyOutputChange{} = 1
          toValue NotifyOutputProperty{} = 2
-@@ -1266,6 +1266,24 @@
+@@ -1238,6 +1238,24 @@
                 skip 11
                 return (MkOutputProperty window output atom timestamp status)
   
@@ -45,18 +45,18 @@ diff -u -r generated/1.2/XHB/Gen/RandR/Types.hs working/XHB/Gen/RandR/Types.hs
 \ No newline at end of file
 Only in working/XHB/Gen/RandR: Types.hs.orig
 diff -u -r generated/1.2/XHB/Gen/XFixes/Types.hs working/XHB/Gen/XFixes/Types.hs
---- generated/1.2/XHB/Gen/XFixes/Types.hs	2008-08-25 22:01:41.000000000 -0500
-+++ working/XHB/Gen/XFixes/Types.hs	2008-08-25 22:01:42.000000000 -0500
-@@ -3,7 +3,7 @@
-         QueryVersionReply(..), SaveSetMode(..), SaveSetTarget(..),
-         SaveSetMapping(..), ChangeSaveSet(..), SelectionEvent(..),
-         SelectionEventMask(..), SelectionNotify(..),
+--- generated/1.2/XHB/Gen/XFixes/Types.hs	2008-09-06 12:47:28.000000000 -0500
++++ working/XHB/Gen/XFixes/Types.hs	2008-09-06 12:38:55.000000000 -0500
+@@ -2,7 +2,7 @@
+        (QueryVersion(..), QueryVersionReply(..), SaveSetMode(..),
+         SaveSetTarget(..), SaveSetMapping(..), ChangeSaveSet(..),
+         SelectionEvent(..), SelectionEventMask(..), SelectionNotify(..),
 -        SelectSelectionInput(..), CursorNotify(..), CursorNotifyMask(..),
 +        SelectSelectionInput(..), CursorNotifyEnum(..), CursorNotifyMask(..),
          CursorNotify(..), SelectCursorInput(..), GetCursorImage(..),
          GetCursorImageReply(..), REGION, CreateRegion(..),
          CreateRegionFromBitmap(..), CreateRegionFromWindow(..),
-@@ -211,9 +211,9 @@
+@@ -175,9 +175,9 @@
                 serialize bo (event_mask_SelectSelectionInput x)
                 putSkip (requiredPadding size__)
   
@@ -69,10 +69,11 @@ diff -u -r generated/1.2/XHB/Gen/XFixes/Types.hs working/XHB/Gen/XFixes/Types.hs
          fromValue 0 = CursorNotifyDisplayCursor
   
 Only in working/XHB/Gen/XFixes: Types.hs.orig
+Only in working/XHB/Gen/XFixes: Types.hs.rej
 diff -u -r generated/1.2/XHB/Gen/Xproto/Types.hs working/XHB/Gen/Xproto/Types.hs
---- generated/1.2/XHB/Gen/Xproto/Types.hs	2008-08-25 22:01:41.000000000 -0500
-+++ working/XHB/Gen/Xproto/Types.hs	2008-08-25 22:03:05.000000000 -0500
-@@ -610,6 +610,7 @@
+--- generated/1.2/XHB/Gen/Xproto/Types.hs	2008-09-06 12:47:28.000000000 -0500
++++ working/XHB/Gen/Xproto/Types.hs	2008-09-06 12:30:54.000000000 -0500
+@@ -439,6 +439,7 @@
                 serialize bo (protocol_minor_version_SetupRequest x)
                 serialize bo (authorization_protocol_name_len_SetupRequest x)
                 serialize bo (authorization_protocol_data_len_SetupRequest x)
@@ -80,7 +81,7 @@ diff -u -r generated/1.2/XHB/Gen/Xproto/Types.hs working/XHB/Gen/Xproto/Types.hs
                 serializeList bo (authorization_protocol_name_SetupRequest x)
                 serializeList bo (authorization_protocol_data_SetupRequest x)
          size x
-@@ -618,6 +619,7 @@
+@@ -447,6 +448,7 @@
                + size (protocol_minor_version_SetupRequest x)
                + size (authorization_protocol_name_len_SetupRequest x)
                + size (authorization_protocol_data_len_SetupRequest x)
@@ -88,7 +89,7 @@ diff -u -r generated/1.2/XHB/Gen/Xproto/Types.hs working/XHB/Gen/Xproto/Types.hs
                + sum (map size (authorization_protocol_name_SetupRequest x))
                + sum (map size (authorization_protocol_data_SetupRequest x))
   
-@@ -629,6 +631,7 @@
+@@ -458,6 +460,7 @@
                 protocol_minor_version <- deserialize bo
                 authorization_protocol_name_len <- deserialize bo
                 authorization_protocol_data_len <- deserialize bo
@@ -96,7 +97,7 @@ diff -u -r generated/1.2/XHB/Gen/Xproto/Types.hs working/XHB/Gen/Xproto/Types.hs
                 authorization_protocol_name <- deserializeList bo
                                                  (fromIntegral authorization_protocol_name_len)
                 authorization_protocol_data <- deserializeList bo
-@@ -1170,6 +1173,48 @@
+@@ -999,6 +1002,48 @@
                                         colormap_ColormapNotify :: COLORMAP,
                                         new_ColormapNotify :: BOOL, state_ColormapNotify :: BYTE}
                      deriving Show
@@ -145,7 +146,7 @@ diff -u -r generated/1.2/XHB/Gen/Xproto/Types.hs working/XHB/Gen/Xproto/Types.hs
   
  data ClientMessage = MkClientMessage{format_ClientMessage :: CARD8,
                                       window_ClientMessage :: WINDOW, type_ClientMessage :: ATOM,
-@@ -2929,6 +2974,9 @@
+@@ -2758,6 +2803,9 @@
  odd_length_QueryTextExtents :: QueryTextExtents -> BOOL
  odd_length_QueryTextExtents x
    = (fromIntegral (string_len_QueryTextExtents x .&. 1))
@@ -155,7 +156,7 @@ diff -u -r generated/1.2/XHB/Gen/Xproto/Types.hs working/XHB/Gen/Xproto/Types.hs
   
  instance Serialize QueryTextExtents where
          serialize bo x
-@@ -4674,10 +4722,11 @@
+@@ -4503,10 +4551,11 @@
                 putSkip 1
                 serialize bo (convertBytesToRequestSize (size x) :: INT16)
                 serialize bo (name_len_QueryExtension x)
@@ -170,8 +171,8 @@ diff -u -r generated/1.2/XHB/Gen/Xproto/Types.hs working/XHB/Gen/Xproto/Types.hs
  data QueryExtensionReply = MkQueryExtensionReply{present_QueryExtensionReply
 Only in working/XHB/Gen/Xproto: Types.hs.orig
 diff -u -r generated/1.2/XHB/Gen/Xv/Types.hs working/XHB/Gen/Xv/Types.hs
---- generated/1.2/XHB/Gen/Xv/Types.hs	2008-08-25 22:01:41.000000000 -0500
-+++ working/XHB/Gen/Xv/Types.hs	2008-08-25 22:01:42.000000000 -0500
+--- generated/1.2/XHB/Gen/Xv/Types.hs	2008-09-06 12:47:28.000000000 -0500
++++ working/XHB/Gen/Xv/Types.hs	2008-09-06 12:30:54.000000000 -0500
 @@ -15,6 +15,7 @@
          ListImageFormatsReply(..), QueryImageAttributes(..),
          QueryImageAttributesReply(..), PutImage(..), ShmPutImage(..))

@@ -5,14 +5,14 @@
 module Generate where
 
 import Generate.Build
-import Generate.Types
+import Generate.Monad
+import Generate.Facts
 
 import Data.XCB
 
 import HaskellCombinators
 import Language.Haskell.Syntax
 
-import Control.Monad.RW
 import Control.Monad.Reader
 import qualified Data.List as L
 import Control.Applicative
@@ -35,59 +35,83 @@ toHsModules xs = map (toHsModule xs) xs
 toHsModule :: [XHeader] -> XHeader -> HsModule
 toHsModule xs xhd =
     let rdata = ReaderData xhd xs
-    in  runGen (modName xhd) rdata $ mapM_ xDecl (xheader_decls xhd)
+    in runGenerate rdata typesModule
 
+
+typesModule :: Generate HsModule
+typesModule = do
+  newModule <- newXhbTypesModule <$> (currentName >>= fancyName)
+  
+  f <- appMany <$> sequence
+       [ processDeclarations
+       ]
+  
+  return $ f newModule
+
+processDeclarations :: Generate (HsModule -> HsModule)
+processDeclarations =
+  appMany <$> (currentDeclarations >>= mapM xDecl)
 
 -- |Converts a declaration to a modification on a Haskell module
-xDecl :: XDecl -> Gen
-xDecl (XidType name) = do
-  simpleNewtype name "Xid" ["Eq","Ord","Show","Serialize","Deserialize","XidLike"]
-  exportTypeAbs name
-xDecl (XidUnion name _fields) = xDecl $ XidType name  -- Pretend it's a declaration of an Xid Type  
-xDecl (XStruct name fields) = do
-  declareStruct name fields
-  declareSerStruct name fields
-  declareDeserStruct name fields
-  exportType name
-xDecl (XTypeDef name typ) = do
-  typeDecl name typ
-  exportTypeAbs name
+xDecl :: XDecl -> Generate (HsModule -> HsModule)
+xDecl (XidType name) = return $ appMany
+  [ addDecl $
+     simpleNewtype name "Xid" ["Eq","Ord","Show","Serialize","Deserialize","XidLike"]
+  , exportTypeAbs name
+  ]
+xDecl (XidUnion name _fields) =
+            -- Pretend it's a declaration of an Xid Type
+            xDecl $ XidType name
+xDecl (XStruct name fields) = appMany <$> sequence
+  [ declareStruct name fields
+  , return . addDecl $ declareSerStruct name fields
+  , return . addDecl $ declareDeserStruct name fields
+  , return $ exportType name
+  ]
+xDecl (XTypeDef name typ) = appMany <$> sequence
+  [ addDecl <$> typeDecl name typ
+  , return $ exportTypeAbs name
+  ]
 xDecl (XImport name) = xImport name
-xDecl (XRequest name opcode fields resp) = do
-  declareStruct name fields
-  exportType name
-  declareSerRequest name opcode fields
-  hasReply <- case resp of
-    Nothing -> return False
-    Just rFields -> do
-              let rName = (name ++ "Reply")
-              declareStruct rName rFields
-              exportType rName
-              declareDeserReply rName rFields
-              return True
-  logRequest name opcode hasReply
-xDecl (XEvent name opcode fields _) = do
-  declareStruct name fields
-  exportType name
-  logEvent name opcode
-xDecl (XError name opcode fields) = do
-  declareStruct name fields
-  exportType name
-  logError name opcode
-xDecl dec@(XEnum nm elems') = do
+xDecl (XRequest name opcode fields resp) = appMany <$> sequence
+  [ declareStruct name fields
+  , return $ exportType name
+  , addDecl <$> declareSerRequest name opcode fields
+  , case resp of
+      Nothing -> return id -- empty
+      Just rFields -> 
+         let rName = replyName name
+         in appMany <$> sequence
+                [ declareStruct rName rFields
+                , return $ exportType rName
+                , return . addDecl $ declareDeserReply rName rFields
+                ]
+  ]
+xDecl (XEvent name opcode fields _) = appMany <$> sequence
+  [ declareStruct name fields
+  , return $ exportType name
+  ]
+xDecl (XError name opcode fields) = appMany <$> sequence
+  [ declareStruct name fields
+  , return $ exportType name
+  ]
+xDecl dec@(XEnum nm elems') =
   let elems = cleanEnum . fillEnum $ elems'
       typ = verifyEnum dec elems
-  declareEnumTycon nm elems
-  declareEnumInstance typ nm elems
-  exportType nm
-xDecl (XUnion _ _) = return () -- Unions are currently unhandled
+  in return $ appMany
+      [ addDecl $ declareEnumTycon nm elems
+      , addDecl $ declareEnumInstance typ nm elems
+      , exportType nm
+      ]
+xDecl (XUnion _ _) = return id -- Unions are currently unhandled
 xDecl x = error $ "Pattern match failed in \"xDecl\" with argument:\n" ++ (show $ toDoc x)
 
 -- | For an X enum, declares an instance of 'SimpleEnum' of 'BitEnum'
 -- as appropriate.
-declareEnumInstance :: EnumType -> Name -> [EnumElem] -> Gen
-declareEnumInstance _typ _name [] = return ()
-declareEnumInstance ETypeValue name els = buildDecl $
+declareEnumInstance :: EnumType -> Name -> [EnumElem] -> HsDecl
+declareEnumInstance _typ _name [] = error $ "declareEnumInstance: " ++
+                                    "Enum has no elements"
+declareEnumInstance ETypeValue name els =
       mkInstDecl
       []
       (mkUnQName "SimpleEnum")
@@ -100,7 +124,7 @@ declareEnumInstance ETypeValue name els = buildDecl $
         fromVal (EnumElem nm (Just (Value n)))
             = mkLitMatch "fromValue" (HsInt $ fromIntegral n) (HsCon (mkUnQName (name ++ nm)))
 
-declareEnumInstance ETypeBit name els = buildDecl $
+declareEnumInstance ETypeBit name els =
        mkInstDecl
        []
        (mkUnQName "BitEnum")
@@ -114,8 +138,8 @@ declareEnumInstance ETypeBit name els = buildDecl $
              = mkLitMatch "fromBit" (HsInt (fromIntegral n)) $ HsCon $ mkUnQName $ name++nm
 
 -- | For an X enum, declares a Haskell data type.
-declareEnumTycon :: Name -> [EnumElem] -> Gen
-declareEnumTycon name elems = modifyModule . addDecl $ 
+declareEnumTycon :: Name -> [EnumElem] -> HsDecl
+declareEnumTycon name elems =
             mkDataDecl
             []
             name
@@ -186,17 +210,18 @@ fillEnum x = x
 --
 -- Conflicting declarations are imported qualified.
 -- Non-conflicted declarations are imported normally.
-xImport :: String -> Gen
+xImport :: String -> Generate (HsModule -> HsModule)
 xImport str = do
   cur <- current
-  impMod <- fromJust `liftM` oneModule str -- bad error message
+  impMod <- fromJust `liftM` lookupModule str -- bad error message
   let shared_types = (L.intersect `on` declaredTypes) cur impMod
-      impName = typesModulePrefix $ modName impMod
+      impName = typesModuleName $ modName impMod
   if null shared_types
-   then modifyModule . addImport . mkImport $ impName
-   else do
-    modifyModule . addImport $ mkHidingImport impName shared_types
-    modifyModule . addImport . mkQualImport $ impName
+   then return . addImport . mkImport $ impName
+   else return $ appMany
+    [ addImport $ mkHidingImport impName shared_types
+    , addImport . mkQualImport $ impName
+    ]
 
 -- |A list of all of the types defined by a module.
 declaredTypes :: XHeader -> [Name]
@@ -220,44 +245,45 @@ declaredTypes xhd =
 
 -- | An X type declaration.  Re-written to a Haskell type declaration.
 -- Cross-module lookups of qualified types are handled here.
-typeDecl :: String -> Type -> Gen
-typeDecl nm tp = do
-  typName <- mapTyNames `liftM` fancyTypeName tp
-  modifyModule . addDecl $
-        mkTypeDecl nm [] (mkTyCon typName)
+typeDecl :: String -> Type -> Generate HsDecl
+typeDecl nm tp = 
+  mkTypeDecl nm [] <$> toHsType tp
 
 -- | Given a type name and a list of X struct elements this declares
 -- a Haskell data type.
-declareStruct :: String -> [StructElem] -> Gen
+declareStruct :: String -> [StructElem] -> Generate (HsModule -> HsModule)
 declareStruct name fields = do
-         selems <- selemsToRec fields  
-         buildDecl $
-             mkDataDecl
+         selems <- selemsToRec fields
+         fExprFields <- exprFields name fields
+         return $ appMany
+          [ addDecl $ mkDataDecl
              []
              name
              []
              [mkRCon (conPrefix name) (selems)]
              [mkUnQName "Show"]
-         exprFields name fields
+          , fExprFields
+          ]
     where selemsToRec :: [StructElem] -> Generate [(String,HsBangType)]
           selemsToRec xs = do
             ys <- embed $ mapAlt go xs
             return $ fromJust ys -- mapAlt never returns Nothing
 
+          go :: StructElem -> ReaderT ReaderData Maybe (String, HsBangType)
           go (Pad {})      = empty
           go (List nm tp _) = 
-              do tyname <- fancyTypeName tp
+              do hsType <- listType <$> toHsType tp
                  return $
-                  (accessor nm name, HsUnBangedTy $ listTyp tyname)
-              where listTyp = HsTyApp list_tycon . mkTyCon . mapTyNames
+                  (accessor nm name, HsUnBangedTy hsType)
+              where listType = HsTyApp list_tycon
           go (SField nm tp) = do
-              tyname <- fancyTypeName tp
-              return $ (accessor nm name, HsUnBangedTy $ mkTyCon tyname)
+              hsType <- toHsType tp
+              return $ (accessor nm name, HsUnBangedTy hsType)
           go (ValueParam typ mname _lname) = do
-            tyname <- fancyTypeName typ
+            hsType <- toHsType typ
             return $
              let nme = valueParamName mname
-                 vTyp = HsTyApp (mkTyCon "ValueParam") (mkTyCon tyname)
+                 vTyp = HsTyApp (mkTyCon "ValueParam") hsType
              in (accessor nme name, HsUnBangedTy $ vTyp)
   
           go (ExprField{}) = empty -- deal with these separately
@@ -277,19 +303,6 @@ selemsToRecPanic x = error $
                      ("I dont know what to do with struct elem: " ++) $
                      show $ toDoc x
 
--- | Adds a declaration to the module currently being generated.
-buildDecl :: HsDecl -> Gen
-buildDecl = modifyModule . addDecl
-
--- | Some types in the X modules are given using C types.
--- This function maps those strings to the appropriate Haskell
--- types.
-mapTyNames :: String -> String
-mapTyNames "char" = "CChar"
-mapTyNames "void" = "Word8"
-mapTyNames "float" = "CFloat"
-mapTyNames "double" = "CDouble"
-mapTyNames x = x
 
 -- | Some identifiers clash with Haskell key-words.
 -- This function renames those that do.
@@ -299,24 +312,29 @@ mapIdents "type" = "type_"
 mapIdents "class" = "class_"
 mapIdents x = x
 
-exprFields :: Name -> [StructElem] -> Gen
-exprFields name elems = mapM_ go elems
-    where go (ExprField nm tp expr) = do
-            tyname <- fancyTypeName tp
+exprFields :: Name -> [StructElem] -> Generate (HsModule -> HsModule)
+exprFields name elems = appMany <$> (sequence $ map go elems)
+                        
+    where go :: StructElem -> Generate (HsModule -> HsModule)
+          go (ExprField nm tp expr) = do
+            retTyp <- toHsType tp
             let funName = accessor nm name
-                retTyp = mkTyCon tyname
                 funTyp = HsTyFun (mkTyCon name) retTyp
                 inVar = "x"
-            -- Type signature
-            buildDecl $ mkTypeSig funName [] funTyp
             
-            -- function body
-            buildDecl $ mkSimpleFun funName [mkPVar inVar] $ 
-                      mkExpr (Just (inVar, name)) expr
+            return . appMany $
+             [
+                -- Type signature
+               addDecl $ mkTypeSig funName [] funTyp
+            
+               -- function body
+             , addDecl $ mkSimpleFun funName [mkPVar inVar] $ 
+                mkExpr (Just (inVar, name)) expr
 
-            -- export
-            exportVar funName
-          go _ = return ()
+              -- export
+             , exportVar funName
+             ]
+          go _ = return id
 
 
 -- | Convert an 'Expression' to a Haskell expression.
@@ -349,30 +367,12 @@ mkOp RShift = HsQVarOp . UnQual . HsIdent $ "shiftR"
 stringToQOpSymbol = HsQVarOp . UnQual . HsSymbol
 
 
--- |For the named newtype wrapper around an Xid,
--- declares an instance of FromXid.
--- Assumes the standard prefix is used for the
--- newtype data constructor.
-instanceXid :: String -> Gen
-instanceXid tyname = modifyModule . addDecl $
-   mkInstDecl
-    []
-    (mkUnQName "XidLike")
-    [HsTyCon $ mkUnQName tyname]
-    [mkSimpleFun "fromXid" [] (HsCon $ mkUnQName (conPrefix tyname))
-    ,mkSimpleFun
-      "toXid"
-      [HsPApp (mkUnQName (conPrefix tyname)) [mkPVar "a"]]
-      (HsVar $ mkUnQName "a")
-    ]
-
-
 ----- Declaring serialize and deserialize instances
 
 -- | Declare a instance of 'Deserialize' for an X struct
 -- declaration.
-declareDeserStruct :: Name -> [StructElem] -> Gen
-declareDeserStruct name fields = modifyModule . addDecl $
+declareDeserStruct :: Name -> [StructElem] -> HsDecl
+declareDeserStruct name fields =
     mkInstDecl
       []
       (mkUnQName "Deserialize")
@@ -387,8 +387,8 @@ declareDeserStruct name fields = modifyModule . addDecl $
                  (HsDo $ deserIns fields ++ [returnIt name fields])
 
 -- | Declare and instance of 'Deserialize' for a reply to an X request.
-declareDeserReply :: Name -> [StructElem] -> Gen
-declareDeserReply name fields = modifyModule . addDecl $
+declareDeserReply :: Name -> [StructElem] -> HsDecl
+declareDeserReply name fields =
     mkInstDecl
       []
       (mkUnQName "Deserialize")
@@ -413,15 +413,15 @@ deserIns :: [StructElem] -> [HsStmt]
 deserIns fields = mapMaybe go fields
  where
      go (Pad n) = return $ HsQualifier $ mkVar "skip" `HsApp` mkNumLit n 
-     go (List nm typ Nothing) = error "cannot deserialize list with no length"
-     go (List nm typ (Just exp))
+     go (List nm _typ Nothing) = error "cannot deserialize list with no length"
+     go (List nm _typ (Just exp))
          = return $ mkGenerator (mkPVar $ mapIdents nm) $ hsAppMany
            [mkVar "deserializeList"
            ,mkVar "bo"
            ,HsParen $ mkVar "fromIntegral" `HsApp` mkExpr Nothing exp
            ]
 
-     go (SField nm typ) = return $ mkGenerator (mkPVar $ mapIdents nm) $
+     go (SField nm _typ) = return $ mkGenerator (mkPVar $ mapIdents nm) $
              mkVar "deserialize" `HsApp` mkVar "bo"
      go ExprField{} = empty
      go v@(ValueParam _ vname _) = let nm = mapIdents $ valueParamName vname
@@ -447,8 +447,8 @@ fieldName (ValueParam _ name _) = return $ valueParamName name
 
 
 -- | Declare an instance of 'Serialize' for an X struct.
-declareSerStruct :: Name -> [StructElem] -> Gen
-declareSerStruct name fields = modifyModule . addDecl $
+declareSerStruct :: Name -> [StructElem] -> HsDecl
+declareSerStruct name fields =
     mkInstDecl
       []
       (mkUnQName "Serialize")
@@ -468,19 +468,13 @@ declareSerStruct name fields = modifyModule . addDecl $
           ,mkPVar "x"]
           (HsDo $ map HsQualifier $ mapMaybe (serField name) fields)
 
--- | Returns 'True' if code is being generated for an extension
-isExtension :: Generate Bool
-isExtension = do
-  xhd <- current
-  return $ not $ isNothing $ xheader_xname xhd
-
-
 -- | Declare an instance of "ExtensionRequest".
 -- May not be called when generating code for a core
 -- module.
+declareExtRequest :: Name -> Int -> [StructElem] -> Generate HsDecl
 declareExtRequest name opCode fields = do
         extName <- (fromJust . xheader_xname) `liftM` current
-        modifyModule . addDecl $
+        return $
          mkInstDecl
          []
          (mkUnQName "ExtensionRequest")
@@ -536,7 +530,7 @@ putIntExp exp = mkVar "putWord8" `HsApp` exp
 serializeExp = mkVar "serialize" `HsApp` mkVar "bo"
 
 -- | Declare and instance of 'Serialize' for a request.
-declareSerRequest :: Name -> Int -> [StructElem] -> Gen
+declareSerRequest :: Name -> Int -> [StructElem] -> Generate HsDecl
 declareSerRequest name opCode fields = do
   ext <- isExtension
   if ext
@@ -547,7 +541,7 @@ declareSerRequest name opCode fields = do
       declareExtRequest name opCode fields
    else
       -- Core request
-      modifyModule . addDecl $
+      return $
         mkInstDecl
         []
         (mkUnQName "Serialize")
@@ -634,10 +628,8 @@ toFieldSize name (ValueParam _ vname _) = return $
 simpleNewtype :: String   -- typename
               -> String   -- wrapped type (unqualified)
               -> [String] -- derived typeclass instances
-              -> Gen
+              -> HsDecl
 simpleNewtype name typ cls =
-    modifyModule $
-    addDecl $
     mkNewtype
      []
      name
@@ -647,16 +639,16 @@ simpleNewtype name typ cls =
 
 -- |Export the named type without exporting constructors.
 -- Should be usable for type synonyms as well.
-exportTypeAbs :: String -> Gen
-exportTypeAbs = modifyModule . addExport . mkExportAbs
+exportTypeAbs :: String -> (HsModule -> HsModule)
+exportTypeAbs = addExport . mkExportAbs
 
 -- |Export the named type/thing non-abstractly
-exportType :: String -> Gen
-exportType = modifyModule . addExport . mkExportAll
+exportType :: String -> (HsModule -> HsModule)
+exportType = addExport . mkExportAll
 
 -- |Export the named variable
-exportVar :: String -> Gen
-exportVar = modifyModule . addExport . HsEVar . mkUnQName
+exportVar :: String -> (HsModule -> HsModule)
+exportVar = addExport . HsEVar . mkUnQName
 
 -- |Like mapMaybe, but for any Alternative.
 -- Never returns 'empty', instead returns 'pure []'
@@ -665,3 +657,7 @@ mapAlt f xs = go xs
  where go [] = pure []
        go (y:ys) = pure (:) <*> f y <*> go ys
                <|> go ys
+
+embed :: Monad m => ReaderT r m a -> Reader r (m a)
+embed m = Reader $ \r -> runReaderT m r
+

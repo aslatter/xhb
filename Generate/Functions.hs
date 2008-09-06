@@ -11,7 +11,8 @@ import Data.XCB
 import Language.Haskell.Syntax
 
 import HaskellCombinators
-import Generate(valueParamName, mapTyNames)
+import Generate(valueParamName)
+import Generate.Monad(mapTyNames)
 
 -- Builds a function for every request in the module
 -- Hopefully I'm not duplicating too much between here
