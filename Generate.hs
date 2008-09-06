@@ -48,6 +48,7 @@ typesModule = do
   
   return $ f newModule
 
+-- do something per XDecl in the current module, in order
 processDeclarations :: Generate (HsModule -> HsModule)
 processDeclarations =
   appMany <$> (currentDeclarations >>= mapM xDecl)
@@ -232,7 +233,7 @@ declaredTypes xhd =
         tyName (XTypeDef name _) = return name
         tyName (XEvent name _ _ _) = return name
         tyName (XRequest name _ _ Nothing) = return name
-        tyName (XRequest name _ _ _) = [name, name ++ "Reply"]
+        tyName (XRequest name _ _ _) = [name, replyName name]
         tyName (XidType name) = return name
         tyName (XidUnion name _) = return name
         tyName (XEnum name _) = return name
@@ -597,7 +598,7 @@ serField name (List lname _typ _expr) -- serializeList bo <list>
 serField name (SField fname _typ) -- serialize bo <field>
         = return $ HsApp (mkVar "serialize" `HsApp` mkVar "bo") $ HsParen $
           accessField name fname
-serField _ ExprField{}  = Nothing
+serField name (ExprField fname typ _exp)  = serField name (SField fname typ)
 serField name (ValueParam _ mname _) -- serialize bo <field>
         = return $ HsApp (mkVar "serialize" `HsApp` mkVar "bo") $ HsParen $
           accessField name $ valueParamName mname
@@ -620,7 +621,7 @@ toFieldSize name (List lname typ _expr) = return $
         ((mkVar "map" `HsApp` mkVar "size") `HsApp`) $ HsParen $
         accessField name lname
 toFieldSize name (SField fname _typ) = return $ sizeOfMember name fname
-toFieldSize _ ExprField{} = Nothing
+toFieldSize name (ExprField fname ftyp _) = toFieldSize name (SField fname ftyp)
 toFieldSize name (ValueParam _ vname _) = return $
                 sizeOfMember name . valueParamName $ vname
 
