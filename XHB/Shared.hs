@@ -91,7 +91,7 @@ fromMask x = mapMaybe go [0..(bitSize x) - 1]
                | otherwise = Nothing
 
 toMask :: (Bits b, BitEnum e) => [e] -> b
-toMask = foldl' (.&.) 0 . map (bit . toBit)
+toMask = foldl' (.|.) 0 . map (bit . toBit)
 
 
 data ValueParam a = VP a [Word32]
