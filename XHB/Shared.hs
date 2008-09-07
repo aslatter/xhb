@@ -112,7 +112,6 @@ emptyValueParam = VP 0 []
 instance (Bits a, Show a) => Show (ValueParam a) where
     show v = show (fromValueParam v :: [(Integer,Word32)])
 
-
 stringToCList :: String -> [CChar]
 stringToCList = map castCharToCChar
 

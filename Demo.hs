@@ -3,6 +3,10 @@ import Data.Word
 
 import qualified Data.ByteString.Lazy as BS
 
+import Control.Concurrent
+import Control.Monad
+import Data.Maybe
+
 import qualified XHB.Connection as X
 import qualified XHB.Connection.Open as X
 import qualified XHB.Shared as X
@@ -29,6 +33,9 @@ main = do
 demo :: X.Connection -> IO ()
 demo c = do
 
+  handleError c
+  handleEvent c
+
   -- send two requests
   listReceipt <- listExtensions c
   ssReceipt <- getScreenSaver c
@@ -36,7 +43,7 @@ demo c = do
   -- create a window
   wid <- X.newResource c
   createWindow c $ demoCreateWindowReq c wid
-  mapWindow c wid  
+  mapWindow c wid
 
   -- process first request
   replyOrError <- X.getReply listReceipt
@@ -100,11 +107,90 @@ demoCreateWindowReq c w
       5
       0
       0
-      (X.emptyValueParam)
+      (X.toValueParam [(X.CWEventMask,X.toMask
+                             [ X.EventMaskEnterWindow
+                             , X.EventMaskLeaveWindow
+                             , X.EventMaskFocusChange
+                             , X.EventMaskStructureNotify
+                             , X.EventMaskExposure
+                             ]
+                       )])
+
+-- print errors from the queue
+handleError :: X.Connection -> IO ()
+handleError c = do
+  forkIO $ forever $ do
+      e <- X.waitForError c
+
+      -- try different errors
+      putStrLn $ showError e
+  return ()
+
+-- print events from the queue
+handleEvent ::X.Connection -> IO ()
+handleEvent c = do
+  forkIO $ forever $ do
+      e <- X.waitForEvent c
+
+      putStrLn $ showEvent e
+  return ()
 
 -- errors are returned as bytestrings, currently
 showError :: X.SomeError -> String
-showError serr = case X.fromError serr of
-                   Just (X.UnknownError bs) -> show . BS.unpack $ bs
-                   Nothing -> "Unknown error"
+showError serr = fromJust $ foldr mplus showErrorBase $ map ($ serr)
+         [ showWindowError
+         , showUnknownError
+         ]
 
+
+-- show an error of type Window
+showWindowError :: X.SomeError -> Maybe (String)
+showWindowError serr = do
+  err <- X.fromError serr
+  return $
+    let badwindow = X.bad_value_Window err
+    in "WindowError: bad window: " ++ show badwindow
+
+-- show an UnknownError
+showUnknownError :: X.SomeError -> Maybe (String)
+showUnknownError serr = do
+  X.UnknownError bs <- X.fromError serr
+  return $ "UnknownError: " ++ (show . BS.unpack $ bs)
+
+-- default case
+showErrorBase :: Maybe (String)
+showErrorBase = return "Unhandled Error"
+
+
+showEvent :: X.SomeEvent -> String
+showEvent ev = fromJust $ foldr mplus showEventBase $ map ($ ev)
+                
+               [ printMotionNotify
+                , printEnterNotify
+                , printLeaveNotify
+                , printFocusIn
+                , printFocusOut
+                ]
+               
+
+printMotionNotify sev = do
+  X.MkMotionNotify{} <- X.fromEvent sev
+  return "MotionNotify"
+
+printEnterNotify sev = do
+  X.MkEnterNotify{} <- X.fromEvent sev
+  return "EnterNotify" 
+
+printLeaveNotify sev = do
+  X.MkLeaveNotify{} <- X.fromEvent sev
+  return "LeaveNotify"
+
+printFocusIn sev = do
+  X.MkFocusIn{} <- X.fromEvent sev
+  return "FocusIn"
+
+printFocusOut sev = do
+  X.MkFocusOut{} <- X.fromEvent sev
+  return "FocusOut"
+
+showEventBase = return "unhandled event"

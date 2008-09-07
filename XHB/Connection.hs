@@ -111,6 +111,7 @@ setCrashOnError c = do
 -- this type.
 data GenericReply = GenericReply
     {grep_response_type :: ResponseType
+    ,grep_error_code :: Word8
     ,grep_sequence :: Word16
     ,grep_reply_length :: Word32 -- only useful for replies
     }
@@ -127,10 +128,10 @@ instance Deserialize GenericReply where
                     0 -> ResponseTypeError
                     1 -> ResponseTypeReply
                     _ -> ResponseTypeEvent type_flag
-      skip 1
+      code <- deserialize bo
       sequence <- deserialize bo
       reply_length <- deserialize bo
-      return $ GenericReply rType sequence reply_length
+      return $ GenericReply rType code sequence reply_length
 
 
 
@@ -144,11 +145,23 @@ data ReadLoop = ReadLoop
     }
 
 
-bsToError :: ByteString -> SomeError
-bsToError = SomeError . UnknownError
+bsToError :: ByteString -- ^Raw data
+          -> BO -- ^Byte-order
+          -> Word8 -- ^Error code
+          -> SomeError
+bsToError chunk bo code | code < 128 = case deserializeError bo code of
+     Nothing -> SomeError . UnknownError $ chunk
+     Just getAction -> runGet getAction chunk
+bsToError chunk bo code = SomeError . UnknownError $ chunk     
 
-bsToEvent :: ByteString -> SomeEvent
-bsToEvent = SomeEvent . UnknownEvent
+bsToEvent :: ByteString -- ^Raw data
+          -> BO -- ^Byte-order
+          -> Word8 -- ^Event code
+          -> SomeEvent
+bsToEvent chunk bo code | code < 64 = case deserializeEvent bo code of
+    Nothing -> SomeEvent . UnknownEvent $ chunk
+    Just getAction -> runGet getAction chunk
+bsToEvent chunk bo code = SomeEvent . UnknownEvent $ chunk
 
 deserializeInReadLoop rl = deserialize (conf_byteorder $ read_config $ rl)
 
@@ -194,20 +207,28 @@ readLoopReply rl genRep chunk = do
 -- If the error corresponds to one of the pending replies,
 -- place the error into the pending reply TMVar instead.
 readLoopError rl genRep chunk = do
+  let errorCode = grep_error_code genRep
+      bo = conf_byteorder $ read_config $ rl
+
   atomically $ do
     nextPend <- readTChan $ read_reps rl
     if (pended_sequence nextPend) == (grep_sequence genRep)
      then case pended_reply nextPend of
             WrappedReply replyHole -> putTMVar replyHole $
-                                      Left $ bsToError chunk
+                                      Left $ bsToError chunk bo errorCode
      else do
        unGetTChan (read_reps rl) nextPend
-       writeTChan (read_error_queue rl) $ bsToError chunk
+       writeTChan (read_error_queue rl) $ bsToError chunk bo errorCode
 
 -- take the bytes making up the event response, shove it in
 -- a queue
 readLoopEvent rl genRep chunk =
-    atomically $ writeTChan (read_event_queue rl) $ bsToEvent chunk
+    atomically $ writeTChan (read_event_queue rl) $
+               bsToEvent chunk bo eventCode
+
+ where eventCode = case grep_response_type genRep of
+                     ResponseTypeEvent w -> w .&. 254
+       bo = conf_byteorder $ read_config $ rl
 
 -- Handshake with the server
 -- parse result of handshake
