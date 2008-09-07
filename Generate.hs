@@ -41,12 +41,88 @@ toHsModule xs xhd =
 typesModule :: Generate HsModule
 typesModule = do
   newModule <- newXhbTypesModule <$> (currentName >>= fancyName)
-  
+
   f <- appMany <$> sequence
-       [ processDeclarations
+       [ decodeErrors
+       , decodeEvents
+       , processDeclarations
        ]
-  
+
   return $ f newModule
+
+data ErrorDetail = ErrorDetail Name Int
+data EventDetail = EventDetail Name Int
+
+extractErrors :: XHeader -> [ErrorDetail]
+extractErrors = mapMaybe go . xheader_decls
+    where go (XError name code _) = return $ ErrorDetail name code
+          go _ = empty
+
+extractEvents :: XHeader -> [EventDetail]
+extractEvents = mapMaybe go . xheader_decls
+    where go (XEvent name code _ _) = return $ EventDetail name code
+          go _ = empty
+
+decodeErrors = decodeErrorsOrEvents False
+decodeEvents = decodeErrorsOrEvents True
+
+-- write a function of type (OpCode -> Maybe (Get SomeError))
+decodeErrorsOrEvents :: Bool -> Generate (HsModule -> HsModule)
+decodeErrorsOrEvents event = do
+  errors <- extractErrors <$> current
+  events <- extractEvents <$> current
+
+  return $ appMany
+    [ -- declare type
+      addDecl $ mkTypeSig fnName [] fnType 
+
+    , -- declare cases on opcode
+      addDecl $ if event then
+           HsFunBind $ map eventMatches events ++ [defaultMatch]
+      else HsFunBind $ map errorMatches errors ++ [defaultMatch]
+
+    , -- export the function
+      exportVar fnName
+    ]
+
+ where fnName | event = eventDecodeFn
+              | otherwise = errorDecodeFn
+
+       fnRetCon | event = "SomeEvent"
+                | otherwise = "SomeError"
+
+       fnType = foldr1 HsTyFun
+               [ mkTyCon "BO"
+               , mkTyCon "Word8"
+               , mkTyCon "Maybe" `HsTyApp`
+                 (mkTyCon "Get" `HsTyApp`
+                 mkTyCon fnRetCon)
+               ]
+
+       errorMatches :: ErrorDetail -> HsMatch
+       errorMatches (ErrorDetail name code) = matches name code
+
+       eventMatches :: EventDetail -> HsMatch
+       eventMatches (EventDetail name code) = matches name code
+
+       matches name code =
+           mkMatch fnName
+             [ mkPVar "bo"
+             , mkNumPat code
+             ]
+           (matchExp name)
+
+       matchExp name = foldr1 (\x y -> x `HsApp` HsParen y)
+              [ mkVar "return"
+              , mkVar "liftM" `HsApp` mkConExp fnRetCon
+              , mkAsExp (mkVar "deserialize" `HsApp` mkVar "bo")
+                        (mkTyCon "Get" `HsTyApp` mkTyCon name)
+              ]
+
+       defaultMatch = mkMatch fnName
+             [HsPWildCard, HsPWildCard]
+             (mkConExp "Nothing")
+
 
 -- do something per XDecl in the current module, in order
 processDeclarations :: Generate (HsModule -> HsModule)
@@ -57,7 +133,8 @@ processDeclarations =
 xDecl :: XDecl -> Generate (HsModule -> HsModule)
 xDecl (XidType name) = return $ appMany
   [ addDecl $
-     simpleNewtype name "Xid" ["Eq","Ord","Show","Serialize","Deserialize","XidLike"]
+     simpleNewtype name "Xid"
+       ["Eq","Ord","Show","Serialize","Deserialize","XidLike"]
   , exportTypeAbs name
   ]
 xDecl (XidUnion name _fields) =
@@ -88,10 +165,10 @@ xDecl (XRequest name opcode fields resp) = appMany <$> sequence
                 , return . addDecl $ declareDeserReply rName rFields
                 ]
   ]
-xDecl (XEvent name opcode fields _) = appMany <$> sequence
+xDecl (XEvent name opcode fields special) = appMany <$> sequence
   [ declareStruct name fields
   , return . addDecl $ declareEventInst name
-  , addDecl <$> declareDeserEvent name opcode fields
+  , return . addDecl $ declareDeserEvent name opcode fields special
   , return $ exportType name
   ]
 xDecl (XError name opcode fields) = appMany <$> sequence
@@ -234,12 +311,26 @@ xImport :: String -> Generate (HsModule -> HsModule)
 xImport str = do
   cur <- current
   impMod <- fromJust `liftM` lookupModule str -- bad error message
-  let shared_types = (L.intersect `on` declaredTypes) cur impMod
+  let 
+      shared_types = (L.intersect `on` declaredTypes) cur impMod
+
+      vars_to_hide = concat
+           [ if hasErrorDecs impMod
+             then return errorDecodeFn
+             else empty
+
+           , if hasEventDecs impMod
+             then return eventDecodeFn
+             else empty
+           ]
+
+      symbols_to_hide = shared_types ++ vars_to_hide
+
       impName = typesModuleName $ modName impMod
-  if null shared_types
+  if null symbols_to_hide
    then return . addImport . mkImport $ impName
    else return $ appMany
-    [ addImport $ mkHidingImport impName shared_types
+    [ addImport $ mkHidingImport impName symbols_to_hide
     , addImport . mkQualImport $ impName
     ]
 
@@ -262,6 +353,23 @@ declaredTypes xhd =
 
     in concatMap tyName decls
 
+hasErrorDecs :: XHeader -> Bool
+hasErrorDecs xhd =
+    let decs = xheader_decls xhd
+        
+        p XError{} = True
+        p _ = False
+
+    in or $ map p decs 
+
+hasEventDecs :: XHeader -> Bool
+hasEventDecs xhd =
+    let decs = xheader_decls xhd
+
+        p XEvent{} = True
+        p _ = False
+
+    in or $ map p decs
 
 -- | An X type declaration.  Re-written to a Haskell type declaration.
 -- Cross-module lookups of qualified types are handled here.
@@ -334,6 +442,8 @@ mapIdents "type" = "type_"
 mapIdents "class" = "class_"
 mapIdents x = x
 
+-- |Generates an accesor-like function for each
+-- expression-field in a struct.
 exprFields :: Name -> [StructElem] -> Generate (HsModule -> HsModule)
 exprFields name elems = appMany <$> (sequence $ map go elems)
                         
@@ -449,19 +559,10 @@ declareDeserError name elems =
          makeFields :: [StructElem] -> [StructElem]
          makeFields xs =  Pad 4 : xs
 
-declareDeserEvent :: Name -> Int -> [StructElem] -> Generate HsDecl
-declareDeserEvent name code elems = do
-  ext <- isExtension
+declareDeserEvent :: Name -> Int -> [StructElem] -> Maybe Bool -> HsDecl
+declareDeserEvent name code elems special =
 
-  let isKeymapNotify = not ext && code == 11
-
-      makeFields :: [StructElem] -> [StructElem]
-      makeFields xs | isKeymapNotify = Pad 1 : xs
-                    | otherwise = case xs of
-                           -- assumes the first field is one byte
-                           (h:t) -> Pad 1 : h : Pad 2 : t
-                           [] -> []
-  return $ mkInstDecl
+      mkInstDecl
          []
          (mkUnQName "Deserialize")
          [mkTyCon name]
@@ -469,6 +570,19 @@ declareDeserEvent name code elems = do
                 [mkPVar "bo"]
                 (HsDo $ deserIns (makeFields elems) ++ [returnIt name elems])
          ]
+
+    where
+      isKeymapNotify = case special of
+                         Just True -> True
+                         _ -> False
+
+      makeFields :: [StructElem] -> [StructElem]
+      makeFields xs | isKeymapNotify = Pad 1 : xs
+                    | otherwise = case xs of
+                           -- assumes the first field is one byte
+                           (h:t) -> Pad 1 : h : Pad 2 : t
+                           [] -> []
+
 -- | Declare a statement in the 'do' block of the 'deserialize' function.
 deserIns :: [StructElem] -> [HsStmt]
 deserIns fields = mapMaybe go fields
@@ -484,7 +598,7 @@ deserIns fields = mapMaybe go fields
 
      go (SField nm _typ) = return $ mkGenerator (mkPVar $ mapIdents nm) $
              mkVar "deserialize" `HsApp` mkVar "bo"
-     go ExprField{} = empty
+     go ExprField{} = empty -- this is probbaly wrong, but I'm not sure where we need it
      go v@(ValueParam _ vname _) = let nm = mapIdents $ valueParamName vname
                          in return $ mkGenerator (mkPVar nm) $
                             mkVar "deserialize" `HsApp` mkVar "bo"

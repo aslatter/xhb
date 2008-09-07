@@ -13,11 +13,13 @@ module HaskellCombinators
     ,mkQualImport
     ,mkTypeDecl
     ,mkSimpleFun
+    ,mkMatch
     ,mkPatBind
     ,mkTypeSig
     ,mkConsMatch
     ,mkLitMatch
     ,mkNumLit
+    ,mkNumPat
     ,mkNewtype
     ,mkInstDecl
     ,mkQName
@@ -41,6 +43,7 @@ import Language.Haskell.Syntax
 import Language.Haskell.Pretty
 
 import qualified Data.List as List
+import qualified Data.Char as Char
 
 -- Example of usage
 
@@ -91,7 +94,11 @@ mkHidingImport name hidings = HsImportDecl
                 (Module name)
                 False
                 Nothing
-                (Just (True, map (HsIThingAll . HsIdent) hidings)) 
+                (Just (True, map hide hidings))
+
+    where hide (x:xs) | Char.isUpper x = HsIThingAll . HsIdent $ x:xs
+                      | otherwise = HsIVar . HsIdent $ x:xs
+          hide [] = error "mkHidingImport: canot hide nothing!"
 
 mkQualImport :: String -> HsImportDecl
 mkQualImport name = HsImportDecl dummLoc (Module name) True Nothing Nothing
@@ -116,8 +123,14 @@ mkSimpleFun :: String  -- ^name
             -> [HsPat] -- ^args
             -> HsExp   -- ^body
             -> HsDecl
-mkSimpleFun name args rhs = HsFunBind
-     [HsMatch dummLoc (HsIdent name) args (HsUnGuardedRhs rhs) []]
+mkSimpleFun name args rhs = HsFunBind [mkMatch name args rhs]
+
+mkMatch :: String  -- ^name
+        -> [HsPat] -- ^args
+        -> HsExp   -- ^body
+        -> HsMatch
+mkMatch name args rhs =
+    HsMatch dummLoc (HsIdent name) args (HsUnGuardedRhs rhs) []
 
 -- |Makes an choice in a function which returns
 -- a value based soley on the input constructor
@@ -147,6 +160,9 @@ mkLitMatch fName lit res
 
 mkNumLit :: Integral n => n -> HsExp
 mkNumLit = HsLit . HsInt . fromIntegral
+
+mkNumPat :: Integral n => n -> HsPat
+mkNumPat = HsPLit . HsInt . fromIntegral
 
 -- |Must be called on a non-empty list.
 -- 'hsAppMany [x1, x2, x3 ...] -> x1 `HsApp` x2 `HsApp` x3 ...'

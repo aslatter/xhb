@@ -13,6 +13,8 @@ functionsModuleName modName = modulesPrefix ++ "." ++ modName
 accessor field typ = field ++ "_" ++ typ
 replyName = (++ "Reply")
 
+errorDecodeFn = "deserializeError"
+eventDecodeFn = "deserializeEvent"
 
 modName :: XHeader -> Name
 modName xhd = case xheader_name xhd of
