@@ -227,7 +227,7 @@ readLoopEvent rl genRep chunk =
                bsToEvent chunk bo eventCode
 
  where eventCode = case grep_response_type genRep of
-                     ResponseTypeEvent w -> w .&. 254
+                     ResponseTypeEvent w -> w .&. 127
        bo = conf_byteorder $ read_config $ rl
 
 -- Handshake with the server
