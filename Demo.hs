@@ -111,8 +111,6 @@ demoCreateWindowReq c w
                              [ X.EventMaskEnterWindow
                              , X.EventMaskLeaveWindow
                              , X.EventMaskFocusChange
-                             , X.EventMaskStructureNotify
-                             , X.EventMaskExposure
                              ]
                        )])
 
