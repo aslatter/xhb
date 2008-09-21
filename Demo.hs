@@ -120,7 +120,6 @@ handleError c = do
   forkIO $ forever $ do
       e <- X.waitForError c
 
-      -- try different errors
       putStrLn $ showError e
   return ()
 
@@ -133,62 +132,81 @@ handleEvent c = do
       putStrLn $ showEvent e
   return ()
 
--- errors are returned as bytestrings, currently
 showError :: X.SomeError -> String
-showError serr = fromJust $ foldr mplus showErrorBase $ map ($ serr)
-         [ showWindowError
-         , showUnknownError
-         ]
-
+showError serr = tryErrors hs showErrorBase serr
+ where hs = [ErrorHandler showWindowError
+            ,ErrorHandler showUnknownError
+            ]
 
 -- show an error of type Window
-showWindowError :: X.SomeError -> Maybe (String)
-showWindowError serr = do
-  err <- X.fromError serr
-  return $
+showWindowError :: X.Window -> String
+showWindowError err =
     let badwindow = X.bad_value_Window err
     in "WindowError: bad window: " ++ show badwindow
 
 -- show an UnknownError
-showUnknownError :: X.SomeError -> Maybe (String)
-showUnknownError serr = do
-  X.UnknownError bs <- X.fromError serr
-  return $ "UnknownError: " ++ (show . BS.unpack $ bs)
+showUnknownError :: X.UnknownError -> String
+showUnknownError (X.UnknownError bs) = 
+   "UnknownError: " ++ (show . BS.unpack $ bs)
 
 -- default case
-showErrorBase :: Maybe (String)
-showErrorBase = return "Unhandled Error"
+showErrorBase :: String
+showErrorBase = "Unhandled Error"
+
+
+data ErrorHandler b = forall a . X.Error a => ErrorHandler (a -> b)
+
+tryErrors :: [ErrorHandler b] -> b -> X.SomeError -> b
+tryErrors hs z err = case foldr tryErr Nothing hs of
+       Nothing -> z
+       Just x -> x
+ where tryErr _ j@Just{} = j
+       tryErr h Nothing = case h of
+          ErrorHandler fn -> do
+            err' <- X.fromError err
+            return $ fn err'
+
+
 
 
 showEvent :: X.SomeEvent -> String
-showEvent ev = fromJust $ foldr mplus showEventBase $ map ($ ev)
-                
-               [ printMotionNotify
-                , printEnterNotify
-                , printLeaveNotify
-                , printFocusIn
-                , printFocusOut
-                ]
-               
+showEvent = tryEvents hs showEventBase
 
-printMotionNotify sev = do
-  X.MkMotionNotify{} <- X.fromEvent sev
-  return "MotionNotify"
+ where hs = [EventHandler showMotionNotify
+            ,EventHandler showEnterNotify
+            ,EventHandler showLeaveNotify
+            ,EventHandler showFocusIn
+            ,EventHandler showFocusOut
+            ]
 
-printEnterNotify sev = do
-  X.MkEnterNotify{} <- X.fromEvent sev
-  return "EnterNotify" 
+showMotionNotify :: X.MotionNotify -> String
+showMotionNotify _ = "MotionNotify"
 
-printLeaveNotify sev = do
-  X.MkLeaveNotify{} <- X.fromEvent sev
-  return "LeaveNotify"
+showEnterNotify :: X.EnterNotify -> String
+showEnterNotify _ = "EnterNotify" 
 
-printFocusIn sev = do
-  X.MkFocusIn{} <- X.fromEvent sev
-  return "FocusIn"
+showLeaveNotify :: X.LeaveNotify -> String
+showLeaveNotify _ = "LeaveNotify"
 
-printFocusOut sev = do
-  X.MkFocusOut{} <- X.fromEvent sev
-  return "FocusOut"
+showFocusIn :: X.FocusIn -> String
+showFocusIn _ = "FocusIn"
 
-showEventBase = return "unhandled event"
+showFocusOut :: X.FocusOut -> String
+showFocusOut _ = "FocusOut"
+
+showEventBase = "unhandled event"
+
+
+data EventHandler b = forall a . X.Event a => EventHandler (a -> b)
+
+
+tryEvents :: [EventHandler b] -> b -> X.SomeEvent -> b
+tryEvents hs z ev = case foldr tryEv Nothing hs of
+        Nothing -> z
+        Just x -> x
+ where tryEv _ j@Just{} = j
+       tryEv h Nothing = case h of
+          EventHandler fn -> do
+            ev' <- X.fromEvent ev
+            return $ fn ev'
+
