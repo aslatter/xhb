@@ -1,4 +1,4 @@
-module XHB.Connection.Open (open) where
+module Graphics.XHB.Connection.Open (open) where
 
 import System.Environment(getEnv)
 import System.IO

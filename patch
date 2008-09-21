@@ -1,6 +1,6 @@
-diff -u -r generated/1.2/XHB/Gen/RandR/Types.hs working/XHB/Gen/RandR/Types.hs
---- generated/1.2/XHB/Gen/RandR/Types.hs	2008-09-06 23:22:27.000000000 -0500
-+++ working/XHB/Gen/RandR/Types.hs	2008-09-06 22:05:35.000000000 -0500
+diff -u -r generated/1.2/Graphics/XHB/Gen/RandR/Types.hs working/Graphics/XHB/Gen/RandR/Types.hs
+--- generated/1.2/Graphics/XHB/Gen/RandR/Types.hs	2008-09-06 23:22:27.000000000 -0500
++++ working/Graphics/XHB/Gen/RandR/Types.hs	2008-09-06 22:05:35.000000000 -0500
 @@ -1140,11 +1140,11 @@
                      mwidth
                      mheight)
@@ -42,10 +42,10 @@ diff -u -r generated/1.2/XHB/Gen/RandR/Types.hs working/XHB/Gen/RandR/Types.hs
  data Notify = MkNotify{subCode_Notify :: CARD8,
                         u_Notify :: NotifyData}
              deriving (Show, Typeable)
-Only in working/XHB/Gen/RandR: Types.hs.orig
-diff -u -r generated/1.2/XHB/Gen/XFixes/Types.hs working/XHB/Gen/XFixes/Types.hs
---- generated/1.2/XHB/Gen/XFixes/Types.hs	2008-09-06 23:22:27.000000000 -0500
-+++ working/XHB/Gen/XFixes/Types.hs	2008-09-06 23:21:57.000000000 -0500
+Only in working/Graphics/XHB/Gen/RandR: Types.hs.orig
+diff -u -r generated/1.2/Graphics/XHB/Gen/XFixes/Types.hs working/Graphics/XHB/Gen/XFixes/Types.hs
+--- generated/1.2/Graphics/XHB/Gen/XFixes/Types.hs	2008-09-06 23:22:27.000000000 -0500
++++ working/Graphics/XHB/Gen/XFixes/Types.hs	2008-09-06 23:21:57.000000000 -0500
 @@ -3,7 +3,7 @@
          QueryVersionReply(..), SaveSetMode(..), SaveSetTarget(..),
          SaveSetMapping(..), ChangeSaveSet(..), SelectionEvent(..),
@@ -67,11 +67,11 @@ diff -u -r generated/1.2/XHB/Gen/XFixes/Types.hs working/XHB/Gen/XFixes/Types.hs
          toValue CursorNotifyDisplayCursor{} = 0
          fromValue 0 = CursorNotifyDisplayCursor
   
-Only in working/XHB/Gen/XFixes: Types.hs.orig
-Only in working/XHB/Gen/XFixes: Types.hs.rej
-diff -u -r generated/1.2/XHB/Gen/Xproto/Types.hs working/XHB/Gen/Xproto/Types.hs
---- generated/1.2/XHB/Gen/Xproto/Types.hs	2008-09-06 23:22:28.000000000 -0500
-+++ working/XHB/Gen/Xproto/Types.hs	2008-09-06 22:05:35.000000000 -0500
+Only in working/Graphics/XHB/Gen/XFixes: Types.hs.orig
+Only in working/Graphics/XHB/Gen/XFixes: Types.hs.rej
+diff -u -r generated/1.2/Graphics/XHB/Gen/Xproto/Types.hs working/Graphics/XHB/Gen/Xproto/Types.hs
+--- generated/1.2/Graphics/XHB/Gen/Xproto/Types.hs	2008-09-06 23:22:28.000000000 -0500
++++ working/Graphics/XHB/Gen/Xproto/Types.hs	2008-09-06 22:05:35.000000000 -0500
 @@ -547,6 +547,7 @@
                 serialize bo (protocol_minor_version_SetupRequest x)
                 serialize bo (authorization_protocol_name_len_SetupRequest x)
@@ -180,15 +180,15 @@ diff -u -r generated/1.2/XHB/Gen/Xproto/Types.hs working/XHB/Gen/Xproto/Types.hs
                sum (map size (name_QueryExtension x))
   
  data QueryExtensionReply = MkQueryExtensionReply{present_QueryExtensionReply
-Only in working/XHB/Gen/Xproto: Types.hs.orig
-diff -u -r generated/1.2/XHB/Gen/Xv/Types.hs working/XHB/Gen/Xv/Types.hs
---- generated/1.2/XHB/Gen/Xv/Types.hs	2008-09-06 23:22:28.000000000 -0500
-+++ working/XHB/Gen/Xv/Types.hs	2008-09-06 22:05:35.000000000 -0500
+Only in working/Graphics/XHB/Gen/Xproto: Types.hs.orig
+diff -u -r generated/1.2/Graphics/XHB/Gen/Xv/Types.hs working/Graphics/XHB/Gen/Xv/Types.hs
+--- generated/1.2/Graphics/XHB/Gen/Xv/Types.hs	2008-09-06 23:22:28.000000000 -0500
++++ working/Graphics/XHB/Gen/Xv/Types.hs	2008-09-06 22:05:35.000000000 -0500
 @@ -15,6 +15,7 @@
          ListImageFormatsReply(..), QueryImageAttributes(..),
          QueryImageAttributesReply(..), PutImage(..), ShmPutImage(..))
         where
 +import Prelude hiding (Rational)
- import XHB.Shared
+ import Graphics.XHB.Shared
  import Data.Word
  import Foreign.C.Types

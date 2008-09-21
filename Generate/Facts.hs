@@ -5,7 +5,9 @@ import Data.Char
 
 import Generate.Util
 
-modulesPrefix = "XHB.Gen"
+packagePrefix = "Graphics.XHB"
+
+modulesPrefix = packagePrefix ++ ".Gen"
 
 conPrefix = ("Mk" ++)
 typesModuleName modName = modulesPrefix ++ "." ++ modName ++ ".Types"

@@ -1,6 +1,6 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving, BangPatterns #-}
 
-module XHB.Shared where
+module Graphics.XHB.Shared where
 
 -- MAY NOT import any gnerated files
 

@@ -4,7 +4,7 @@
 -- of the implementation details of the 'Connection'
 -- data type.
 
-module XHB.Connection.Internal
+module Graphics.XHB.Connection.Internal
     (sendRequest
     ,sendRequestWithReply
     ,byteOrderFromConn
@@ -27,10 +27,10 @@ import qualified Data.ByteString.Lazy as BS
 import Data.Maybe
 import qualified Data.Map as M
 
-import XHB.Connection.Types
-import XHB.Shared
+import Graphics.XHB.Connection.Types
+import Graphics.XHB.Shared
 
-import XHB.Gen.Xproto.Types
+import Graphics.XHB.Gen.Xproto.Types
 
 -- Assumes that the input bytestring is a properly formatted
 -- and padded request.

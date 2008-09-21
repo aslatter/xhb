@@ -13,6 +13,7 @@ import Language.Haskell.Syntax
 import HaskellCombinators
 import Generate(valueParamName)
 import Generate.Monad(mapTyNames)
+import Generate.Facts
 
 -- Builds a function for every request in the module
 -- Hopefully I'm not duplicating too much between here
@@ -20,13 +21,13 @@ import Generate.Monad(mapTyNames)
 
 -- | Returns the name of the Haskell module containing the type
 -- declarations for a given XCB module.
-typesModuleName :: XHeader -> String
-typesModuleName xhd = "XHB.Gen." ++ interCapsName xhd ++ ".Types"
+typesModName :: XHeader -> String
+typesModName xhd = typesModuleName $ interCapsName xhd
 
 -- | Returns the name of the Haskell module containing the function
 -- definitions for a given XCB module.
-functionsModuleName :: XHeader -> String
-functionsModuleName xhd = "XHB.Gen." ++ interCapsName xhd
+functionsModName :: XHeader -> String
+functionsModName xhd = functionsModuleName $ interCapsName xhd
 
 -- | Returns the name of an X module in InterCaps.
 interCapsName :: XHeader -> String
@@ -76,14 +77,14 @@ applyMany = foldr (flip (.)) id
 -- X module.  Also inserts standard Haskell imports.
 newCoreModule :: XHeader -> HsModule
 newCoreModule xhd = 
-    let name = functionsModuleName xhd
+    let name = functionsModName xhd
         mod = mkModule name
     in doImports mod
  where doImports = applyMany $ map (addImport . mkImport) $
-             [typesModuleName xhd
-             ,"XHB.Connection.Internal"
-             ,"XHB.Connection.Types"
-             ,"XHB.Shared"
+             [typesModName xhd
+             , packagePrefix ++ ".Connection.Internal"
+             , packagePrefix ++ ".Connection.Types"
+             , packagePrefix ++ ".Shared"
              ,"Data.Binary.Put"
              ,"Control.Concurrent.STM"
              ,"Foreign.C.Types"
@@ -91,16 +92,16 @@ newCoreModule xhd =
 
 newExtensionModule :: XHeader -> HsModule
 newExtensionModule xhd =
-    let name = functionsModuleName xhd
+    let name = functionsModName xhd
         mod = mkModule name
     in doImports mod
  where doImports = applyMany $ map (addImport . mkImport) $
-             [typesModuleName xhd
+             [typesModName xhd
           -- ,"XHB.Gen.Xproto.Types"
-             ,"XHB.Connection.Internal"
-             ,"XHB.Connection.Extension"
-             ,"XHB.Connection.Types"
-             ,"XHB.Shared"
+             , packagePrefix ++ ".Connection.Internal"
+             , packagePrefix ++ ".Connection.Extension"
+             , packagePrefix ++ ".Connection.Types"
+             , packagePrefix ++ ".Shared"
              ,"Data.Binary.Put"
              ,"Control.Concurrent.STM"
              ]
@@ -200,7 +201,7 @@ resultType req | hasReply req = foldr1 HsTyApp $
                              ]
 
 replyType :: RequestInfo -> HsType
-replyType req = mkTyCon $ replyName req
+replyType req = mkTyCon $ replyNameFromInfo req
 
 
 -- | Declares Haskell functions for a "core" X module.  And by core I
@@ -369,6 +370,6 @@ fnNameFromRequest = ensureLower . request_name
 
 -- | For a request, returns the name of the Haskell type constructor
 -- corresponding to its reply.
-replyName :: RequestInfo -> String
-replyName req = assert (hasReply req) $
-                request_name req ++ "Reply"
+replyNameFromInfo :: RequestInfo -> String
+replyNameFromInfo req = assert (hasReply req) $
+                        replyName $ request_name req

@@ -1,4 +1,4 @@
-module XHB.Connection
+module Graphics.XHB.Connection
     (Connection
     ,mkConnection
     ,newResource
@@ -40,11 +40,11 @@ import Data.Binary.Put
 
 import Data.Bits
 
-import XHB.Gen.Xproto.Types
+import Graphics.XHB.Gen.Xproto.Types
 
-import XHB.Connection.Types
-import XHB.Connection.Internal
-import XHB.Shared
+import Graphics.XHB.Connection.Types
+import Graphics.XHB.Connection.Internal
+import Graphics.XHB.Shared
 
 import Graphics.X11.Xauth
 

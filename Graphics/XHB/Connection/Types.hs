@@ -1,6 +1,6 @@
-module XHB.Connection.Types where
+module Graphics.XHB.Connection.Types where
 
-import XHB.Shared
+import Graphics.XHB.Shared
 
 import Control.Concurrent.STM
 import Control.Concurrent
@@ -10,7 +10,7 @@ import System.IO
 import Data.Word
 import Data.Map(Map)
 
-import XHB.Gen.Xproto.Types
+import Graphics.XHB.Gen.Xproto.Types
 
 data Connection = Connection
     {conn_error_queue :: TChan SomeError -- read only

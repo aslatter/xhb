@@ -21,7 +21,7 @@ runGenerate r m = runReader m r
 newXhbTypesModule :: String -> HsModule
 newXhbTypesModule = addStandardImports . mkModule . typesModuleName
     where addStandardImports = appMany $ map (addImport . mkImport)
-              ["XHB.Shared"
+              [ packagePrefix ++ ".Shared"
               ,"Data.Word"
               ,"Foreign.C.Types"
               ,"Data.Bits"

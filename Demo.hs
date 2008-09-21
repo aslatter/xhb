@@ -7,15 +7,15 @@ import Control.Concurrent
 import Control.Monad
 import Data.Maybe
 
-import qualified XHB.Connection as X
-import qualified XHB.Connection.Open as X
-import qualified XHB.Shared as X
+import qualified Graphics.XHB.Connection as X
+import qualified Graphics.XHB.Connection.Open as X
+import qualified Graphics.XHB.Shared as X
 
-import qualified XHB.Gen.Xproto.Types as X
-import XHB.Gen.Xproto
+import qualified Graphics.XHB.Gen.Xproto.Types as X
+import Graphics.XHB.Gen.Xproto
 
-import qualified XHB.Gen.Xinerama as Xinerama
-import qualified XHB.Gen.Xinerama.Types as Xinerama
+import qualified Graphics.XHB.Gen.Xinerama as Xinerama
+import qualified Graphics.XHB.Gen.Xinerama.Types as Xinerama
 
 import System.IO
 

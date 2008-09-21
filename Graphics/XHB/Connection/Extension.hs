@@ -1,6 +1,6 @@
 -- helper functions for working with extensions.
 
-module XHB.Connection.Extension
+module Graphics.XHB.Connection.Extension
     ( serializeExtensionRequest
     , extensionPresent
     , extensionOpCode
@@ -14,13 +14,13 @@ import Data.Binary(Put)
 
 import Data.List(genericLength)
 
-import XHB.Gen.Xproto
-import XHB.Gen.Xproto.Types
+import Graphics.XHB.Gen.Xproto
+import Graphics.XHB.Gen.Xproto.Types
 
-import XHB.Connection.Internal
-import XHB.Connection.Types
-import XHB.Connection
-import XHB.Shared
+import Graphics.XHB.Connection.Internal
+import Graphics.XHB.Connection.Types
+import Graphics.XHB.Connection
+import Graphics.XHB.Shared
 
 -- | Convert an extension request to a put action.
 -- Hanldes grabbing the extension opcode and feeding it
