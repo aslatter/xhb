@@ -12,6 +12,12 @@ using cabal as follows:
 
   cabal install xcb-types
 
+The library also requires the "Xauth" package, which is available from:
+
+  darcs get http://code.haskell.org/~sjanssen/xauth/
+  cd xauth
+  cabal install
+
 To see what the current progress is, try the following:
 
   chmod +x generate.sh
