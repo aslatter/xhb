@@ -310,7 +310,6 @@ handshake hnd auth = do
   let bo = BE
 
   -- send setup request
-
   let requestChunk =  runPut $ serialize bo $ setupRequest bo auth
   BS.hPut hnd $ requestChunk
 
