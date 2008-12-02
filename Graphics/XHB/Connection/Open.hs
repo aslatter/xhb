@@ -10,8 +10,8 @@ import Data.Foldable (foldrM)
 
 import Network.Socket
 import Graphics.X11.Xauth
-import Foreign.C (CChar)
-import Data.Maybe (fromMaybe) -- debug
+
+import Data.Maybe (fromMaybe)
 import Text.ParserCombinators.Parsec
 
 data DispName = DispName { proto :: String
@@ -62,37 +62,6 @@ open xs = let
              hndl <- socketToHandle socket ReadWriteMode
              auth <- getAuthInfo hndl (display x)
              return (hndl, auth)
-
--- TODO:
--- * move this function out of here (into xauth module)
--- * make it work
--- see xcb_auth.c:_xcb_auth_info
-getAuthInfo :: Handle -> Int -> IO (Maybe Xauth)
-getAuthInfo fd display = return Nothing
-
-{-
-open s = do
-    name <- if null s then getEnv "DISPLAY" else return s
-    Just (family, addr, sn, dn) <- return $ parse name
-
-    s <- socket family Stream defaultProtocol
-    connect s addr
-
-    -- for launchd, don't get auth data
-    openTCP :: String -> String -> Int -> IO (Maybe Handle)
-    mauth <- if take 11 name == "/tmp/launch" then return Nothing else do
-        (mhn, _) <- getNameInfo [] True False addr
-        let auth hn = getAuthByAddr familyLocal (cstring hn) (cstring $ show dn) authType
-        maybe (return Nothing) auth mhn
-
-    h <- socketToHandle s ReadWriteMode
-
-    return (h, mauth)
- where
-    authType = cstring "MIT-MAGIC-COOKIE-1"
--}
-cstring :: String -> [CChar]
-cstring = map (fromIntegral . fromEnum)
 
 -- | Parse the contents of an X11 DISPLAY environment variable.
 -- TODO: make a public version (see xcb_parse_display)
