@@ -19,7 +19,7 @@ getAuthInfo fd display = do
     (addr, fam) <- f sock
     getAuthByAddr fam addr (cstring $ show display) (cstring atype)
     where
-        f x | isLocal x = putStrLn (show x) >> getHostName >>= \h ->
+        f x | isLocal x = getHostName >>= \h ->
                             return (cstring h, 256) -- familyLocal
             -- XCB_FAMILY_INTERNET
             | isIPv4 x || isIPv6Mappedv4 x = return (host x, 0)
