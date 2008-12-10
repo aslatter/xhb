@@ -17,8 +17,6 @@ getAuthInfo :: Socket -> Int -> IO (Maybe Xauth)
 getAuthInfo fd display = do
     sock <- getPeerName fd
     (addr, fam) <- f sock
-    putStrLn $ (show addr)
-    putStrLn $ show fam
     getAuthByAddr fam addr (cstring $ show display) (cstring atype)
     where
         f x | isLocal x = putStrLn (show x) >> getHostName >>= \h ->
