@@ -14,6 +14,8 @@ import Graphics.X11.Xauth
 import Data.Maybe (fromMaybe)
 import Text.ParserCombinators.Parsec
 
+import Graphics.XHB.Connection.Auth
+
 data DispName = DispName { proto :: String
                          , host :: String
                          , display :: Int
@@ -59,8 +61,8 @@ open xs = let
         (Right x) -> do
              socket <- cont x >>= return . fromMaybe
                  (error "couldn't open socket")
+             auth <- getAuthInfo socket (display x) 
              hndl <- socketToHandle socket ReadWriteMode
-             auth <- getAuthInfo hndl (display x)
              return (hndl, auth)
 
 -- | Parse the contents of an X11 DISPLAY environment variable.
@@ -70,12 +72,15 @@ parseDisplay [] = Right $ DispName "" "" 0 0
 parseDisplay xs = parse exp "" xs where
     exp = do
         p <- option "" (try $ skip '/') <?> "protocol"
-        h <- option "" ((try ipv6) <|> (try $ skip ':')) <?> "host"
-        d <- integer <?> "display"
+        h <- option "" ((try ipv6) <|> (try host)) <?> "host"
+        d <- char ':' >> integer <?> "display"
         s <- option 0 (char '.' >> integer <?> "screen")
         return $ DispName p h d s
-    skip c = many1 (noneOf [c]) >>= \s -> char c >> return s
+    eat c s = char c >> return s
+    anyExcept c = many1 (noneOf [c])
+    skip c = anyExcept c >>= eat c
     ipv6 = char '[' >> skip ']'
+    host = anyExcept ':'
     integer :: Parser Int
     integer = many1 digit >>= \x -> return $ read x
 
