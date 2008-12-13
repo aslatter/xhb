@@ -5,6 +5,7 @@ import System.IO
 
 import Control.Exception hiding (try)
 import Control.Monad
+import Control.Applicative((<$>))
 
 import Data.Foldable (foldrM)
 
@@ -26,6 +27,11 @@ data DispName = DispName { proto :: String
 -- environment variable is consulted if the argument is null.
 open :: String -> IO (Handle , Maybe Xauth)
 open [] = (getEnv "DISPLAY") >>= open
+open disp
+    | take 11 disp == "/tmp/launch" = do
+        fd <- fromMaybe (error "couldn't open socket") <$> openUnix "" disp
+        hndl <- socketToHandle fd ReadWriteMode
+        return (hndl, Nothing)
 open xs = let
     cont (DispName p h d s)
         | null h || null p && h == "unix" = openUnix p
@@ -49,13 +55,6 @@ open xs = let
                >>= foldrM conn Nothing
         | otherwise = error "'protocol' should be empty or 'tcp'"
  
-    openUnix proto file
-        | proto == [] || proto == "unix" = do
-            fd <- socket AF_UNIX Stream defaultProtocol
-            connect fd (SockAddrUnix file)
-            return $ Just fd
-        | otherwise = error "'protocol' should be empty or 'unix'"
-
     in case parseDisplay xs of
         (Left e) -> error (show e)
         (Right x) -> do
@@ -64,6 +63,14 @@ open xs = let
              auth <- getAuthInfo socket (display x) 
              hndl <- socketToHandle socket ReadWriteMode
              return (hndl, auth)
+
+openUnix proto file
+    | proto == [] || proto == "unix" = do
+        fd <- socket AF_UNIX Stream defaultProtocol
+        connect fd (SockAddrUnix file)
+        return $ Just fd
+    | otherwise = error "'protocol' should be empty or 'unix'"
+
 
 -- | Parse the contents of an X11 DISPLAY environment variable.
 -- TODO: make a public version (see xcb_parse_display)
