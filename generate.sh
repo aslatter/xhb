@@ -30,5 +30,21 @@ TEST_PROG=Scripts/Generate
     cd ..
 }
 
+# rebuild SmokeTest.hs
+
+[ -d patched ] && {
+
+    [ -f SmokeTest.hs ] && rm -f SmokeTest.hs
+
+    [ -f SmokeTest.hs ] || {
+
+	echo "module SmokeTest where" > SmokeTest.hs
+	cd patched
+	find . | grep \.hs$ | sed -e "s|\./||" -e  "s|\(.*\)\.hs|import \1|" -e "s|/|.|g" >> ../SmokeTest.hs
+	cd ..
+	echo "main = putStrLn \"Hello!\"" >> SmokeTest.hs
+    }
+}
+
 echo "success!"
 exit
