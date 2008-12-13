@@ -191,14 +191,14 @@ xDecl x = error $ "Pattern match failed in \"xDecl\" with argument:\n" ++ (show 
 declareEventInst :: Name -> HsDecl
 declareEventInst name = mkInstDecl
                         []
-                        (mkUnQName "Event")
+                        (mkUnQName $ packagePrefix ++ ".Shared.Event")
                         [mkTyCon name]
                         []
 
 declareErrorInst :: Name -> HsDecl
 declareErrorInst name = mkInstDecl
                         []
-                        (mkUnQName "Error")
+                        (mkUnQName $ packagePrefix ++ ".Shared.Error")
                         [mkTyCon name]
                         []
 
@@ -314,6 +314,7 @@ xImport str = do
   let 
       shared_types = (L.intersect `on` declaredTypes) cur impMod
 
+      {--
       vars_to_hide = concat
            [ if hasErrorDecs impMod
              then return errorDecodeFn
@@ -323,6 +324,8 @@ xImport str = do
              then return eventDecodeFn
              else empty
            ]
+--}
+      vars_to_hide = [errorDecodeFn, eventDecodeFn]
 
       symbols_to_hide = shared_types ++ vars_to_hide
 

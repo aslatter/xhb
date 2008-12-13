@@ -79,16 +79,18 @@ newCoreModule :: XHeader -> HsModule
 newCoreModule xhd = 
     let name = functionsModName xhd
         mod = mkModule name
-    in doImports mod
+    in doHidingImports $ doImports mod
  where doImports = applyMany $ map (addImport . mkImport) $
              [typesModName xhd
              , packagePrefix ++ ".Connection.Internal"
-             , packagePrefix ++ ".Connection.Types"
+             -- , packagePrefix ++ ".Connection.Types"
              , packagePrefix ++ ".Shared"
              ,"Data.Binary.Put"
              ,"Control.Concurrent.STM"
              ,"Foreign.C.Types"
              ]
+       doHidingImports = addImport $ mkQualImport $
+                         packagePrefix ++ ".Connection.Types"
 
 newExtensionModule :: XHeader -> HsModule
 newExtensionModule xhd =
@@ -106,6 +108,7 @@ newExtensionModule xhd =
              ,"Control.Concurrent.STM"
              ]
 
+connTyName = packagePrefix ++ ".Connection.Types.Connection"
 
 declareExtensionFunctions :: [RequestInfo] -> [HsModule -> HsModule]
 declareExtensionFunctions = map declareExtensionFunction
@@ -123,9 +126,9 @@ declareExtensionFunction req = applyMany
 
        typDeclaration = mkTypeSig fnName [] typeDec
 
-       typeDec | noFields = mkTyCon "Connection" `HsTyFun` resultType req
+       typeDec | noFields = mkTyCon connTyName `HsTyFun` resultType req
                | otherwise = foldr1 HsTyFun $
-                             [mkTyCon "Connection"
+                             [mkTyCon connTyName 
                              ,mkTyCon $ request_name req
                              ,resultType req
                              ]
@@ -238,11 +241,11 @@ declareCoreFunction req = applyMany
        longTypDec = mkTypeSig fnName [] longType
 
        shortTyp = foldr1 HsTyFun $
-         (mkTyCon "Connection") : fieldsToTypes fields ++ [resultType req]
+         (mkTyCon connTyName) : fieldsToTypes fields ++ [resultType req]
                                 
 
        longType = foldr1 HsTyFun $
-                  [mkTyCon "Connection"
+                  [mkTyCon connTyName
                   ,mkTyCon  $ request_name req
                   ] ++ [resultType req]
 

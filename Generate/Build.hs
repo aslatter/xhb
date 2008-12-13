@@ -19,10 +19,11 @@ runGenerate :: ReaderData -> Generate a -> a
 runGenerate r m = runReader m r
 
 newXhbTypesModule :: String -> HsModule
-newXhbTypesModule = addStandardImports . mkModule . typesModuleName
+newXhbTypesModule = addImports . mkModule . typesModuleName
+
+
     where addStandardImports = appMany $ map (addImport . mkImport)
-              [ packagePrefix ++ ".Shared"
-              ,"Data.Word"
+              ["Data.Word"
               ,"Foreign.C.Types"
               ,"Data.Bits"
               ,"Data.Binary.Put"
@@ -32,6 +33,19 @@ newXhbTypesModule = addStandardImports . mkModule . typesModuleName
               ,"Control.Exception"
               ,"Data.List"
               ]
+          addHidingImports = addImport $
+             mkHidingImport (packagePrefix ++ ".Shared")
+                                ["Event"
+                                ,"Error"
+                                 ]
+
+          addQualImports = addImport $
+             mkQualImport (packagePrefix ++ ".Shared")
+
+          addImports = appMany [addStandardImports
+                               ,addHidingImports
+                               ,addQualImports
+                               ]
 
 appMany :: [a -> a] -> (a -> a)
 appMany = foldr (flip (.)) id

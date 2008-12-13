@@ -1,7 +1,12 @@
+Only in working/Graphics/XHB/Gen/Input: Types.hi
+Only in working/Graphics/XHB/Gen/Input: Types.o
+Only in working/Graphics/XHB/Gen: Input.hi
+Only in working/Graphics/XHB/Gen: Input.o
+Only in working/Graphics/XHB/Gen/RandR: Types.hi
 diff -u -r generated/1.2/Graphics/XHB/Gen/RandR/Types.hs working/Graphics/XHB/Gen/RandR/Types.hs
---- generated/1.2/Graphics/XHB/Gen/RandR/Types.hs	2008-09-06 23:22:27.000000000 -0500
-+++ working/Graphics/XHB/Gen/RandR/Types.hs	2008-09-06 22:05:35.000000000 -0500
-@@ -1140,11 +1140,11 @@
+--- generated/1.2/Graphics/XHB/Gen/RandR/Types.hs	2008-12-13 00:49:50.000000000 -0600
++++ working/Graphics/XHB/Gen/RandR/Types.hs	2008-12-13 00:51:05.000000000 -0600
+@@ -1143,11 +1143,11 @@
                      mwidth
                      mheight)
   
@@ -17,13 +22,14 @@ diff -u -r generated/1.2/Graphics/XHB/Gen/RandR/Types.hs working/Graphics/XHB/Ge
          toValue NotifyCrtcChange{} = 0
          toValue NotifyOutputChange{} = 1
          toValue NotifyOutputProperty{} = 2
-@@ -1278,6 +1278,24 @@
+@@ -1281,6 +1281,30 @@
                 skip 11
                 return (MkOutputProperty window output atom timestamp status)
   
 +data NotifyData = NotifyDataCrtcChange CrtcChange
 +                | NotifyDataOutputChange OutputChange
 +                | NotifyDataOutputProperty OutputProperty
++     deriving (Show, Typeable)
 +
 +instance Serialize NotifyData where
 +    serialize bo (NotifyDataCrtcChange x) = serialize bo x
@@ -39,13 +45,73 @@ diff -u -r generated/1.2/Graphics/XHB/Gen/RandR/Types.hs working/Graphics/XHB/Ge
 +deserializeNotifyData NotifyOutputChange bo = NotifyDataOutputChange `liftM` deserialize bo
 +deserializeNotifyData NotifyOutputProperty bo = NotifyDataOutputProperty `liftM` deserialize bo
 +
++subCodeToNotifyEnum :: CARD8 -> NotifyEnum
++subCodeToNotifyEnum 0 = NotifyCrtcChange
++subCodeToNotifyEnum 1 = NotifyOutputChange
++subCodeToNotifyEnum 2 = NotifyOutputProperty
++
  data Notify = MkNotify{subCode_Notify :: CARD8,
                         u_Notify :: NotifyData}
              deriving (Show, Typeable)
-Only in working/Graphics/XHB/Gen/RandR: Types.hs.orig
+@@ -1292,5 +1316,5 @@
+           = do skip 1
+                subCode <- deserialize bo
+                skip 2
+-               u <- deserialize bo
++               u <- deserializeNotifyData (subCodeToNotifyEnum subCode) bo
+                return (MkNotify subCode u)
+\ No newline at end of file
+Only in working/Graphics/XHB/Gen/RandR: Types.o
+Only in working/Graphics/XHB/Gen: RandR.hi
+Only in working/Graphics/XHB/Gen: RandR.o
+Only in working/Graphics/XHB/Gen/Record: Types.hi
+Only in working/Graphics/XHB/Gen/Record: Types.o
+Only in working/Graphics/XHB/Gen: Record.hi
+Only in working/Graphics/XHB/Gen: Record.o
+Only in working/Graphics/XHB/Gen/Render: Types.hi
+Only in working/Graphics/XHB/Gen/Render: Types.o
+Only in working/Graphics/XHB/Gen: Render.hi
+Only in working/Graphics/XHB/Gen: Render.o
+Only in working/Graphics/XHB/Gen/Res: Types.hi
+Only in working/Graphics/XHB/Gen/Res: Types.o
+Only in working/Graphics/XHB/Gen: Res.hi
+Only in working/Graphics/XHB/Gen: Res.o
+Only in working/Graphics/XHB/Gen/SELinux: Types.hi
+Only in working/Graphics/XHB/Gen/SELinux: Types.o
+Only in working/Graphics/XHB/Gen: SELinux.hi
+Only in working/Graphics/XHB/Gen: SELinux.o
+Only in working/Graphics/XHB/Gen/ScreenSaver: Types.hi
+Only in working/Graphics/XHB/Gen/ScreenSaver: Types.o
+Only in working/Graphics/XHB/Gen: ScreenSaver.hi
+Only in working/Graphics/XHB/Gen: ScreenSaver.o
+Only in working/Graphics/XHB/Gen/Shape: Types.hi
+Only in working/Graphics/XHB/Gen/Shape: Types.o
+Only in working/Graphics/XHB/Gen: Shape.hi
+Only in working/Graphics/XHB/Gen: Shape.o
+Only in working/Graphics/XHB/Gen/Shm: Types.hi
+Only in working/Graphics/XHB/Gen/Shm: Types.o
+Only in working/Graphics/XHB/Gen: Shm.hi
+Only in working/Graphics/XHB/Gen: Shm.o
+Only in working/Graphics/XHB/Gen/Sync: Types.hi
+Only in working/Graphics/XHB/Gen/Sync: Types.o
+Only in working/Graphics/XHB/Gen: Sync.hi
+Only in working/Graphics/XHB/Gen: Sync.o
+Only in working/Graphics/XHB/Gen/Test: Types.hi
+Only in working/Graphics/XHB/Gen/Test: Types.o
+Only in working/Graphics/XHB/Gen: Test.hi
+Only in working/Graphics/XHB/Gen: Test.o
+Only in working/Graphics/XHB/Gen/XCMisc: Types.hi
+Only in working/Graphics/XHB/Gen/XCMisc: Types.o
+Only in working/Graphics/XHB/Gen: XCMisc.hi
+Only in working/Graphics/XHB/Gen: XCMisc.o
+Only in working/Graphics/XHB/Gen/XF86Dri: Types.hi
+Only in working/Graphics/XHB/Gen/XF86Dri: Types.o
+Only in working/Graphics/XHB/Gen: XF86Dri.hi
+Only in working/Graphics/XHB/Gen: XF86Dri.o
+Only in working/Graphics/XHB/Gen/XFixes: Types.hi
 diff -u -r generated/1.2/Graphics/XHB/Gen/XFixes/Types.hs working/Graphics/XHB/Gen/XFixes/Types.hs
---- generated/1.2/Graphics/XHB/Gen/XFixes/Types.hs	2008-09-06 23:22:27.000000000 -0500
-+++ working/Graphics/XHB/Gen/XFixes/Types.hs	2008-09-06 23:21:57.000000000 -0500
+--- generated/1.2/Graphics/XHB/Gen/XFixes/Types.hs	2008-12-13 00:49:50.000000000 -0600
++++ working/Graphics/XHB/Gen/XFixes/Types.hs	2008-12-13 00:49:51.000000000 -0600
 @@ -3,7 +3,7 @@
          QueryVersionReply(..), SaveSetMode(..), SaveSetTarget(..),
          SaveSetMapping(..), ChangeSaveSet(..), SelectionEvent(..),
@@ -55,7 +121,7 @@ diff -u -r generated/1.2/Graphics/XHB/Gen/XFixes/Types.hs working/Graphics/XHB/G
          CursorNotify(..), SelectCursorInput(..), GetCursorImage(..),
          GetCursorImageReply(..), REGION, CreateRegion(..),
          CreateRegionFromBitmap(..), CreateRegionFromWindow(..),
-@@ -204,9 +204,9 @@
+@@ -208,9 +208,9 @@
                 serialize bo (event_mask_SelectSelectionInput x)
                 putSkip (requiredPadding size__)
   
@@ -67,12 +133,26 @@ diff -u -r generated/1.2/Graphics/XHB/Gen/XFixes/Types.hs working/Graphics/XHB/G
          toValue CursorNotifyDisplayCursor{} = 0
          fromValue 0 = CursorNotifyDisplayCursor
   
-Only in working/Graphics/XHB/Gen/XFixes: Types.hs.orig
-Only in working/Graphics/XHB/Gen/XFixes: Types.hs.rej
+Only in working/Graphics/XHB/Gen/XFixes: Types.o
+Only in working/Graphics/XHB/Gen: XFixes.hi
+Only in working/Graphics/XHB/Gen: XFixes.o
+Only in working/Graphics/XHB/Gen/XPrint: Types.hi
+Only in working/Graphics/XHB/Gen/XPrint: Types.o
+Only in working/Graphics/XHB/Gen: XPrint.hi
+Only in working/Graphics/XHB/Gen: XPrint.o
+Only in working/Graphics/XHB/Gen/Xevie: Types.hi
+Only in working/Graphics/XHB/Gen/Xevie: Types.o
+Only in working/Graphics/XHB/Gen: Xevie.hi
+Only in working/Graphics/XHB/Gen: Xevie.o
+Only in working/Graphics/XHB/Gen/Xinerama: Types.hi
+Only in working/Graphics/XHB/Gen/Xinerama: Types.o
+Only in working/Graphics/XHB/Gen: Xinerama.hi
+Only in working/Graphics/XHB/Gen: Xinerama.o
+Only in working/Graphics/XHB/Gen/Xproto: Types.hi
 diff -u -r generated/1.2/Graphics/XHB/Gen/Xproto/Types.hs working/Graphics/XHB/Gen/Xproto/Types.hs
---- generated/1.2/Graphics/XHB/Gen/Xproto/Types.hs	2008-09-06 23:22:28.000000000 -0500
-+++ working/Graphics/XHB/Gen/Xproto/Types.hs	2008-09-06 22:05:35.000000000 -0500
-@@ -547,6 +547,7 @@
+--- generated/1.2/Graphics/XHB/Gen/Xproto/Types.hs	2008-12-13 00:49:50.000000000 -0600
++++ working/Graphics/XHB/Gen/Xproto/Types.hs	2008-12-13 00:49:51.000000000 -0600
+@@ -548,6 +548,7 @@
                 serialize bo (protocol_minor_version_SetupRequest x)
                 serialize bo (authorization_protocol_name_len_SetupRequest x)
                 serialize bo (authorization_protocol_data_len_SetupRequest x)
@@ -80,7 +160,7 @@ diff -u -r generated/1.2/Graphics/XHB/Gen/Xproto/Types.hs working/Graphics/XHB/G
                 serializeList bo (authorization_protocol_name_SetupRequest x)
                 serializeList bo (authorization_protocol_data_SetupRequest x)
          size x
-@@ -555,6 +556,7 @@
+@@ -556,6 +557,7 @@
                + size (protocol_minor_version_SetupRequest x)
                + size (authorization_protocol_name_len_SetupRequest x)
                + size (authorization_protocol_data_len_SetupRequest x)
@@ -88,7 +168,7 @@ diff -u -r generated/1.2/Graphics/XHB/Gen/Xproto/Types.hs working/Graphics/XHB/G
                + sum (map size (authorization_protocol_name_SetupRequest x))
                + sum (map size (authorization_protocol_data_SetupRequest x))
   
-@@ -566,6 +568,7 @@
+@@ -567,6 +569,7 @@
                 protocol_minor_version <- deserialize bo
                 authorization_protocol_name_len <- deserialize bo
                 authorization_protocol_data_len <- deserialize bo
@@ -96,7 +176,7 @@ diff -u -r generated/1.2/Graphics/XHB/Gen/Xproto/Types.hs working/Graphics/XHB/G
                 authorization_protocol_name <- deserializeList bo
                                                  (fromIntegral authorization_protocol_name_len)
                 authorization_protocol_data <- deserializeList bo
-@@ -1316,6 +1319,51 @@
+@@ -1317,6 +1320,51 @@
                                         y_ReparentNotify :: INT16,
                                         override_redirect_ReparentNotify :: BOOL}
                      deriving (Show, Typeable)
@@ -146,9 +226,9 @@ diff -u -r generated/1.2/Graphics/XHB/Gen/Xproto/Types.hs working/Graphics/XHB/G
 +clientDataFormatToType _ = CDType8 -- should we throw an error here?
 +
   
- instance Event ReparentNotify
+ instance Graphics.XHB.Shared.Event ReparentNotify
   
-@@ -1616,7 +1664,7 @@
+@@ -1617,7 +1665,7 @@
                 skip 2
                 window <- deserialize bo
                 type_ <- deserialize bo
@@ -157,7 +237,7 @@ diff -u -r generated/1.2/Graphics/XHB/Gen/Xproto/Types.hs working/Graphics/XHB/G
                 return (MkClientMessage format window type_ data_)
   
  data Mapping = MappingModifier
-@@ -3554,6 +3602,9 @@
+@@ -3555,6 +3603,9 @@
  odd_length_QueryTextExtents :: QueryTextExtents -> BOOL
  odd_length_QueryTextExtents x
    = (fromIntegral (string_len_QueryTextExtents x .&. 1))
@@ -167,7 +247,7 @@ diff -u -r generated/1.2/Graphics/XHB/Gen/Xproto/Types.hs working/Graphics/XHB/G
   
  instance Serialize QueryTextExtents where
          serialize bo x
-@@ -5301,10 +5352,11 @@
+@@ -5302,10 +5353,11 @@
                 putSkip 1
                 serialize bo (convertBytesToRequestSize (size x) :: INT16)
                 serialize bo (name_len_QueryExtension x)
@@ -180,15 +260,23 @@ diff -u -r generated/1.2/Graphics/XHB/Gen/Xproto/Types.hs working/Graphics/XHB/G
                sum (map size (name_QueryExtension x))
   
  data QueryExtensionReply = MkQueryExtensionReply{present_QueryExtensionReply
-Only in working/Graphics/XHB/Gen/Xproto: Types.hs.orig
+Only in working/Graphics/XHB/Gen/Xproto: Types.o
+Only in working/Graphics/XHB/Gen: Xproto.hi
+Only in working/Graphics/XHB/Gen: Xproto.o
+Only in working/Graphics/XHB/Gen/Xv: Types.hi
 diff -u -r generated/1.2/Graphics/XHB/Gen/Xv/Types.hs working/Graphics/XHB/Gen/Xv/Types.hs
---- generated/1.2/Graphics/XHB/Gen/Xv/Types.hs	2008-09-06 23:22:28.000000000 -0500
-+++ working/Graphics/XHB/Gen/Xv/Types.hs	2008-09-06 22:05:35.000000000 -0500
+--- generated/1.2/Graphics/XHB/Gen/Xv/Types.hs	2008-12-13 00:49:51.000000000 -0600
++++ working/Graphics/XHB/Gen/Xv/Types.hs	2008-12-13 00:49:51.000000000 -0600
 @@ -15,6 +15,7 @@
          ListImageFormatsReply(..), QueryImageAttributes(..),
          QueryImageAttributesReply(..), PutImage(..), ShmPutImage(..))
         where
 +import Prelude hiding (Rational)
- import Graphics.XHB.Shared
  import Data.Word
  import Foreign.C.Types
+ import Data.Bits
+Only in working/Graphics/XHB/Gen/Xv: Types.o
+Only in working/Graphics/XHB/Gen: Xv.hi
+Only in working/Graphics/XHB/Gen: Xv.o
+Only in working/Graphics/XHB/Gen/XvMC: Types.hi
+Only in working/Graphics/XHB/Gen/XvMC: Types.o
