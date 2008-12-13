@@ -320,7 +320,7 @@ fieldsToArgNames = mapMaybe fieldToArgName
 fieldToArgName :: StructElem -> Maybe String
 fieldToArgName (List name _ _) = return name
 fieldToArgName (SField name _) = return name
-fieldToArgName (ValueParam _ mname _) = return $ valueParamName mname
+fieldToArgName (ValueParam _ mname _ _) = return $ valueParamName mname
 fieldToArgName _ = empty
 
 -- | The types corresponding to the args from "fieldsToArgNames".
@@ -330,7 +330,7 @@ fieldsToTypes = mapMaybe fieldToType
 fieldToType :: StructElem -> Maybe HsType
 fieldToType (SField _ typ) = return . mkTyCon $ simpleType typ
 fieldToType (List _ typ _) = return $ list_tycon `HsTyApp` mkTyCon (simpleType typ)
-fieldToType (ValueParam typ _ _) = return $ mkTyCon "ValueParam" `HsTyApp` mkTyCon (simpleType typ)
+fieldToType (ValueParam typ _ _ _) = return $ mkTyCon "ValueParam" `HsTyApp` mkTyCon (simpleType typ)
 fieldToType _ = empty
 
 -- | Converts a 'Type' to a 'String' usable by 'mkTyCon'.

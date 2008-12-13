@@ -324,12 +324,20 @@ bsFromStorable x = Strict.unsafeCreate (sizeOf x) $ \p -> do
 -- Other
 
 instance (Serialize a, Bits a) => Serialize (ValueParam a) where
-    serialize bo (VP mask xs) = do
-      serialize bo mask
-      assert (length xs == setBits mask) $ return ()
-      serializeList bo xs
+    serialize bo vp = serializeValueParam 0 bo vp 
 
     size (VP mask xs) = size mask + sum (map size xs)
+
+-- there's one value param which needs funny padding, so it
+-- uses the special function
+serializeValueParam :: (Serialize a, Bits a) =>
+                       Int -> BO -> ValueParam a -> Put
+serializeValueParam pad bo (VP mask xs) = do
+  serialize bo mask
+  putSkip pad
+  assert (length xs == setBits mask) $ return ()
+  serializeList bo xs
+  
 
 instance (Deserialize a, Bits a) => Deserialize (ValueParam a) where
     deserialize bo = do
@@ -347,6 +355,7 @@ setBits a = foldl' go 0 [0 .. (bitSize a) - 1]
 
 
 putSkip :: Int -> Put
+putSkip 0 = return ()
 putSkip n = replicateM_ n $ putWord8 0
 
 isCard32 :: CARD32 -> a

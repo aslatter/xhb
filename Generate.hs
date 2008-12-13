@@ -416,7 +416,7 @@ declareStruct name fields = do
           go (SField nm tp) = do
               hsType <- toHsType tp
               return $ (accessor nm name, HsUnBangedTy hsType)
-          go (ValueParam typ mname _lname) = do
+          go (ValueParam typ mname _mpad _lname) = do
             hsType <- toHsType typ
             return $
              let nme = valueParamName mname
@@ -592,7 +592,7 @@ declareDeserEvent name code elems special =
 
 -- | Declare a statement in the 'do' block of the 'deserialize' function.
 deserIns :: [StructElem] -> [HsStmt]
-deserIns fields = mapMaybe go fields
+deserIns fields = concatMap go fields
  where
      go (Pad n) = return $ HsQualifier $ mkVar "skip" `HsApp` mkNumLit n 
      go (List nm _typ Nothing) = error "cannot deserialize list with no length"
@@ -606,9 +606,13 @@ deserIns fields = mapMaybe go fields
      go (SField nm _typ) = return $ mkGenerator (mkPVar $ mapIdents nm) $
              mkVar "deserialize" `HsApp` mkVar "bo"
      go ExprField{} = empty -- this is probbaly wrong, but I'm not sure where we need it
-     go v@(ValueParam _ vname _) = let nm = mapIdents $ valueParamName vname
-                         in return $ mkGenerator (mkPVar nm) $
-                            mkVar "deserialize" `HsApp` mkVar "bo"
+     go v@(ValueParam _ vname Nothing _) =
+         let nm = mapIdents $ valueParamName vname
+         in return $ mkGenerator (mkPVar nm) $
+            mkVar "deserialize" `HsApp` mkVar "bo"
+     go v@(ValueParam typ mname (Just pad) lname) = 
+         go (ValueParam typ mname Nothing lname)
+                ++ go (Pad pad)
      go n = error $ "Pattern match fail in deserIns.go with: " ++ show n
 
 -- | Return and construct the deserialized value.
@@ -625,7 +629,7 @@ fieldName Pad{} = empty
 fieldName (List name _ _) = Just name
 fieldName (SField name _) = Just name
 fieldName ExprField{} = empty -- has a name, but we don't want it
-fieldName (ValueParam _ name _) = return $ valueParamName name
+fieldName (ValueParam _ name _ _) = return $ valueParamName name
 
 
 -- | Declare an instance of 'Serialize' for an X struct.
@@ -642,13 +646,13 @@ declareSerStruct name fields =
     sizeFunc :: HsDecl
     sizeFunc = mkSimpleFun "size"
                 [mkPVar "x"]
-                (L.foldl1' addExp $ mapMaybe (toFieldSize name) fields)
+                (L.foldl1' addExp $ concatMap (toFieldSize name) fields)
 
 
     serializeFunc = mkSimpleFun "serialize"
           [mkPVar "bo"
           ,mkPVar "x"]
-          (HsDo $ map HsQualifier $ mapMaybe (serField name) fields)
+          (HsDo $ map HsQualifier $ concatMap (serField name) fields)
 
 -- | Declare an instance of "ExtensionRequest".
 -- May not be called when generating code for a core
@@ -666,8 +670,8 @@ declareExtRequest name opCode fields = do
          ]
  where
 
-   serActions = mapMaybe (serField name) fields
-   sizeActions = mapMaybe (toFieldSize name) fields
+   serActions = concatMap (serField name) fields
+   sizeActions = concatMap (toFieldSize name) fields
 
    extensionIdFunc :: Name -> HsDecl
    extensionIdFunc name =
@@ -740,7 +744,7 @@ declareSerRequest name opCode fields = do
     sizeExps :: [HsExp]
     sizeExps = case serActions of
                  [] -> [mkNumLit 4]
-                 _ -> mkNumLit 3 : mapMaybe (toFieldSize name) fields
+                 _ -> mkNumLit 3 : concatMap (toFieldSize name) fields
     
 
     serializeFunc = mkSimpleFun "serialize"
@@ -748,7 +752,7 @@ declareSerRequest name opCode fields = do
            ,mkPVar "x"]
            (HsDo $ map HsQualifier $ leadingActs ++ trailingActs)
 
-    serActions = mapMaybe (serField name) fields
+    serActions = concatMap (serField name) fields
 
     leadingActs = [putIntExp $ mkNumLit opCode,firstAction serActions]
     trailingActs = (putSize : drop 1 serActions) ++ [putPadding]
@@ -769,7 +773,7 @@ declareSerRequest name opCode fields = do
                  mkVar "size" `HsApp` mkVar "x"
 
 -- | A statement in the "do" block for the 'serialize' function.
-serField :: Name -> StructElem -> Maybe HsExp
+serField :: Name -> StructElem -> [HsExp]
 serField _ (Pad n) -- "putSkip n"
         = return $ mkVar "putSkip" `HsApp` mkNumLit n
 serField name (List lname _typ _expr) -- serializeList bo <list>
@@ -780,8 +784,13 @@ serField name (SField fname _typ) -- serialize bo <field>
         = return $ HsApp (mkVar "serialize" `HsApp` mkVar "bo") $ HsParen $
           accessField name fname
 serField name (ExprField fname typ _exp)  = serField name (SField fname typ)
-serField name (ValueParam _ mname _) -- serialize bo <field>
+serField name (ValueParam _ mname Nothing _) -- serialize bo <field>
         = return $ HsApp (mkVar "serialize" `HsApp` mkVar "bo") $ HsParen $
+          accessField name $ valueParamName mname
+serField name (ValueParam typ mname (Just pad) lname)
+        = return $ HsApp (mkVar "serializeValueParam" `HsApp`
+                          mkNumLit pad `HsApp`
+                          mkVar "bo") $ HsParen $
           accessField name $ valueParamName mname
 
 addExp :: HsExp -> HsExp -> HsExp
@@ -795,7 +804,7 @@ accessField name fieldName =
 sizeOfMember name fname = (mkVar "size" `HsApp`) $ HsParen $
                            accessField name fname
 
-toFieldSize :: Name -> StructElem -> Maybe HsExp
+toFieldSize :: Name -> StructElem -> [HsExp]
 toFieldSize _ (Pad n) = return $ mkNumLit n
 toFieldSize name (List lname typ _expr) = return $
         (mkVar "sum" `HsApp`) $ HsParen $
@@ -803,8 +812,11 @@ toFieldSize name (List lname typ _expr) = return $
         accessField name lname
 toFieldSize name (SField fname _typ) = return $ sizeOfMember name fname
 toFieldSize name (ExprField fname ftyp _) = toFieldSize name (SField fname ftyp)
-toFieldSize name (ValueParam _ vname _) = return $
+toFieldSize name (ValueParam _ vname Nothing _) = return $
                 sizeOfMember name . valueParamName $ vname
+toFieldSize name (ValueParam typ mname (Just pad) lname) = 
+    toFieldSize name (ValueParam typ mname Nothing lname)
+                    ++ toFieldSize name (Pad pad)
 
 -- |Defines a newtype declaration.
 simpleNewtype :: String   -- typename
