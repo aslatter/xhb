@@ -1,11 +1,20 @@
-Only in working/Graphics/XHB/Gen/Input: Types.hi
-Only in working/Graphics/XHB/Gen/Input: Types.o
-Only in working/Graphics/XHB/Gen: Input.hi
-Only in working/Graphics/XHB/Gen: Input.o
-Only in working/Graphics/XHB/Gen/RandR: Types.hi
+diff -u -r generated/1.2/Graphics/XHB/Gen/Damage.hs working/Graphics/XHB/Gen/Damage.hs
+--- generated/1.2/Graphics/XHB/Gen/Damage.hs	2008-12-13 01:24:19.000000000 -0600
++++ working/Graphics/XHB/Gen/Damage.hs	2008-12-13 01:24:19.000000000 -0600
+@@ -7,7 +7,9 @@
+ import Graphics.XHB.Shared
+ import Control.Concurrent.STM
+ import Data.Binary.Put (runPut)
+- 
++
++import Prelude hiding (subtract)
++
+ queryVersion ::
+                Graphics.XHB.Connection.Types.Connection ->
+                  QueryVersion -> IO (Receipt QueryVersionReply)
 diff -u -r generated/1.2/Graphics/XHB/Gen/RandR/Types.hs working/Graphics/XHB/Gen/RandR/Types.hs
---- generated/1.2/Graphics/XHB/Gen/RandR/Types.hs	2008-12-13 00:49:50.000000000 -0600
-+++ working/Graphics/XHB/Gen/RandR/Types.hs	2008-12-13 00:51:05.000000000 -0600
+--- generated/1.2/Graphics/XHB/Gen/RandR/Types.hs	2008-12-13 01:24:19.000000000 -0600
++++ working/Graphics/XHB/Gen/RandR/Types.hs	2008-12-13 01:24:19.000000000 -0600
 @@ -1143,11 +1143,11 @@
                      mwidth
                      mheight)
@@ -61,57 +70,9 @@ diff -u -r generated/1.2/Graphics/XHB/Gen/RandR/Types.hs working/Graphics/XHB/Ge
 +               u <- deserializeNotifyData (subCodeToNotifyEnum subCode) bo
                 return (MkNotify subCode u)
 \ No newline at end of file
-Only in working/Graphics/XHB/Gen/RandR: Types.o
-Only in working/Graphics/XHB/Gen: RandR.hi
-Only in working/Graphics/XHB/Gen: RandR.o
-Only in working/Graphics/XHB/Gen/Record: Types.hi
-Only in working/Graphics/XHB/Gen/Record: Types.o
-Only in working/Graphics/XHB/Gen: Record.hi
-Only in working/Graphics/XHB/Gen: Record.o
-Only in working/Graphics/XHB/Gen/Render: Types.hi
-Only in working/Graphics/XHB/Gen/Render: Types.o
-Only in working/Graphics/XHB/Gen: Render.hi
-Only in working/Graphics/XHB/Gen: Render.o
-Only in working/Graphics/XHB/Gen/Res: Types.hi
-Only in working/Graphics/XHB/Gen/Res: Types.o
-Only in working/Graphics/XHB/Gen: Res.hi
-Only in working/Graphics/XHB/Gen: Res.o
-Only in working/Graphics/XHB/Gen/SELinux: Types.hi
-Only in working/Graphics/XHB/Gen/SELinux: Types.o
-Only in working/Graphics/XHB/Gen: SELinux.hi
-Only in working/Graphics/XHB/Gen: SELinux.o
-Only in working/Graphics/XHB/Gen/ScreenSaver: Types.hi
-Only in working/Graphics/XHB/Gen/ScreenSaver: Types.o
-Only in working/Graphics/XHB/Gen: ScreenSaver.hi
-Only in working/Graphics/XHB/Gen: ScreenSaver.o
-Only in working/Graphics/XHB/Gen/Shape: Types.hi
-Only in working/Graphics/XHB/Gen/Shape: Types.o
-Only in working/Graphics/XHB/Gen: Shape.hi
-Only in working/Graphics/XHB/Gen: Shape.o
-Only in working/Graphics/XHB/Gen/Shm: Types.hi
-Only in working/Graphics/XHB/Gen/Shm: Types.o
-Only in working/Graphics/XHB/Gen: Shm.hi
-Only in working/Graphics/XHB/Gen: Shm.o
-Only in working/Graphics/XHB/Gen/Sync: Types.hi
-Only in working/Graphics/XHB/Gen/Sync: Types.o
-Only in working/Graphics/XHB/Gen: Sync.hi
-Only in working/Graphics/XHB/Gen: Sync.o
-Only in working/Graphics/XHB/Gen/Test: Types.hi
-Only in working/Graphics/XHB/Gen/Test: Types.o
-Only in working/Graphics/XHB/Gen: Test.hi
-Only in working/Graphics/XHB/Gen: Test.o
-Only in working/Graphics/XHB/Gen/XCMisc: Types.hi
-Only in working/Graphics/XHB/Gen/XCMisc: Types.o
-Only in working/Graphics/XHB/Gen: XCMisc.hi
-Only in working/Graphics/XHB/Gen: XCMisc.o
-Only in working/Graphics/XHB/Gen/XF86Dri: Types.hi
-Only in working/Graphics/XHB/Gen/XF86Dri: Types.o
-Only in working/Graphics/XHB/Gen: XF86Dri.hi
-Only in working/Graphics/XHB/Gen: XF86Dri.o
-Only in working/Graphics/XHB/Gen/XFixes: Types.hi
 diff -u -r generated/1.2/Graphics/XHB/Gen/XFixes/Types.hs working/Graphics/XHB/Gen/XFixes/Types.hs
---- generated/1.2/Graphics/XHB/Gen/XFixes/Types.hs	2008-12-13 00:49:50.000000000 -0600
-+++ working/Graphics/XHB/Gen/XFixes/Types.hs	2008-12-13 00:49:51.000000000 -0600
+--- generated/1.2/Graphics/XHB/Gen/XFixes/Types.hs	2008-12-13 01:24:19.000000000 -0600
++++ working/Graphics/XHB/Gen/XFixes/Types.hs	2008-12-13 01:24:19.000000000 -0600
 @@ -3,7 +3,7 @@
          QueryVersionReply(..), SaveSetMode(..), SaveSetTarget(..),
          SaveSetMapping(..), ChangeSaveSet(..), SelectionEvent(..),
@@ -133,25 +94,9 @@ diff -u -r generated/1.2/Graphics/XHB/Gen/XFixes/Types.hs working/Graphics/XHB/G
          toValue CursorNotifyDisplayCursor{} = 0
          fromValue 0 = CursorNotifyDisplayCursor
   
-Only in working/Graphics/XHB/Gen/XFixes: Types.o
-Only in working/Graphics/XHB/Gen: XFixes.hi
-Only in working/Graphics/XHB/Gen: XFixes.o
-Only in working/Graphics/XHB/Gen/XPrint: Types.hi
-Only in working/Graphics/XHB/Gen/XPrint: Types.o
-Only in working/Graphics/XHB/Gen: XPrint.hi
-Only in working/Graphics/XHB/Gen: XPrint.o
-Only in working/Graphics/XHB/Gen/Xevie: Types.hi
-Only in working/Graphics/XHB/Gen/Xevie: Types.o
-Only in working/Graphics/XHB/Gen: Xevie.hi
-Only in working/Graphics/XHB/Gen: Xevie.o
-Only in working/Graphics/XHB/Gen/Xinerama: Types.hi
-Only in working/Graphics/XHB/Gen/Xinerama: Types.o
-Only in working/Graphics/XHB/Gen: Xinerama.hi
-Only in working/Graphics/XHB/Gen: Xinerama.o
-Only in working/Graphics/XHB/Gen/Xproto: Types.hi
 diff -u -r generated/1.2/Graphics/XHB/Gen/Xproto/Types.hs working/Graphics/XHB/Gen/Xproto/Types.hs
---- generated/1.2/Graphics/XHB/Gen/Xproto/Types.hs	2008-12-13 00:49:50.000000000 -0600
-+++ working/Graphics/XHB/Gen/Xproto/Types.hs	2008-12-13 00:49:51.000000000 -0600
+--- generated/1.2/Graphics/XHB/Gen/Xproto/Types.hs	2008-12-13 01:24:19.000000000 -0600
++++ working/Graphics/XHB/Gen/Xproto/Types.hs	2008-12-13 01:24:19.000000000 -0600
 @@ -548,6 +548,7 @@
                 serialize bo (protocol_minor_version_SetupRequest x)
                 serialize bo (authorization_protocol_name_len_SetupRequest x)
@@ -260,13 +205,9 @@ diff -u -r generated/1.2/Graphics/XHB/Gen/Xproto/Types.hs working/Graphics/XHB/G
                sum (map size (name_QueryExtension x))
   
  data QueryExtensionReply = MkQueryExtensionReply{present_QueryExtensionReply
-Only in working/Graphics/XHB/Gen/Xproto: Types.o
-Only in working/Graphics/XHB/Gen: Xproto.hi
-Only in working/Graphics/XHB/Gen: Xproto.o
-Only in working/Graphics/XHB/Gen/Xv: Types.hi
 diff -u -r generated/1.2/Graphics/XHB/Gen/Xv/Types.hs working/Graphics/XHB/Gen/Xv/Types.hs
---- generated/1.2/Graphics/XHB/Gen/Xv/Types.hs	2008-12-13 00:49:51.000000000 -0600
-+++ working/Graphics/XHB/Gen/Xv/Types.hs	2008-12-13 00:49:51.000000000 -0600
+--- generated/1.2/Graphics/XHB/Gen/Xv/Types.hs	2008-12-13 01:24:19.000000000 -0600
++++ working/Graphics/XHB/Gen/Xv/Types.hs	2008-12-13 01:24:19.000000000 -0600
 @@ -15,6 +15,7 @@
          ListImageFormatsReply(..), QueryImageAttributes(..),
          QueryImageAttributesReply(..), PutImage(..), ShmPutImage(..))
@@ -275,8 +216,3 @@ diff -u -r generated/1.2/Graphics/XHB/Gen/Xv/Types.hs working/Graphics/XHB/Gen/X
  import Data.Word
  import Foreign.C.Types
  import Data.Bits
-Only in working/Graphics/XHB/Gen/Xv: Types.o
-Only in working/Graphics/XHB/Gen: Xv.hi
-Only in working/Graphics/XHB/Gen: Xv.o
-Only in working/Graphics/XHB/Gen/XvMC: Types.hi
-Only in working/Graphics/XHB/Gen/XvMC: Types.o

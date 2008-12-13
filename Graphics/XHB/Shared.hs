@@ -297,6 +297,10 @@ getInt32le = liftM fromIntegral getWord32le
 instance Deserialize CFloat where
     deserialize _ = getStorable
 
+instance Serialize CFloat where
+    size x = sizeOf x
+    serialize _ x = putStorable x
+
 instance Deserialize CDouble where
     deserialize _ = getStorable
 

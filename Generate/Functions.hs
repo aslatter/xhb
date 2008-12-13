@@ -83,12 +83,12 @@ newCoreModule xhd =
  where doImports = applyMany $ map (addImport . mkImport) $
              [typesModName xhd
              , packagePrefix ++ ".Connection.Internal"
-             -- , packagePrefix ++ ".Connection.Types"
              , packagePrefix ++ ".Shared"
              ,"Data.Binary.Put"
              ,"Control.Concurrent.STM"
              ,"Foreign.C.Types"
              ]
+
        doHidingImports = addImport $ mkQualImport $
                          packagePrefix ++ ".Connection.Types"
 
@@ -96,17 +96,17 @@ newExtensionModule :: XHeader -> HsModule
 newExtensionModule xhd =
     let name = functionsModName xhd
         mod = mkModule name
-    in doImports mod
+    in doSomeImports $ doImports mod
  where doImports = applyMany $ map (addImport . mkImport) $
              [typesModName xhd
-          -- ,"XHB.Gen.Xproto.Types"
              , packagePrefix ++ ".Connection.Internal"
              , packagePrefix ++ ".Connection.Extension"
              , packagePrefix ++ ".Connection.Types"
              , packagePrefix ++ ".Shared"
-             ,"Data.Binary.Put"
              ,"Control.Concurrent.STM"
              ]
+
+       doSomeImports = addImport $ mkSomeImport "Data.Binary.Put" ["runPut"]
 
 connTyName = packagePrefix ++ ".Connection.Types.Connection"
 

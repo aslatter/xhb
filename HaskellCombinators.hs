@@ -9,6 +9,7 @@ module HaskellCombinators
     ,mkExportAbs
     ,mkExportAll
     ,mkImport
+    ,mkSomeImport
     ,mkHidingImport
     ,mkQualImport
     ,mkTypeDecl
@@ -88,17 +89,20 @@ mkLetStmt pat expr = HsLetStmt [HsPatBind dummLoc pat (HsUnGuardedRhs expr) []]
 -- |Simple import statement
 mkImport str = HsImportDecl dummLoc (Module str) False Nothing Nothing
 
+mkSomeImport str things = HsImportDecl dummLoc (Module str) False Nothing
+                          (Just (False,map strToImp things))
+
 mkHidingImport :: String -> [String] -> HsImportDecl
 mkHidingImport name hidings = HsImportDecl
                 dummLoc
                 (Module name)
                 False
                 Nothing
-                (Just (True, map hide hidings))
+                (Just (True, map strToImp hidings))
 
-    where hide (x:xs) | Char.isUpper x = HsIThingAll . HsIdent $ x:xs
-                      | otherwise = HsIVar . HsIdent $ x:xs
-          hide [] = error "mkHidingImport: canot hide nothing!"
+strToImp (x:xs) | Char.isUpper x = HsIThingAll . HsIdent $ x:xs
+                | otherwise = HsIVar . HsIdent $ x:xs
+strToImp [] = error "mkImport: canot hide nothing!"
 
 mkQualImport :: String -> HsImportDecl
 mkQualImport name = HsImportDecl dummLoc (Module name) True Nothing Nothing

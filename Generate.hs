@@ -78,8 +78,8 @@ decodeErrorsOrEvents event = do
 
     , -- declare cases on opcode
       addDecl $ if event then
-           HsFunBind $ map eventMatches events ++ [defaultMatch]
-      else HsFunBind $ map errorMatches errors ++ [defaultMatch]
+           HsFunBind $ mapMaybe eventMatches events ++ [defaultMatch]
+      else HsFunBind $ mapMaybe errorMatches errors ++ [defaultMatch]
 
     , -- export the function
       exportVar fnName
@@ -99,11 +99,15 @@ decodeErrorsOrEvents event = do
                  mkTyCon fnRetCon)
                ]
 
-       errorMatches :: ErrorDetail -> HsMatch
-       errorMatches (ErrorDetail name code) = matches name code
+       errorMatches :: ErrorDetail -> Maybe HsMatch
+       errorMatches (ErrorDetail name code) 
+           | code >= 0 = Just $ matches name code
+           | otherwise = Nothing
 
-       eventMatches :: EventDetail -> HsMatch
-       eventMatches (EventDetail name code) = matches name code
+       eventMatches :: EventDetail -> Maybe HsMatch
+       eventMatches (EventDetail name code)
+           | code >= 0 = Just $ matches name code
+           | otherwise = Nothing
 
        matches name code =
            mkMatch fnName
