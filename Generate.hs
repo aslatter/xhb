@@ -592,7 +592,7 @@ declareDeserEvent name code elems special =
 
 -- | Declare a statement in the 'do' block of the 'deserialize' function.
 deserIns :: [StructElem] -> [HsStmt]
-deserIns fields = concatMap go fields
+deserIns fields = mapMaybe go fields
  where
      go (Pad n) = return $ HsQualifier $ mkVar "skip" `HsApp` mkNumLit n 
      go (List nm _typ Nothing) = error "cannot deserialize list with no length"
@@ -610,9 +610,11 @@ deserIns fields = concatMap go fields
          let nm = mapIdents $ valueParamName vname
          in return $ mkGenerator (mkPVar nm) $
             mkVar "deserialize" `HsApp` mkVar "bo"
-     go v@(ValueParam typ mname (Just pad) lname) = 
-         go (ValueParam typ mname Nothing lname)
-                ++ go (Pad pad)
+     go v@(ValueParam _ vname (Just pad) _) = 
+         let nm = mapIdents $ valueParamName vname
+         in return $ mkGenerator (mkPVar nm) $
+            mkVar "deserializeValueParam" `HsApp` mkNumLit pad `HsApp`
+                  mkVar "bo"
      go n = error $ "Pattern match fail in deserIns.go with: " ++ show n
 
 -- | Return and construct the deserialized value.
@@ -652,7 +654,7 @@ declareSerStruct name fields =
     serializeFunc = mkSimpleFun "serialize"
           [mkPVar "bo"
           ,mkPVar "x"]
-          (HsDo $ map HsQualifier $ concatMap (serField name) fields)
+          (HsDo $ map HsQualifier $ mapMaybe (serField name) fields)
 
 -- | Declare an instance of "ExtensionRequest".
 -- May not be called when generating code for a core
@@ -670,7 +672,7 @@ declareExtRequest name opCode fields = do
          ]
  where
 
-   serActions = concatMap (serField name) fields
+   serActions = mapMaybe (serField name) fields
    sizeActions = concatMap (toFieldSize name) fields
 
    extensionIdFunc :: Name -> HsDecl
@@ -752,7 +754,7 @@ declareSerRequest name opCode fields = do
            ,mkPVar "x"]
            (HsDo $ map HsQualifier $ leadingActs ++ trailingActs)
 
-    serActions = concatMap (serField name) fields
+    serActions = mapMaybe (serField name) fields
 
     leadingActs = [putIntExp $ mkNumLit opCode,firstAction serActions]
     trailingActs = (putSize : drop 1 serActions) ++ [putPadding]
@@ -773,7 +775,7 @@ declareSerRequest name opCode fields = do
                  mkVar "size" `HsApp` mkVar "x"
 
 -- | A statement in the "do" block for the 'serialize' function.
-serField :: Name -> StructElem -> [HsExp]
+serField :: Name -> StructElem -> Maybe HsExp
 serField _ (Pad n) -- "putSkip n"
         = return $ mkVar "putSkip" `HsApp` mkNumLit n
 serField name (List lname _typ _expr) -- serializeList bo <list>

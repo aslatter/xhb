@@ -324,8 +324,7 @@ bsFromStorable x = Strict.unsafeCreate (sizeOf x) $ \p -> do
 -- Other
 
 instance (Serialize a, Bits a) => Serialize (ValueParam a) where
-    serialize bo vp = serializeValueParam 0 bo vp 
-
+    serialize = serializeValueParam 0
     size (VP mask xs) = size mask + sum (map size xs)
 
 -- there's one value param which needs funny padding, so it
@@ -340,11 +339,16 @@ serializeValueParam pad bo (VP mask xs) = do
   
 
 instance (Deserialize a, Bits a) => Deserialize (ValueParam a) where
-    deserialize bo = do
-      mask <- deserialize bo
-      let n = setBits mask
-      xs <- deserializeList bo n
-      return $ VP mask xs
+    deserialize = deserializeValueParam 0
+
+deserializeValueParam :: (Deserialize a, Bits a) =>
+                         Int -> BO -> Get (ValueParam a)
+deserializeValueParam pad bo = do
+  mask <- deserialize bo
+  skip pad
+  let n = setBits mask
+  xs <- deserializeList bo n
+  return $ VP mask xs
 
 -- |Returns the number of bits set in the passed-in
 -- bitmask.
