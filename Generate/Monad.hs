@@ -21,8 +21,8 @@ data ReaderData = ReaderData
     {readerData_current :: XHeader
     ,readerData_all :: [XHeader]
     }
-type Generate a = Reader ReaderData a
 
+type Generate = Reader ReaderData
 -- primitives
 
 current :: MonadReader ReaderData m => m XHeader

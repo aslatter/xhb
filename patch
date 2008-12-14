@@ -1,21 +1,17 @@
-diff -u -r generated/1.2/Graphics/XHB/Gen/Damage.hs working/Graphics/XHB/Gen/Damage.hs
---- generated/1.2/Graphics/XHB/Gen/Damage.hs	2008-12-13 01:24:19.000000000 -0600
-+++ working/Graphics/XHB/Gen/Damage.hs	2008-12-13 01:24:19.000000000 -0600
-@@ -7,7 +7,9 @@
- import Graphics.XHB.Shared
- import Control.Concurrent.STM
- import Data.Binary.Put (runPut)
-- 
-+
+diff -u -r generated/1.3/Graphics/XHB/Gen/Damage.hs working/Graphics/XHB/Gen/Damage.hs
+--- generated/1.3/Graphics/XHB/Gen/Damage.hs	2008-12-14 17:22:55.000000000 -0600
++++ working/Graphics/XHB/Gen/Damage.hs	2008-12-14 17:22:38.000000000 -0600
+@@ -1,5 +1,6 @@
+ module Graphics.XHB.Gen.Damage
+        (queryVersion, create, destroy, subtract, add) where
 +import Prelude hiding (subtract)
-+
- queryVersion ::
-                Graphics.XHB.Connection.Types.Connection ->
-                  QueryVersion -> IO (Receipt QueryVersionReply)
-diff -u -r generated/1.2/Graphics/XHB/Gen/RandR/Types.hs working/Graphics/XHB/Gen/RandR/Types.hs
---- generated/1.2/Graphics/XHB/Gen/RandR/Types.hs	2008-12-13 01:24:19.000000000 -0600
-+++ working/Graphics/XHB/Gen/RandR/Types.hs	2008-12-13 01:24:19.000000000 -0600
-@@ -1143,11 +1143,11 @@
+ import Graphics.XHB.Gen.Damage.Types
+ import Graphics.XHB.Connection.Internal
+ import Graphics.XHB.Connection.Extension
+diff -u -r generated/1.3/Graphics/XHB/Gen/RandR/Types.hs working/Graphics/XHB/Gen/RandR/Types.hs
+--- generated/1.3/Graphics/XHB/Gen/RandR/Types.hs	2008-12-14 17:22:55.000000000 -0600
++++ working/Graphics/XHB/Gen/RandR/Types.hs	2008-12-14 17:22:38.000000000 -0600
+@@ -1168,11 +1168,11 @@
                      mwidth
                      mheight)
   
@@ -31,7 +27,7 @@ diff -u -r generated/1.2/Graphics/XHB/Gen/RandR/Types.hs working/Graphics/XHB/Ge
          toValue NotifyCrtcChange{} = 0
          toValue NotifyOutputChange{} = 1
          toValue NotifyOutputProperty{} = 2
-@@ -1281,6 +1281,30 @@
+@@ -1306,6 +1306,30 @@
                 skip 11
                 return (MkOutputProperty window output atom timestamp status)
   
@@ -62,7 +58,7 @@ diff -u -r generated/1.2/Graphics/XHB/Gen/RandR/Types.hs working/Graphics/XHB/Ge
  data Notify = MkNotify{subCode_Notify :: CARD8,
                         u_Notify :: NotifyData}
              deriving (Show, Typeable)
-@@ -1292,5 +1316,5 @@
+@@ -1317,5 +1341,5 @@
            = do skip 1
                 subCode <- deserialize bo
                 skip 2
@@ -70,9 +66,9 @@ diff -u -r generated/1.2/Graphics/XHB/Gen/RandR/Types.hs working/Graphics/XHB/Ge
 +               u <- deserializeNotifyData (subCodeToNotifyEnum subCode) bo
                 return (MkNotify subCode u)
 \ No newline at end of file
-diff -u -r generated/1.2/Graphics/XHB/Gen/XFixes/Types.hs working/Graphics/XHB/Gen/XFixes/Types.hs
---- generated/1.2/Graphics/XHB/Gen/XFixes/Types.hs	2008-12-13 01:24:19.000000000 -0600
-+++ working/Graphics/XHB/Gen/XFixes/Types.hs	2008-12-13 01:24:19.000000000 -0600
+diff -u -r generated/1.3/Graphics/XHB/Gen/XFixes/Types.hs working/Graphics/XHB/Gen/XFixes/Types.hs
+--- generated/1.3/Graphics/XHB/Gen/XFixes/Types.hs	2008-12-14 17:22:55.000000000 -0600
++++ working/Graphics/XHB/Gen/XFixes/Types.hs	2008-12-14 17:22:38.000000000 -0600
 @@ -3,7 +3,7 @@
          QueryVersionReply(..), SaveSetMode(..), SaveSetTarget(..),
          SaveSetMapping(..), ChangeSaveSet(..), SelectionEvent(..),
@@ -94,9 +90,9 @@ diff -u -r generated/1.2/Graphics/XHB/Gen/XFixes/Types.hs working/Graphics/XHB/G
          toValue CursorNotifyDisplayCursor{} = 0
          fromValue 0 = CursorNotifyDisplayCursor
   
-diff -u -r generated/1.2/Graphics/XHB/Gen/Xproto/Types.hs working/Graphics/XHB/Gen/Xproto/Types.hs
---- generated/1.2/Graphics/XHB/Gen/Xproto/Types.hs	2008-12-13 01:24:19.000000000 -0600
-+++ working/Graphics/XHB/Gen/Xproto/Types.hs	2008-12-13 01:24:19.000000000 -0600
+diff -u -r generated/1.3/Graphics/XHB/Gen/Xproto/Types.hs working/Graphics/XHB/Gen/Xproto/Types.hs
+--- generated/1.3/Graphics/XHB/Gen/Xproto/Types.hs	2008-12-14 17:22:55.000000000 -0600
++++ working/Graphics/XHB/Gen/Xproto/Types.hs	2008-12-14 17:22:38.000000000 -0600
 @@ -548,6 +548,7 @@
                 serialize bo (protocol_minor_version_SetupRequest x)
                 serialize bo (authorization_protocol_name_len_SetupRequest x)
@@ -121,7 +117,7 @@ diff -u -r generated/1.2/Graphics/XHB/Gen/Xproto/Types.hs working/Graphics/XHB/G
                 authorization_protocol_name <- deserializeList bo
                                                  (fromIntegral authorization_protocol_name_len)
                 authorization_protocol_data <- deserializeList bo
-@@ -1317,6 +1320,51 @@
+@@ -1331,6 +1334,51 @@
                                         y_ReparentNotify :: INT16,
                                         override_redirect_ReparentNotify :: BOOL}
                      deriving (Show, Typeable)
@@ -173,7 +169,7 @@ diff -u -r generated/1.2/Graphics/XHB/Gen/Xproto/Types.hs working/Graphics/XHB/G
   
  instance Graphics.XHB.Shared.Event ReparentNotify
   
-@@ -1617,7 +1665,7 @@
+@@ -1637,7 +1685,7 @@
                 skip 2
                 window <- deserialize bo
                 type_ <- deserialize bo
@@ -182,7 +178,7 @@ diff -u -r generated/1.2/Graphics/XHB/Gen/Xproto/Types.hs working/Graphics/XHB/G
                 return (MkClientMessage format window type_ data_)
   
  data Mapping = MappingModifier
-@@ -3555,6 +3603,9 @@
+@@ -3606,6 +3654,9 @@
  odd_length_QueryTextExtents :: QueryTextExtents -> BOOL
  odd_length_QueryTextExtents x
    = (fromIntegral (string_len_QueryTextExtents x .&. 1))
@@ -192,7 +188,7 @@ diff -u -r generated/1.2/Graphics/XHB/Gen/Xproto/Types.hs working/Graphics/XHB/G
   
  instance Serialize QueryTextExtents where
          serialize bo x
-@@ -5302,10 +5353,11 @@
+@@ -5365,10 +5416,11 @@
                 putSkip 1
                 serialize bo (convertBytesToRequestSize (size x) :: INT16)
                 serialize bo (name_len_QueryExtension x)
@@ -205,10 +201,10 @@ diff -u -r generated/1.2/Graphics/XHB/Gen/Xproto/Types.hs working/Graphics/XHB/G
                sum (map size (name_QueryExtension x))
   
  data QueryExtensionReply = MkQueryExtensionReply{present_QueryExtensionReply
-diff -u -r generated/1.2/Graphics/XHB/Gen/Xv/Types.hs working/Graphics/XHB/Gen/Xv/Types.hs
---- generated/1.2/Graphics/XHB/Gen/Xv/Types.hs	2008-12-13 01:24:19.000000000 -0600
-+++ working/Graphics/XHB/Gen/Xv/Types.hs	2008-12-13 01:24:19.000000000 -0600
-@@ -15,6 +15,7 @@
+diff -u -r generated/1.3/Graphics/XHB/Gen/Xv/Types.hs working/Graphics/XHB/Gen/Xv/Types.hs
+--- generated/1.3/Graphics/XHB/Gen/Xv/Types.hs	2008-12-14 17:22:55.000000000 -0600
++++ working/Graphics/XHB/Gen/Xv/Types.hs	2008-12-14 17:22:38.000000000 -0600
+@@ -16,6 +16,7 @@
          ListImageFormatsReply(..), QueryImageAttributes(..),
          QueryImageAttributesReply(..), PutImage(..), ShmPutImage(..))
         where
