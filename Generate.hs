@@ -74,7 +74,7 @@ decodeErrorsOrEvents event = do
 
   return $ appMany
     [ -- declare type
-      addDecl $ mkTypeSig fnName [] fnType 
+      addDecl $ mkTypeSig fnName [] (decodeFnType fnRetCon) 
 
     , -- declare cases on opcode
       addDecl $ if event then
@@ -90,14 +90,6 @@ decodeErrorsOrEvents event = do
 
        fnRetCon | event = "SomeEvent"
                 | otherwise = "SomeError"
-
-       fnType = foldr1 HsTyFun
-               [ mkTyCon "BO"
-               , mkTyCon "Word8"
-               , mkTyCon "Maybe" `HsTyApp`
-                 (mkTyCon "Get" `HsTyApp`
-                 mkTyCon fnRetCon)
-               ]
 
        errorMatches :: ErrorDetail -> Maybe HsMatch
        errorMatches (ErrorDetail name code) 
@@ -126,6 +118,16 @@ decodeErrorsOrEvents event = do
        defaultMatch = mkMatch fnName
              [HsPWildCard, HsPWildCard]
              (mkConExp "Nothing")
+
+
+decodeFnType fnRetCon = foldr1 HsTyFun
+         [ mkTyCon "BO"
+         , mkTyCon "Word8"
+         , mkTyCon "Maybe" `HsTyApp`
+           (mkTyCon "Get" `HsTyApp`
+            mkTyCon fnRetCon)
+         ]
+
 
 
 -- do something per XDecl in the current module, in order

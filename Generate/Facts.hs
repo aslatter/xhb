@@ -10,8 +10,11 @@ packagePrefix = "Graphics.XHB"
 modulesPrefix = packagePrefix ++ ".Gen"
 
 conPrefix = ("Mk" ++)
+
 typesModuleName modName = modulesPrefix ++ "." ++ modName ++ ".Types"
 functionsModuleName modName = modulesPrefix ++ "." ++ modName
+extensionsModuleName = modulesPrefix ++ "." ++ "Extension"
+
 accessor field typ = field ++ "_" ++ typ
 replyName = (++ "Reply")
 

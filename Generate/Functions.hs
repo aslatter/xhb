@@ -1,4 +1,4 @@
-module Generate.Functions(functionsModules) where
+module Generate.Functions where
 
 import Data.Char
 import Data.Maybe

@@ -38,6 +38,7 @@ module HaskellCombinators
     ,mkClass
     ,mkGenerator
     ,mkLetStmt
+    ,module Language.Haskell.Syntax
     ) where
 
 import Language.Haskell.Syntax

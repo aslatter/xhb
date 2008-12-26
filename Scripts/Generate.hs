@@ -3,6 +3,7 @@ import Data.XCB
 
 import Generate
 import Generate.Functions(functionsModules)
+import Generate.Extensions(extensionsModules)
 
 import System.IO
 import System.Environment
@@ -23,6 +24,7 @@ main = do
 
 mkModules :: [XHeader] -> [HsModule]
 mkModules xhds = toHsModules xhds ++ functionsModules xhds
+                 ++ extensionsModules xhds
 
 writeModules :: FilePath -> [HsModule] -> IO ()
 writeModules out = sequence_ . map (writeModule out)
