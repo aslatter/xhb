@@ -96,7 +96,7 @@ newCoreModule :: XHeader -> HsModule
 newCoreModule xhd = 
     let name = functionsModName xhd
         mod = mkModule name
-    in doHidingImports $ doImports mod
+    in doQualImports $ doImports mod
  where doImports = applyMany $ map (addImport . mkImport) $
              [typesModName xhd
              , packagePrefix ++ ".Connection.Internal"
@@ -106,7 +106,7 @@ newCoreModule xhd =
              ,"Foreign.C.Types"
              ]
 
-       doHidingImports = addImport $ mkQualImport $
+       doQualImports = addImport $ mkQualImport $
                          packagePrefix ++ ".Connection.Types"
 
 newExtensionModule :: XHeader -> HsModule

@@ -1,6 +1,6 @@
 
 -- | This module contains functioanlity only for use
--- by other XHB modules, while still trying to ihde some
+-- by other XHB modules, while still trying to hide some
 -- of the implementation details of the 'Connection'
 -- data type.
 

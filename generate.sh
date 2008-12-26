@@ -40,7 +40,7 @@ TEST_PROG=Scripts/Generate
 
 	echo "module SmokeTest where" > SmokeTest.hs
 	cd patched
-	find . | grep \.hs$ | sed -e "s|\./||" -e  "s|\(.*\)\.hs|import \1|" -e "s|/|.|g" >> ../SmokeTest.hs
+	find . | grep \.hs$ | sed -e "s|^\./||" -e  "s|\(.*\)\.hs|import \1|" -e "s|/|.|g" >> ../SmokeTest.hs
 	cd ..
 	echo "main = putStrLn \"Hello!\"" >> SmokeTest.hs
     }
