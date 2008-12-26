@@ -97,3 +97,5 @@ cacheExtension c extId ext = atomically $ do
       let m' = M.insert extId ext m
       in writeTVar tv m'
     else return ()
+
+

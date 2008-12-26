@@ -31,6 +31,7 @@ import Foreign.C.String
 import Data.List (genericLength)
 import Data.Maybe
 import Data.Monoid(mempty)
+import qualified Data.Map as M
 
 import Data.ByteString.Lazy(ByteString)
 import qualified Data.ByteString.Lazy as BS
@@ -41,6 +42,7 @@ import Data.Binary.Put
 import Data.Bits
 
 import Graphics.XHB.Gen.Xproto.Types
+import Graphics.XHB.Gen.Extension
 
 import Graphics.XHB.Connection.Types
 import Graphics.XHB.Connection.Internal
@@ -142,26 +144,70 @@ data ReadLoop = ReadLoop
     ,read_input_queue :: Handle -- read only
     ,read_reps :: TChan PendedReply -- read only
     ,read_config :: ConnectionConfig
+    ,read_extensions :: TVar ExtensionMap
     }
 
+---- Processing for events/errors
 
-bsToError :: ByteString -- ^Raw data
+-- reverse-lookup infrastructure for extensions.  Not pretty or
+-- maybe not even fast. But it is straight-forward.
+queryExtMap :: (QueryExtensionReply -> CARD8)
+            -> ReadLoop -> CARD8 -> IO (Maybe (ExtensionId, CARD8))
+queryExtMap f r code = do
+  ext_map <- atomically . readTVar $ read_extensions r
+  return $ findFromCode ext_map
+ where findFromCode xmap = foldr go Nothing (M.toList xmap)
+       go (ident, extInfo) old
+           | num <= code =
+               case old of
+                 Just (_oldIndent, oldNum) |  oldNum > num -> old
+                 _ -> Just (ident, num)
+           | otherwise = old
+         where num = f extInfo
+
+-- | Returns the extension id and the base event code
+extensionIdFromEventCode :: ReadLoop -> CARD8
+                         -> IO (Maybe (ExtensionId, CARD8))
+extensionIdFromEventCode = queryExtMap first_event_QueryExtensionReply
+
+-- | Returns the extension id and the base error code
+extensionIdFromErrorCode :: ReadLoop -> CARD8
+                         -> IO (Maybe (ExtensionId, CARD8))
+extensionIdFromErrorCode = queryExtMap first_error_QueryExtensionReply
+
+
+bsToError :: ReadLoop
+          -> ByteString -- ^Raw data
           -> BO -- ^Byte-order
           -> Word8 -- ^Error code
-          -> SomeError
-bsToError chunk bo code | code < 128 = case deserializeError bo code of
-     Nothing -> SomeError . UnknownError $ chunk
-     Just getAction -> runGet getAction chunk
-bsToError chunk bo code = SomeError . UnknownError $ chunk     
+          -> IO SomeError
+bsToError _r chunk bo code | code < 128 = case deserializeError bo code of
+     Nothing -> return . SomeError . UnknownError $ chunk
+     Just getAction -> return $ runGet getAction chunk
+bsToError r chunk bo code
+    = extensionIdFromErrorCode r code >>= \errInfo -> case errInfo of
+         Nothing -> return . SomeError . UnknownError $ chunk
+         Just (extId, baseErr) ->
+             case errorDispatch extId bo (code - baseErr) of
+               Nothing -> return . SomeError . UnknownError $ chunk
+               Just getAction -> return $ runGet getAction chunk
+                 
 
-bsToEvent :: ByteString -- ^Raw data
+bsToEvent :: ReadLoop
+          -> ByteString -- ^Raw data
           -> BO -- ^Byte-order
           -> Word8 -- ^Event code
-          -> SomeEvent
-bsToEvent chunk bo code | code < 64 = case deserializeEvent bo code of
-    Nothing -> SomeEvent . UnknownEvent $ chunk
-    Just getAction -> runGet getAction chunk
-bsToEvent chunk bo code = SomeEvent . UnknownEvent $ chunk
+          -> IO SomeEvent
+bsToEvent _r chunk bo code | code < 64 = case deserializeEvent bo code of
+    Nothing -> return . SomeEvent . UnknownEvent $ chunk
+    Just getAction -> return $ runGet getAction chunk
+bsToEvent r chunk bo code
+    = extensionIdFromEventCode r code >>= \evInfo -> case evInfo of
+         Nothing -> return . SomeEvent . UnknownEvent $ chunk
+         Just (extId, baseEv) ->
+             case eventDispatch extId bo (code - baseEv) of
+               Nothing -> return . SomeEvent . UnknownEvent $ chunk
+               Just getAction -> return $ runGet getAction chunk
 
 deserializeInReadLoop rl = deserialize (conf_byteorder $ read_config $ rl)
 
@@ -210,21 +256,21 @@ readLoopError rl genRep chunk = do
   let errorCode = grep_error_code genRep
       bo = conf_byteorder $ read_config $ rl
 
+  err <- bsToError rl chunk bo errorCode
   atomically $ do
     nextPend <- readTChan $ read_reps rl
     if (pended_sequence nextPend) == (grep_sequence genRep)
      then case pended_reply nextPend of
-            WrappedReply replyHole -> putTMVar replyHole $
-                                      Left $ bsToError chunk bo errorCode
+            WrappedReply replyHole -> putTMVar replyHole (Left err)
      else do
        unGetTChan (read_reps rl) nextPend
-       writeTChan (read_error_queue rl) $ bsToError chunk bo errorCode
+       writeTChan (read_error_queue rl) err
 
 -- take the bytes making up the event response, shove it in
 -- a queue
-readLoopEvent rl genRep chunk =
-    atomically $ writeTChan (read_event_queue rl) $
-               bsToEvent chunk bo eventCode
+readLoopEvent rl genRep chunk = do
+    ev <- bsToEvent rl chunk bo eventCode
+    atomically $ writeTChan (read_event_queue rl) ev
 
  where eventCode = case grep_response_type genRep of
                      ResponseTypeEvent w -> w .&. 127
@@ -249,7 +295,7 @@ mkConnection hnd auth = do
 
   rIds <- newTVarIO $ resourceIds conf
 
-  let rlData = ReadLoop errorQueue eventQueue hnd replies conf
+  let rlData = ReadLoop errorQueue eventQueue hnd replies conf extensions
   
   readTid <- forkIO $ readLoop rlData
 

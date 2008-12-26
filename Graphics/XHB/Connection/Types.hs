@@ -21,8 +21,10 @@ data Connection = Connection
     ,conn_conf :: ConnectionConfig
     ,conn_next_sequence :: TVar SequenceId
     ,conn_resource_ids :: TVar [Xid]
-    ,conn_extensions :: TVar (Map ExtensionId QueryExtensionReply)
+    ,conn_extensions :: TVar ExtensionMap
     }
+
+type ExtensionMap = Map ExtensionId QueryExtensionReply
 
 data ConnectionConfig = ConnectionConfig
     {conf_byteorder :: BO
