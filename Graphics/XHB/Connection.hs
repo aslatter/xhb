@@ -182,14 +182,14 @@ bsToError :: ReadLoop
           -> Word8 -- ^Error code
           -> IO SomeError
 bsToError _r chunk bo code | code < 128 = case deserializeError bo code of
-     Nothing -> return . SomeError . UnknownError $ chunk
+     Nothing -> return . toError . UnknownError $ chunk
      Just getAction -> return $ runGet getAction chunk
 bsToError r chunk bo code
     = extensionIdFromErrorCode r code >>= \errInfo -> case errInfo of
-         Nothing -> return . SomeError . UnknownError $ chunk
+         Nothing -> return . toError . UnknownError $ chunk
          Just (extId, baseErr) ->
              case errorDispatch extId bo (code - baseErr) of
-               Nothing -> return . SomeError . UnknownError $ chunk
+               Nothing -> return . toError . UnknownError $ chunk
                Just getAction -> return $ runGet getAction chunk
                  
 
@@ -199,14 +199,14 @@ bsToEvent :: ReadLoop
           -> Word8 -- ^Event code
           -> IO SomeEvent
 bsToEvent _r chunk bo code | code < 64 = case deserializeEvent bo code of
-    Nothing -> return . SomeEvent . UnknownEvent $ chunk
+    Nothing -> return . toEvent . UnknownEvent $ chunk
     Just getAction -> return $ runGet getAction chunk
 bsToEvent r chunk bo code
     = extensionIdFromEventCode r code >>= \evInfo -> case evInfo of
-         Nothing -> return . SomeEvent . UnknownEvent $ chunk
+         Nothing -> return . toEvent . UnknownEvent $ chunk
          Just (extId, baseEv) ->
              case eventDispatch extId bo (code - baseEv) of
-               Nothing -> return . SomeEvent . UnknownEvent $ chunk
+               Nothing -> return . toEvent . UnknownEvent $ chunk
                Just getAction -> return $ runGet getAction chunk
 
 deserializeInReadLoop rl = deserialize (conf_byteorder $ read_config $ rl)
