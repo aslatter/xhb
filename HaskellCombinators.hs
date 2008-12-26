@@ -11,6 +11,7 @@ module HaskellCombinators
     ,mkImport
     ,mkSomeImport
     ,mkHidingImport
+    ,mkHideSomeImport
     ,mkQualImport
     ,mkTypeDecl
     ,mkSimpleFun
@@ -103,7 +104,19 @@ mkHidingImport name hidings = HsImportDecl
 
 strToImp (x:xs) | Char.isUpper x = HsIThingAll . HsIdent $ x:xs
                 | otherwise = HsIVar . HsIdent $ x:xs
-strToImp [] = error "mkImport: canot hide nothing!"
+strToImp [] = error "mkImport: cannot hide nothing!"
+
+mkHideSomeImport :: String -> [String] -> HsImportDecl
+mkHideSomeImport name hidings = HsImportDecl
+                  dummLoc
+                  (Module name)
+                  False
+                  Nothing
+                  (Just (True, map go hidings))
+ where
+  go (x:xs) | Char.isUpper x = HsIAbs . HsIdent $ x:xs
+                  | otherwise = HsIVar . HsIdent $ x:xs
+  go [] = error "mkImport: canno hide nothing!"
 
 mkQualImport :: String -> HsImportDecl
 mkQualImport name = HsImportDecl dummLoc (Module name) True Nothing Nothing

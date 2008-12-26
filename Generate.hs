@@ -91,6 +91,9 @@ decodeErrorsOrEvents event = do
        fnRetCon | event = "SomeEvent"
                 | otherwise = "SomeError"
 
+       wrapper | event = "toEvent"
+               | otherwise = "toError"
+
        errorMatches :: ErrorDetail -> Maybe HsMatch
        errorMatches (ErrorDetail name code) 
            | code >= 0 = Just $ matches name code
@@ -110,7 +113,7 @@ decodeErrorsOrEvents event = do
 
        matchExp name = foldr1 (\x y -> x `HsApp` HsParen y)
               [ mkVar "return"
-              , mkVar "liftM" `HsApp` mkConExp fnRetCon
+              , mkVar "liftM" `HsApp` mkVar wrapper
               , mkAsExp (mkVar "deserialize" `HsApp` mkVar "bo")
                         (mkTyCon "Get" `HsTyApp` mkTyCon name)
               ]

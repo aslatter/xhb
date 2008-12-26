@@ -34,7 +34,7 @@ newXhbTypesModule = addImports . mkModule . typesModuleName
               ,"Data.List"
               ]
           addHidingImports = addImport $
-             mkHidingImport (packagePrefix ++ ".Shared")
+             mkHideSomeImport (packagePrefix ++ ".Shared")
                                 ["Event"
                                 ,"Error"
                                  ]

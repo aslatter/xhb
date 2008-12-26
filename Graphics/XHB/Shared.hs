@@ -140,22 +140,28 @@ type Receipt a = TMVar (Either SomeError a)
 -- I don't want to give the users of this library pattern-match
 -- error every time a new extension is added.
 
-class Typeable a => Error a
-data SomeError = forall a . Error a => SomeError a
+class Typeable a => Error a where
+    fromError :: SomeError -> Maybe a
+    toError :: a -> SomeError
 
-fromError :: Error e => SomeError -> Maybe e
-fromError (SomeError e)= cast e
+    fromError (SomeError e) = cast e
+    toError = SomeError
+
+data SomeError = forall a . Error a => SomeError a
 
 data UnknownError = UnknownError BS.ByteString deriving (Typeable)
 instance Error UnknownError
 
 
 
-class Typeable a => Event a
-data SomeEvent = forall a . Event a => SomeEvent a
+class Typeable a => Event a where
+    fromEvent :: SomeEvent -> Maybe a
+    toEvent :: a -> SomeEvent
 
-fromEvent :: Event e => SomeEvent -> Maybe e
-fromEvent (SomeEvent e) = cast e
+    fromEvent (SomeEvent e) = cast e
+    toEvent = SomeEvent
+
+data SomeEvent = forall a . Event a => SomeEvent a
 
 data UnknownEvent = UnknownEvent BS.ByteString deriving (Typeable)
 instance Event UnknownEvent
