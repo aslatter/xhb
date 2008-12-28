@@ -5,6 +5,10 @@ import Text.StringTemplate
 import System.IO
 import System.Environment (getArgs)
 import System.Exit
+import System.Locale
+
+import Data.Time
+
 
 {-
 
@@ -25,15 +29,19 @@ main = do
   let templateFile : outFile : genDirName : modNames = args
 
   templateString <- readFile templateFile
-  let cabalString = applyTemplate templateString genDirName modNames
+  time <- Just `fmap` getCurrentTime
+  let cabalString = applyTemplate time templateString genDirName modNames
   writeFile outFile cabalString
 
 exitBadArgs = do
   hPutStrLn stderr "Command requires at least three arguments."
   exitFailure
 
-applyTemplate :: String -> String -> [String] -> String
-applyTemplate template dirName mods =
-    toString $ setManyAttrib (zip (repeat "Module") mods) $
+applyTemplate :: Maybe UTCTime -> String -> String -> [String] -> String
+applyTemplate time template dirName mods =
+    toString $ setAttribute "Module" mods $
                setAttribute "GenDir" dirName $
+               setAttribute "DateString" dateString $
                newSTMP template
+ where dateString = formatTime defaultTimeLocale "%Y.%m.%d" `fmap` time
+                    

@@ -1,5 +1,5 @@
 Name:         xhb
-Version:      0.0.0.0
+Version:      0.0$if(DateString)$.$DateString$$else$$endif$
 Cabal-Version:  >= 1.2
 Synopsis:     X Haskell Bindings
 Description:
@@ -16,6 +16,8 @@ Build-type: Simple
 
 Category: Graphics
 
+Extra-source-files: CONTRIBUTORS
+
 Library
 
  Build-depends: base, stm, Xauth, binary, bytestring, containers,
@@ -30,7 +32,7 @@ Library
    Graphics.XHB.Connection.Extension,
    Graphics.XHB.Connection.Open,
    Graphics.XHB.Shared,
-   $Module; separator=", 
+   $Module; separator=",
    "$
 
  Other-modules:
@@ -39,4 +41,5 @@ Library
    Graphics.XHB.Connection.Types
 
  hs-source-dirs: . $GenDir; separator=" "$
+
 
