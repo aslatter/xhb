@@ -1,0 +1,41 @@
+Name:         xhb
+Version:      0.0.0.0
+Cabal-Version:  >= 1.2
+Synopsis:     X Haskell Bindings
+Description:
+  Provides low-level bindings to the X11 protocol.
+  .
+  Similar to XCB - the X C Bindings.
+
+License:      BSD3
+License-file: LICENSE
+Author:       See CONTRIBUTORS file
+Maintainer:   Antoine Latter <aslatter@gmail.com>
+Homepage: http://community.haskell.org/~aslatter/code/xhb
+Build-type: Simple
+
+Category: Graphics
+
+Library
+
+ Build-depends: base, stm, Xauth, binary, bytestring, containers,
+      parsec, network
+
+ Extensions: ExistentialQuantification,
+             DeriveDataTypeable,
+             GeneralizedNewtypeDeriving
+
+ Exposed-modules:
+   Graphics.XHB.Connection,
+   Graphics.XHB.Connection.Extension,
+   Graphics.XHB.Connection.Open,
+   Graphics.XHB.Shared,
+   $Module; separator=", "$
+
+ Other-modules:
+   Graphics.XHB.Connection.Auth,
+   Graphics.XHB.Connection.Internal,
+   Graphics.XHB.Connection.Types
+
+ hs-source-dirs: . $GenDir; separator=" "$
+

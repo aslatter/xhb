@@ -25,6 +25,17 @@ To see what the current progress is, try the following:
 
 and then look around in the "patched" directory.
 
+To build the .cabal file to install the library you need to first run
+the generate.sh script as above, and then run:
+
+  chmod +x cabalize.sh
+  ./cabalize.sh
+
+This requires the "HStringTemplate" package, which can be installed using
+cabal as follows:
+
+  cabal install HStringTemplate
+
 
 How To Hack
 ----------
@@ -52,3 +63,7 @@ There are three bash scripts that live in the top-level of this project:
   The intent is that the results of parsing can be isolated from the results
   of code generation to make finding bugs easier.
 
+./cabalize.sh
+
+  This crawls the "patched" directory and stuffs everything into the
+  cabal-file template located in "Templates/cabal.template".
