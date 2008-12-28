@@ -1,5 +1,8 @@
 module Graphics.XHB.Connection
     (Connection
+    ,connect
+    ,connectTo
+    ,displayInfo
     ,mkConnection
     ,newResource
     ,pollForEvent
@@ -46,6 +49,7 @@ import Graphics.XHB.Gen.Extension
 
 import Graphics.XHB.Connection.Types
 import Graphics.XHB.Connection.Internal
+import Graphics.XHB.Connection.Open
 import Graphics.XHB.Shared
 
 import Graphics.X11.Xauth
@@ -276,11 +280,29 @@ readLoopEvent rl genRep chunk = do
                      ResponseTypeEvent w -> w .&. 127
        bo = conf_byteorder $ read_config $ rl
 
+-- | Connect to the the default display.
+connect :: IO (Maybe Connection)
+connect = connectTo ""
+
+-- | Connect to the display specified.
+-- The string must be of the format used in the
+-- DISPLAY environment variable.
+connectTo :: String -> IO (Maybe Connection)
+connectTo display = do
+  (h, xau, dispName) <- open display
+  hSetBuffering h NoBuffering
+  mkConnection h xau dispName
+
+-- | Returns the information about what we originally tried to
+-- connect to.
+displayInfo :: Connection -> DispName
+displayInfo = conn_dispInfo
+
 -- Handshake with the server
 -- parse result of handshake
 -- launch the thread which holds the handle for reading
-mkConnection :: Handle -> Maybe Xauth -> IO (Maybe Connection)
-mkConnection hnd auth = do
+mkConnection :: Handle -> Maybe Xauth -> DispName -> IO (Maybe Connection)
+mkConnection hnd auth dispInfo = do
   errorQueue <- newTChanIO
   eventQueue <- newTChanIO
   replies <- newTChanIO
@@ -310,6 +332,7 @@ mkConnection hnd auth = do
       sequence
       rIds
       extensions
+      dispInfo
 
 resourceIds :: ConnectionConfig -> [Xid]
 resourceIds cc = resourceIdsFromSetup $ conf_setup cc

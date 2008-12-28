@@ -1,6 +1,7 @@
 module Graphics.XHB.Connection.Types where
 
 import Graphics.XHB.Shared
+import Graphics.XHB.Connection.Open
 
 import Control.Concurrent.STM
 import Control.Concurrent
@@ -22,6 +23,7 @@ data Connection = Connection
     ,conn_next_sequence :: TVar SequenceId
     ,conn_resource_ids :: TVar [Xid]
     ,conn_extensions :: TVar ExtensionMap
+    ,conn_dispInfo :: DispName -- what we were told to connect to
     }
 
 type ExtensionMap = Map ExtensionId QueryExtensionReply

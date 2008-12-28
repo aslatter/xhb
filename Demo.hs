@@ -20,11 +20,7 @@ import qualified Graphics.XHB.Gen.Xinerama.Types as Xinerama
 import System.IO
 
 main = do
-  (h, auth) <- X.open ""
-
-  hSetBuffering h NoBuffering
-
-  connectionM <- X.mkConnection h auth
+  connectionM <- X.connect
 
   case connectionM of
     Nothing -> putStrLn "failed to get connection"

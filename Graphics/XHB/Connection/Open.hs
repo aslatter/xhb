@@ -1,4 +1,4 @@
-module Graphics.XHB.Connection.Open (open) where
+module Graphics.XHB.Connection.Open (open, DispName(..)) where
 
 import System.Environment(getEnv)
 import System.IO
@@ -25,13 +25,13 @@ data DispName = DispName { proto :: String
 
 -- | Open a Handle to the X11 server specified in the argument.  The DISPLAY
 -- environment variable is consulted if the argument is null.
-open :: String -> IO (Handle , Maybe Xauth)
+open :: String -> IO (Handle , Maybe Xauth, DispName)
 open [] = (getEnv "DISPLAY") >>= open
 open disp
     | take 11 disp == "/tmp/launch" = do
         fd <- fromMaybe (error "couldn't open socket") <$> openUnix "" disp
         hndl <- socketToHandle fd ReadWriteMode
-        return (hndl, Nothing)
+        return (hndl, Nothing, launchDDisplayInfo disp)
 open xs = let
     cont (DispName p h d s)
         | null h || null p && h == "unix" = openUnix p
@@ -62,7 +62,7 @@ open xs = let
                  (error "couldn't open socket")
              auth <- getAuthInfo socket (display x) 
              hndl <- socketToHandle socket ReadWriteMode
-             return (hndl, auth)
+             return (hndl, auth, x)
 
 openUnix proto file
     | proto == [] || proto == "unix" = do
@@ -75,7 +75,7 @@ openUnix proto file
 -- | Parse the contents of an X11 DISPLAY environment variable.
 -- TODO: make a public version (see xcb_parse_display)
 parseDisplay :: String -> Either ParseError DispName
-parseDisplay [] = Right $ DispName "" "" 0 0
+parseDisplay [] = Right defaultDisplayInfo
 parseDisplay xs = parse exp "" xs where
     exp = do
         p <- option "" (try $ skip '/') <?> "protocol"
@@ -91,3 +91,11 @@ parseDisplay xs = parse exp "" xs where
     integer :: Parser Int
     integer = many1 digit >>= \x -> return $ read x
 
+-- | Given a launchd display-string, return the appropriate
+-- DispName structure for it.
+launchDDisplayInfo :: String -> DispName
+launchDDisplayInfo str = case parseDisplay (dropWhile (/= ':') str) of
+                    Left{} -> defaultDisplayInfo
+                    Right d -> d
+
+defaultDisplayInfo = DispName "" "" 0 0
