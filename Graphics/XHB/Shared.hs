@@ -140,7 +140,7 @@ type Receipt a = TMVar (Either SomeError a)
 -- I don't want to give the users of this library pattern-match
 -- error every time a new extension is added.
 
-class Typeable a => Error a where
+class (Typeable a, Show a) => Error a where
     fromError :: SomeError -> Maybe a
     toError :: a -> SomeError
 
@@ -149,7 +149,11 @@ class Typeable a => Error a where
 
 data SomeError = forall a . Error a => SomeError a
 
-data UnknownError = UnknownError BS.ByteString deriving (Typeable)
+instance Show SomeError where
+    show se = case se of
+          SomeError err -> show err
+
+data UnknownError = UnknownError BS.ByteString deriving (Typeable, Show)
 instance Error UnknownError
 
 
