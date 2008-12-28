@@ -12,7 +12,9 @@ cd patched
 MODULES=$(find . | grep \.hs$ | sed -e "s|^\./||" -e "s|\(.*\)\.hs|\1|" -e "s|/|.|g")
 cd ..
 
-runghc Scripts/Cabal Templates/cabal.template xhb.cabal patched ${MODULES} || {
+. version.sh
+
+runghc Scripts/Cabal Templates/cabal.template xhb.cabal patched ${XPROTO_VERSION} ${MODULES} || {
     echo "Failed!"
     exit 1
 }
