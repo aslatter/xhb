@@ -30,7 +30,8 @@ Library
    Graphics.XHB.Connection.Extension,
    Graphics.XHB.Connection.Open,
    Graphics.XHB.Shared,
-   $Module; separator=", "$
+   $Module; separator=", 
+   "$
 
  Other-modules:
    Graphics.XHB.Connection.Auth,
