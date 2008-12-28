@@ -11,6 +11,7 @@ import Network.Socket
 import Network.BSD (getHostName)
 
 import Foreign.C (CChar)
+import Foreign.C.String (castCharToCChar)
 
 -- | Yields libxau record for given socket/display configuration.
 getAuthInfo :: Socket -> Int -> IO (Maybe Xauth)
@@ -29,6 +30,7 @@ getAuthInfo fd display = do
         isLocal (SockAddrUnix _) = True
         isLocal (SockAddrInet _ h) = h == 16777343 -- 127.0.0.1
         isLocal (SockAddrInet6 _ _ (0,0,0,1) _) = True
+        isLocal _ = False
 
         isIPv4 (SockAddrInet _ _) = True
         isIPv4 _ = False
@@ -50,5 +52,5 @@ getAuthInfo fd display = do
         atype = "MIT-MAGIC-COOKIE-1"
 
 cstring :: String -> [CChar]
-cstring = map (fromIntegral . fromEnum)
+cstring = map castCharToCChar
 
