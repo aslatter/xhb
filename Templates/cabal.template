@@ -8,8 +8,8 @@ Description:
   Similar to XCB - the X C Bindings.
   .
   This library is based on version $XProtoVersion$ of the xcb-proto
-  package.  See http://xcb.freedesktop.org/XmlXcb/ and
-  http://xcb.freedesktop.org/dist/ .
+  package.  See http:\/\/xcb.freedesktop.org\/XmlXcb\/ and
+  http:\/\/xcb.freedesktop.org\/dist\/ .
 
 License:      BSD3
 License-file: LICENSE
