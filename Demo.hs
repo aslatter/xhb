@@ -7,12 +7,7 @@ import Control.Concurrent
 import Control.Monad
 import Data.Maybe
 
-import qualified Graphics.XHB.Connection as X
-import qualified Graphics.XHB.Connection.Open as X
-import qualified Graphics.XHB.Shared as X
-
-import qualified Graphics.XHB.Gen.Xproto.Types as X
-import Graphics.XHB.Gen.Xproto
+import qualified Graphics.XHB as X
 
 import qualified Graphics.XHB.Gen.Xinerama as Xinerama
 import qualified Graphics.XHB.Gen.Xinerama.Types as Xinerama
@@ -33,13 +28,13 @@ demo c = do
   handleEvent c
 
   -- send two requests
-  listReceipt <- listExtensions c
-  ssReceipt <- getScreenSaver c
+  listReceipt <- X.listExtensions c
+  ssReceipt <- X.getScreenSaver c
 
   -- create a window
   wid <- X.newResource c
-  createWindow c $ demoCreateWindowReq c wid
-  mapWindow c wid
+  X.createWindow c $ demoCreateWindowReq c wid
+  X.mapWindow c wid
 
   -- process first request
   replyOrError <- X.getReply listReceipt
