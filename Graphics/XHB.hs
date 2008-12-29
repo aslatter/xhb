@@ -17,7 +17,6 @@ module Graphics.XHB
     , fromValueParam
     , emptyValueParam
     , stringToCList
-    , ExtensionId
     , Receipt
     , getReply
     , Error(..)

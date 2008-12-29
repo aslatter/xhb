@@ -1,10 +1,12 @@
 -- helper functions for working with extensions.
 
 module Graphics.XHB.Connection.Extension
-    ( serializeExtensionRequest
+    ( ExtensionId
+    , RequestOpCode
     , extensionPresent
     , extensionOpCode
     , extensionInfo
+    , serializeExtensionRequest
     )
         where
 
@@ -23,7 +25,7 @@ import Graphics.XHB.Connection
 import Graphics.XHB.Shared
 
 -- | Convert an extension request to a put action.
--- Hanldes grabbing the extension opcode and feeding it
+-- Handles grabbing the extension opcode and feeding it
 -- into the 'serializeRequest' function.
 serializeExtensionRequest :: ExtensionRequest a => Connection -> a -> IO Put
 serializeExtensionRequest c req = do
