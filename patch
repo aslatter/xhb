@@ -1,6 +1,6 @@
-diff -u -r generated/1.3/Graphics/XHB/Gen/Damage.hs working/Graphics/XHB/Gen/Damage.hs
---- generated/1.3/Graphics/XHB/Gen/Damage.hs	2008-12-14 17:22:55.000000000 -0600
-+++ working/Graphics/XHB/Gen/Damage.hs	2008-12-14 17:22:38.000000000 -0600
+diff -u -r generated/1.3/Graphics/XHB/Gen/Damage.hs patched/Graphics/XHB/Gen/Damage.hs
+--- generated/1.3/Graphics/XHB/Gen/Damage.hs	2008-12-28 19:48:48.000000000 -0500
++++ patched/Graphics/XHB/Gen/Damage.hs	2008-12-28 19:48:49.000000000 -0500
 @@ -1,5 +1,6 @@
  module Graphics.XHB.Gen.Damage
         (queryVersion, create, destroy, subtract, add) where
@@ -8,10 +8,21 @@ diff -u -r generated/1.3/Graphics/XHB/Gen/Damage.hs working/Graphics/XHB/Gen/Dam
  import Graphics.XHB.Gen.Damage.Types
  import Graphics.XHB.Connection.Internal
  import Graphics.XHB.Connection.Extension
-diff -u -r generated/1.3/Graphics/XHB/Gen/RandR/Types.hs working/Graphics/XHB/Gen/RandR/Types.hs
---- generated/1.3/Graphics/XHB/Gen/RandR/Types.hs	2008-12-14 17:22:55.000000000 -0600
-+++ working/Graphics/XHB/Gen/RandR/Types.hs	2008-12-14 17:22:38.000000000 -0600
-@@ -1168,11 +1168,11 @@
+diff -u -r generated/1.3/Graphics/XHB/Gen/RandR/Types.hs patched/Graphics/XHB/Gen/RandR/Types.hs
+--- generated/1.3/Graphics/XHB/Gen/RandR/Types.hs	2008-12-28 19:48:48.000000000 -0500
++++ patched/Graphics/XHB/Gen/RandR/Types.hs	2008-12-28 19:48:49.000000000 -0500
+@@ -17,8 +17,8 @@
+         SetCrtcConfigReply(..), GetCrtcGammaSize(..),
+         GetCrtcGammaSizeReply(..), GetCrtcGamma(..), GetCrtcGammaReply(..),
+         SetCrtcGamma(..), NotifyMask(..), ScreenChangeNotify(..),
+-        Notify(..), CrtcChange(..), OutputChange(..), OutputProperty(..),
+-        Notify(..))
++        NotifyEnum(..), CrtcChange(..), OutputChange(..), OutputProperty(..),
++        Notify(..),NotifyData(..))
+        where
+ import Data.Word
+ import Foreign.C.Types
+@@ -1167,11 +1167,11 @@
                      mwidth
                      mheight)
   
@@ -27,7 +38,7 @@ diff -u -r generated/1.3/Graphics/XHB/Gen/RandR/Types.hs working/Graphics/XHB/Ge
          toValue NotifyCrtcChange{} = 0
          toValue NotifyOutputChange{} = 1
          toValue NotifyOutputProperty{} = 2
-@@ -1306,6 +1306,30 @@
+@@ -1305,6 +1305,30 @@
                 skip 11
                 return (MkOutputProperty window output atom timestamp status)
   
@@ -58,7 +69,7 @@ diff -u -r generated/1.3/Graphics/XHB/Gen/RandR/Types.hs working/Graphics/XHB/Ge
  data Notify = MkNotify{subCode_Notify :: CARD8,
                         u_Notify :: NotifyData}
              deriving (Show, Typeable)
-@@ -1317,5 +1341,5 @@
+@@ -1316,5 +1340,5 @@
            = do skip 1
                 subCode <- deserialize bo
                 skip 2
@@ -66,9 +77,9 @@ diff -u -r generated/1.3/Graphics/XHB/Gen/RandR/Types.hs working/Graphics/XHB/Ge
 +               u <- deserializeNotifyData (subCodeToNotifyEnum subCode) bo
                 return (MkNotify subCode u)
 \ No newline at end of file
-diff -u -r generated/1.3/Graphics/XHB/Gen/XFixes/Types.hs working/Graphics/XHB/Gen/XFixes/Types.hs
---- generated/1.3/Graphics/XHB/Gen/XFixes/Types.hs	2008-12-14 17:22:55.000000000 -0600
-+++ working/Graphics/XHB/Gen/XFixes/Types.hs	2008-12-14 17:22:38.000000000 -0600
+diff -u -r generated/1.3/Graphics/XHB/Gen/XFixes/Types.hs patched/Graphics/XHB/Gen/XFixes/Types.hs
+--- generated/1.3/Graphics/XHB/Gen/XFixes/Types.hs	2008-12-28 19:48:48.000000000 -0500
++++ patched/Graphics/XHB/Gen/XFixes/Types.hs	2008-12-28 19:48:49.000000000 -0500
 @@ -3,7 +3,7 @@
          QueryVersionReply(..), SaveSetMode(..), SaveSetTarget(..),
          SaveSetMapping(..), ChangeSaveSet(..), SelectionEvent(..),
@@ -90,9 +101,18 @@ diff -u -r generated/1.3/Graphics/XHB/Gen/XFixes/Types.hs working/Graphics/XHB/G
          toValue CursorNotifyDisplayCursor{} = 0
          fromValue 0 = CursorNotifyDisplayCursor
   
-diff -u -r generated/1.3/Graphics/XHB/Gen/Xproto/Types.hs working/Graphics/XHB/Gen/Xproto/Types.hs
---- generated/1.3/Graphics/XHB/Gen/Xproto/Types.hs	2008-12-14 17:22:55.000000000 -0600
-+++ working/Graphics/XHB/Gen/Xproto/Types.hs	2008-12-14 17:22:38.000000000 -0600
+diff -u -r generated/1.3/Graphics/XHB/Gen/Xproto/Types.hs patched/Graphics/XHB/Gen/Xproto/Types.hs
+--- generated/1.3/Graphics/XHB/Gen/Xproto/Types.hs	2008-12-28 19:48:48.000000000 -0500
++++ patched/Graphics/XHB/Gen/Xproto/Types.hs	2008-12-28 19:48:49.000000000 -0500
+@@ -16,7 +16,7 @@
+         ResizeRequest(..), Place(..), CirculateNotify(..),
+         CirculateRequest(..), Property(..), PropertyNotify(..),
+         SelectionClear(..), SelectionRequest(..), SelectionNotify(..),
+-        ColormapState(..), ColormapNotify(..), ClientMessage(..),
++        ColormapState(..), ColormapNotify(..), ClientMessage(..),ClientMessageData(..),
+         Mapping(..), MappingNotify(..), Request(..), Value(..), Window(..),
+         Pixmap(..), Atom(..), Cursor(..), Font(..), Match(..),
+         Drawable(..), Access(..), Alloc(..), Colormap(..), GContext(..),
 @@ -548,6 +548,7 @@
                 serialize bo (protocol_minor_version_SetupRequest x)
                 serialize bo (authorization_protocol_name_len_SetupRequest x)
@@ -201,9 +221,9 @@ diff -u -r generated/1.3/Graphics/XHB/Gen/Xproto/Types.hs working/Graphics/XHB/G
                sum (map size (name_QueryExtension x))
   
  data QueryExtensionReply = MkQueryExtensionReply{present_QueryExtensionReply
-diff -u -r generated/1.3/Graphics/XHB/Gen/Xv/Types.hs working/Graphics/XHB/Gen/Xv/Types.hs
---- generated/1.3/Graphics/XHB/Gen/Xv/Types.hs	2008-12-14 17:22:55.000000000 -0600
-+++ working/Graphics/XHB/Gen/Xv/Types.hs	2008-12-14 17:22:38.000000000 -0600
+diff -u -r generated/1.3/Graphics/XHB/Gen/Xv/Types.hs patched/Graphics/XHB/Gen/Xv/Types.hs
+--- generated/1.3/Graphics/XHB/Gen/Xv/Types.hs	2008-12-28 19:48:48.000000000 -0500
++++ patched/Graphics/XHB/Gen/Xv/Types.hs	2008-12-28 19:48:49.000000000 -0500
 @@ -16,6 +16,7 @@
          ListImageFormatsReply(..), QueryImageAttributes(..),
          QueryImageAttributesReply(..), PutImage(..), ShmPutImage(..))
