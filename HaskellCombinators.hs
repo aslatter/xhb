@@ -8,6 +8,7 @@ module HaskellCombinators
     ,mkModule
     ,mkExportAbs
     ,mkExportAll
+    ,mkExportModule
     ,mkImport
     ,mkSomeImport
     ,mkHidingImport
@@ -130,6 +131,9 @@ mkExportAbs = HsEAbs . mkUnQName
 
 mkExportAll :: String -> HsExportSpec
 mkExportAll = HsEThingAll . mkUnQName
+
+mkExportModule :: String -> HsExportSpec
+mkExportModule = HsEModuleContents . Module
 
 mkTypeDecl :: String -> [String] -> HsType -> HsDecl
 mkTypeDecl nm args ty = HsTypeDecl dummLoc (HsIdent nm) (map HsIdent args) ty

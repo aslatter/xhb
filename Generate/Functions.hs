@@ -96,7 +96,7 @@ newCoreModule :: XHeader -> HsModule
 newCoreModule xhd = 
     let name = functionsModName xhd
         mod = mkModule name
-    in doQualImports $ doImports mod
+    in exportTypesMod xhd $ doQualImports $ doImports mod
  where doImports = applyMany $ map (addImport . mkImport) $
              [typesModName xhd
              , packagePrefix ++ ".Connection.Internal"
@@ -113,7 +113,7 @@ newExtensionModule :: XHeader -> HsModule
 newExtensionModule xhd =
     let name = functionsModName xhd
         mod = mkModule name
-    in doHidingImports $ doSomeImports $ doImports mod
+    in exportTypesMod xhd $ doHidingImports $ doSomeImports $ doImports mod
  where doImports = applyMany $ map (addImport . mkImport) $
              [typesModName xhd
              , packagePrefix ++ ".Connection.Internal"
@@ -125,6 +125,8 @@ newExtensionModule xhd =
 
        doSomeImports = addImport $ mkSomeImport "Data.Binary.Put" ["runPut"]
        doHidingImports = addImport $ mkHidingImport (packagePrefix ++ ".Shared") ["Event", "Error"]
+
+exportTypesMod = addExport . mkExportModule . typesModName
 
 connTyName = packagePrefix ++ ".Connection.Types.Connection"
 
