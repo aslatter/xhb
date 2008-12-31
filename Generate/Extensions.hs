@@ -39,12 +39,12 @@ dispatchFn :: Bool -> [XHeader] -> (HsModule -> HsModule)
 dispatchFn _ [] = id
 dispatchFn event xs = applyMany $ map addDecl $
         [ mkTypeSig fnName [] typ
-        , HsFunBind $ map go xs ++ [defaultMatch]
+        , hsFunBind $ map go xs ++ [defaultMatch]
         ]
 
  where
    typ :: HsType
-   typ = mkTyCon "ExtensionId" `HsTyFun` decodeFnType fnRetCon
+   typ = mkTyCon "ExtensionId" `hsTyFun` decodeFnType fnRetCon
 
    fnRetCon | event = "SomeEvent"
             | otherwise = "SomeError"
@@ -59,11 +59,11 @@ dispatchFn event xs = applyMany $ map addDecl $
    go xhd =
        let extId = fromJust $ xheader_xname xhd
            modName = typesModName xhd
-       in mkLitMatch fnName (HsString extId) $
-          HsVar $ mkQName modName decodeFn
+       in mkLitMatch fnName (hsString extId) $
+          hsVar $ mkQName modName decodeFn
    
-   defaultMatch = mkMatch fnName [HsPWildCard]
-                  (foldr1 (\x y -> x `HsApp` HsParen y)
+   defaultMatch = mkMatch fnName [hsPWildCard]
+                  (foldr1 (\x y -> x `hsApp` hsParen y)
                       [ mkVar "const"
                       , mkVar "const"
                       , mkConExp "Nothing"

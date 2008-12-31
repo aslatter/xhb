@@ -13,8 +13,7 @@ import System.Directory
 
 import Data.List
 
-import Language.Haskell.Syntax
-import Language.Haskell.Pretty
+import HaskellCombinators
 
 main = do
   out:fs <- getArgs
@@ -40,9 +39,6 @@ writeModule outdir hsmod =
        else do
          createDirectoryIfMissing True dirName
          writeFile (dirName </> fileName) outString
-
-getHsModName :: HsModule -> String
-getHsModName (HsModule _ mod _ _ _) = prettyPrint mod
 
 -- | Applying to "A.B.C" returns "C"
 baseModule :: String -> String

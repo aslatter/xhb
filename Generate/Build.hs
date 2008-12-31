@@ -7,7 +7,6 @@ import Data.XCB
 import HaskellCombinators
 
 import qualified Data.Map as M
-import Language.Haskell.Syntax
 
 import Control.Monad.Reader
 

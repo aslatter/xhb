@@ -11,7 +11,6 @@ import Generate.Facts
 import Data.XCB
 
 import HaskellCombinators
-import Language.Haskell.Syntax
 
 import Control.Monad.Reader
 import qualified Data.List as L
@@ -78,8 +77,8 @@ decodeErrorsOrEvents event = do
 
     , -- declare cases on opcode
       addDecl $ if event then
-           HsFunBind $ mapMaybe eventMatches events ++ [defaultMatch]
-      else HsFunBind $ mapMaybe errorMatches errors ++ [defaultMatch]
+           hsFunBind $ mapMaybe eventMatches events ++ [defaultMatch]
+      else hsFunBind $ mapMaybe errorMatches errors ++ [defaultMatch]
 
     , -- export the function
       exportVar fnName
@@ -111,23 +110,23 @@ decodeErrorsOrEvents event = do
              ]
            (matchExp name)
 
-       matchExp name = foldr1 (\x y -> x `HsApp` HsParen y)
+       matchExp name = foldr1 (\x y -> x `hsApp` hsParen y)
               [ mkVar "return"
-              , mkVar "liftM" `HsApp` mkVar wrapper
-              , mkAsExp (mkVar "deserialize" `HsApp` mkVar "bo")
-                        (mkTyCon "Get" `HsTyApp` mkTyCon name)
+              , mkVar "liftM" `hsApp` mkVar wrapper
+              , mkAsExp (mkVar "deserialize" `hsApp` mkVar "bo")
+                        (mkTyCon "Get" `hsTyApp` mkTyCon name)
               ]
 
        defaultMatch = mkMatch fnName
-             [HsPWildCard, HsPWildCard]
+             [hsPWildCard, hsPWildCard]
              (mkConExp "Nothing")
 
 
-decodeFnType fnRetCon = foldr1 HsTyFun
+decodeFnType fnRetCon = foldr1 hsTyFun
          [ mkTyCon "BO"
          , mkTyCon "Word8"
-         , mkTyCon "Maybe" `HsTyApp`
-           (mkTyCon "Get" `HsTyApp`
+         , mkTyCon "Maybe" `hsTyApp`
+           (mkTyCon "Get" `hsTyApp`
             mkTyCon fnRetCon)
          ]
 
@@ -222,26 +221,26 @@ declareEnumInstance ETypeValue name els =
       []
       (mkUnQName "SimpleEnum")
       [mkTyCon name]
-      [HsFunBind (map toVal els)
-      ,HsFunBind (map fromVal els)
+      [hsFunBind (map toVal els)
+      ,hsFunBind (map fromVal els)
       ]
   where toVal (EnumElem nm (Just (Value n)))
             = mkConsMatch "toValue" (name ++ nm) (mkNumLit n)
         fromVal (EnumElem nm (Just (Value n)))
-            = mkLitMatch "fromValue" (HsInt $ fromIntegral n) (HsCon (mkUnQName (name ++ nm)))
+            = mkLitMatch "fromValue" (hsInt $ fromIntegral n) (hsCon (mkUnQName (name ++ nm)))
 
 declareEnumInstance ETypeBit name els =
        mkInstDecl
        []
        (mkUnQName "BitEnum")
        [mkTyCon name]
-       [HsFunBind (map toBit els)
-       ,HsFunBind (map fromBit els)
+       [hsFunBind (map toBit els)
+       ,hsFunBind (map fromBit els)
        ]
    where toBit (EnumElem nm (Just (Bit n)))
              = mkConsMatch "toBit" (name ++ nm) (mkNumLit n)
          fromBit (EnumElem nm (Just (Bit n)))
-             = mkLitMatch "fromBit" (HsInt (fromIntegral n)) $ HsCon $ mkUnQName $ name++nm
+             = mkLitMatch "fromBit" (hsInt (fromIntegral n)) $ hsCon $ mkUnQName $ name++nm
 
 -- | For an X enum, declares a Haskell data type.
 declareEnumTycon :: Name -> [EnumElem] -> HsDecl
@@ -416,17 +415,17 @@ declareStruct name fields = do
           go (List nm tp _) = 
               do hsType <- listType <$> toHsType tp
                  return $
-                  (accessor nm name, HsUnBangedTy hsType)
-              where listType = HsTyApp list_tycon
+                  (accessor nm name, hsUnBangedTy hsType)
+              where listType = hsTyApp list_tycon
           go (SField nm tp) = do
               hsType <- toHsType tp
-              return $ (accessor nm name, HsUnBangedTy hsType)
+              return $ (accessor nm name, hsUnBangedTy hsType)
           go (ValueParam typ mname _mpad _lname) = do
             hsType <- toHsType typ
             return $
              let nme = valueParamName mname
-                 vTyp = HsTyApp (mkTyCon "ValueParam") hsType
-             in (accessor nme name, HsUnBangedTy $ vTyp)
+                 vTyp = hsTyApp (mkTyCon "ValueParam") hsType
+             in (accessor nme name, hsUnBangedTy $ vTyp)
   
           go (ExprField{}) = empty -- deal with these separately
           go selem = selemsToRecPanic selem
@@ -463,7 +462,7 @@ exprFields name elems = appMany <$> (sequence $ map go elems)
           go (ExprField nm tp expr) = do
             retTyp <- toHsType tp
             let funName = accessor nm name
-                funTyp = HsTyFun (mkTyCon name) retTyp
+                funTyp = hsTyFun (mkTyCon name) retTyp
                 inVar = "x"
             
             return . appMany $
@@ -491,24 +490,22 @@ mkExpr :: Maybe (Name, Name) -> Expression -> HsExp
 mkExpr _ (Value n) = mkNumLit n
 mkExpr _ (Bit n) = mkNumLit $ 2^n
 mkExpr (Just (rec, name)) (FieldRef field)
-    = HsApp
+    = hsApp
       (mkVar $ accessor field name)
       (mkVar rec)
 mkExpr Nothing (FieldRef field) = mkVar field
 mkExpr rec (Op op lhs rhs) =
     let eLhs = mkExpr rec lhs
         eRhs = mkExpr rec rhs
-    in HsParen $ HsApp (mkVar "fromIntegral") $ HsParen $ HsInfixApp eLhs (mkOp op) eRhs
+    in hsParen $ hsApp (mkVar "fromIntegral") $ hsParen $ hsInfixApp eLhs (mkOp op) eRhs
 
 mkOp :: Binop -> HsQOp
-mkOp Add  = stringToQOpSymbol "+"
-mkOp Sub  = stringToQOpSymbol "-"
-mkOp Mult = stringToQOpSymbol "*"
-mkOp Div  = stringToQOpSymbol "`div`"
-mkOp And  = stringToQOpSymbol ".&."
-mkOp RShift = HsQVarOp . UnQual . HsIdent $ "shiftR"
-
-stringToQOpSymbol = HsQVarOp . UnQual . HsSymbol
+mkOp Add  = mkQOpSymbol "+"
+mkOp Sub  = mkQOpSymbol "-"
+mkOp Mult = mkQOpSymbol "*"
+mkOp Div  = mkQOpSymbol "`div`"
+mkOp And  = mkQOpSymbol ".&."
+mkOp RShift = mkQOpIdent $ "shiftR"
 
 
 ----- Declaring serialize and deserialize instances
@@ -520,7 +517,7 @@ declareDeserStruct name fields =
     mkInstDecl
       []
       (mkUnQName "Deserialize")
-      [HsTyCon $ mkUnQName name]
+      [tyCon $ mkUnQName name]
       [deserFunc]
    where
      deserFunc :: HsDecl
@@ -528,7 +525,7 @@ declareDeserStruct name fields =
                   "deserialize"
                   [mkPVar "bo"
                   ]
-                 (HsDo $ deserIns fields ++ [returnIt name fields])
+                 (hsDo $ deserIns fields ++ [returnIt name fields])
 
 -- | Declare and instance of 'Deserialize' for a reply to an X request.
 declareDeserReply :: Name -> [StructElem] -> HsDecl
@@ -536,21 +533,21 @@ declareDeserReply name fields =
     mkInstDecl
       []
       (mkUnQName "Deserialize")
-      [HsTyCon $ mkUnQName name]
+      [tyCon $ mkUnQName name]
       [deserFunc]
    where
      deserFunc :: HsDecl
      deserFunc = mkSimpleFun
                  "deserialize"
                  [mkPVar "bo"]
-                 (HsDo $ deserIns (doFields fields) ++ [declareLengthType, returnIt name fields])
+                 (hsDo $ deserIns (doFields fields) ++ [declareLengthType, returnIt name fields])
 
      -- the same as the regular fields, except with more padding
      -- and the implicit length thrown in
      doFields (x1 : xs) = Pad 1 : x1 : Pad 2 : SField "length" (UnQualType "CARD32") : xs
 
      declareLengthType :: HsStmt
-     declareLengthType = HsLetStmt [mkPatBind HsPWildCard $ mkVar "isCard32" `HsApp` mkVar "length"]
+     declareLengthType = hsLetStmt [mkPatBind hsPWildCard $ mkVar "isCard32" `hsApp` mkVar "length"]
 
 
 declareDeserError :: Name -> [StructElem] -> HsDecl
@@ -566,7 +563,7 @@ declareDeserError name elems =
              mkSimpleFun
              "deserialize"
              [mkPVar "bo"]
-             (HsDo $ deserIns (makeFields elems) ++ [returnIt name elems])
+             (hsDo $ deserIns (makeFields elems) ++ [returnIt name elems])
 
          makeFields :: [StructElem] -> [StructElem]
          makeFields xs =  Pad 4 : xs
@@ -580,7 +577,7 @@ declareDeserEvent name code elems special =
          [mkTyCon name]
          [mkSimpleFun "deserialize"
                 [mkPVar "bo"]
-                (HsDo $ deserIns (makeFields elems) ++ [returnIt name elems])
+                (hsDo $ deserIns (makeFields elems) ++ [returnIt name elems])
          ]
 
     where
@@ -599,32 +596,32 @@ declareDeserEvent name code elems special =
 deserIns :: [StructElem] -> [HsStmt]
 deserIns fields = mapMaybe go fields
  where
-     go (Pad n) = return $ HsQualifier $ mkVar "skip" `HsApp` mkNumLit n 
+     go (Pad n) = return $ hsQualifier $ mkVar "skip" `hsApp` mkNumLit n 
      go (List nm _typ Nothing) = error "cannot deserialize list with no length"
      go (List nm _typ (Just exp))
          = return $ mkGenerator (mkPVar $ mapIdents nm) $ hsAppMany
            [mkVar "deserializeList"
            ,mkVar "bo"
-           ,HsParen $ mkVar "fromIntegral" `HsApp` mkExpr Nothing exp
+           ,hsParen $ mkVar "fromIntegral" `hsApp` mkExpr Nothing exp
            ]
 
      go (SField nm _typ) = return $ mkGenerator (mkPVar $ mapIdents nm) $
-             mkVar "deserialize" `HsApp` mkVar "bo"
+             mkVar "deserialize" `hsApp` mkVar "bo"
      go ExprField{} = empty -- this is probbaly wrong, but I'm not sure where we need it
      go v@(ValueParam _ vname Nothing _) =
          let nm = mapIdents $ valueParamName vname
          in return $ mkGenerator (mkPVar nm) $
-            mkVar "deserialize" `HsApp` mkVar "bo"
+            mkVar "deserialize" `hsApp` mkVar "bo"
      go v@(ValueParam _ vname (Just pad) _) = 
          let nm = mapIdents $ valueParamName vname
          in return $ mkGenerator (mkPVar nm) $
-            mkVar "deserializeValueParam" `HsApp` mkNumLit pad `HsApp`
+            mkVar "deserializeValueParam" `hsApp` mkNumLit pad `hsApp`
                   mkVar "bo"
      go n = error $ "Pattern match fail in deserIns.go with: " ++ show n
 
 -- | Return and construct the deserialized value.
 returnIt :: Name -> [StructElem] -> HsStmt
-returnIt name fields = HsQualifier $ mkVar "return" `HsApp` HsParen (cons name fields)
+returnIt name fields = hsQualifier $ mkVar "return" `hsApp` hsParen (cons name fields)
 
 -- | Create and fill-in the constructor for the deserialized value.
 cons :: Name -> [StructElem] -> HsExp
@@ -645,7 +642,7 @@ declareSerStruct name fields =
     mkInstDecl
       []
       (mkUnQName "Serialize")
-      [HsTyCon $ mkUnQName name]
+      [tyCon $ mkUnQName name]
       [serializeFunc,
        sizeFunc
       ]
@@ -659,7 +656,7 @@ declareSerStruct name fields =
     serializeFunc = mkSimpleFun "serialize"
           [mkPVar "bo"
           ,mkPVar "x"]
-          (HsDo $ map HsQualifier $ mapMaybe (serField name) fields)
+          (hsDo $ map hsQualifier $ mapMaybe (serField name) fields)
 
 -- | Declare an instance of "ExtensionRequest".
 -- May not be called when generating code for a core
@@ -671,7 +668,7 @@ declareExtRequest name opCode fields = do
          mkInstDecl
          []
          (mkUnQName "ExtensionRequest")
-         [HsTyCon $ mkUnQName name]
+         [tyCon $ mkUnQName name]
          [extensionIdFunc extName
          ,serializeReqFunc
          ]
@@ -683,8 +680,8 @@ declareExtRequest name opCode fields = do
    extensionIdFunc :: Name -> HsDecl
    extensionIdFunc name =
        mkSimpleFun "extensionId"
-        [HsPWildCard]
-        (HsLit . HsString $  name)
+        [hsPWildCard]
+        (mkStringLit name)
 
 
    serializeReqFunc :: HsDecl
@@ -693,15 +690,15 @@ declareExtRequest name opCode fields = do
         ,mkPVar "extOpCode"
         ,mkPVar "bo"
         ]
-        (HsDo actions)
+        (hsDo actions)
 
    actions :: [HsStmt]
-   actions = (HsQualifier $ putIntExp $ mkVar "extOpCode")
-           : (HsQualifier $ putIntExp $ mkNumLit opCode)
+   actions = (hsQualifier $ putIntExp $ mkVar "extOpCode")
+           : (hsQualifier $ putIntExp $ mkNumLit opCode)
            : computeSize
-           : HsQualifier putSize
-           : map HsQualifier serActions
-           ++ map HsQualifier [putPadding]
+           : hsQualifier putSize
+           : map hsQualifier serActions
+           ++ map hsQualifier [putPadding]
 
    computeSize :: HsStmt
    computeSize = mkLetStmt (mkPVar "size__") sizeCalc
@@ -709,18 +706,18 @@ declareExtRequest name opCode fields = do
    sizeCalc :: HsExp
    sizeCalc = L.foldl1' addExp $ mkNumLit 4 : sizeActions
 
-   putSize = HsApp serializeExp $ HsParen $ mkAsExp sizeExp $ mkTyCon "INT16"
+   putSize = hsApp serializeExp $ hsParen $ mkAsExp sizeExp $ mkTyCon "INT16"
 
-   sizeExp = HsApp (mkVar "convertBytesToRequestSize") $
+   sizeExp = hsApp (mkVar "convertBytesToRequestSize") $
              mkVar "size__"
 
-   putPadding = HsApp (mkVar "putSkip") $ HsParen $
-                HsApp (mkVar "requiredPadding") $
+   putPadding = hsApp (mkVar "putSkip") $ hsParen $
+                hsApp (mkVar "requiredPadding") $
                 mkVar "size__"
 
 
-putIntExp exp = mkVar "putWord8" `HsApp` exp
-serializeExp = mkVar "serialize" `HsApp` mkVar "bo"
+putIntExp exp = mkVar "putWord8" `hsApp` exp
+serializeExp = mkVar "serialize" `hsApp` mkVar "bo"
 
 -- | Declare and instance of 'Serialize' for a request.
 declareSerRequest :: Name -> Int -> [StructElem] -> Generate HsDecl
@@ -738,7 +735,7 @@ declareSerRequest name opCode fields = do
         mkInstDecl
         []
         (mkUnQName "Serialize")
-        [HsTyCon $ mkUnQName name]
+        [tyCon $ mkUnQName name]
         [serializeFunc,
          sizeFunc
         ]
@@ -757,65 +754,65 @@ declareSerRequest name opCode fields = do
     serializeFunc = mkSimpleFun "serialize"
            [mkPVar "bo"
            ,mkPVar "x"]
-           (HsDo $ map HsQualifier $ leadingActs ++ trailingActs)
+           (hsDo $ map hsQualifier $ leadingActs ++ trailingActs)
 
     serActions = mapMaybe (serField name) fields
 
     leadingActs = [putIntExp $ mkNumLit opCode,firstAction serActions]
     trailingActs = (putSize : drop 1 serActions) ++ [putPadding]
 
-    firstAction [] = mkVar "putSkip" `HsApp` mkNumLit 1
+    firstAction [] = mkVar "putSkip" `hsApp` mkNumLit 1
     firstAction (x:_) = x
 
     -- 'putSize', 'sizeExp' and 'putPadding' are similar to
     -- but not quite the same as the functions for extension
     -- reqeusts above.
-    putSize = HsApp serializeExp $ HsParen $ mkAsExp sizeExp $ mkTyCon "INT16"
+    putSize = hsApp serializeExp $ hsParen $ mkAsExp sizeExp $ mkTyCon "INT16"
 
-    sizeExp = HsApp (mkVar "convertBytesToRequestSize") $
-                HsParen $ mkVar "size" `HsApp` mkVar "x"
+    sizeExp = hsApp (mkVar "convertBytesToRequestSize") $
+                hsParen $ mkVar "size" `hsApp` mkVar "x"
 
-    putPadding = HsApp (mkVar "putSkip") $ HsParen $
-                 HsApp (mkVar "requiredPadding") $  HsParen $
-                 mkVar "size" `HsApp` mkVar "x"
+    putPadding = hsApp (mkVar "putSkip") $ hsParen $
+                 hsApp (mkVar "requiredPadding") $  hsParen $
+                 mkVar "size" `hsApp` mkVar "x"
 
 -- | A statement in the "do" block for the 'serialize' function.
 serField :: Name -> StructElem -> Maybe HsExp
 serField _ (Pad n) -- "putSkip n"
-        = return $ mkVar "putSkip" `HsApp` mkNumLit n
+        = return $ mkVar "putSkip" `hsApp` mkNumLit n
 serField name (List lname _typ _expr) -- serializeList bo <list>
         = return $ 
-          HsApp (mkVar "serializeList" `HsApp` mkVar "bo") $ HsParen $
+          hsApp (mkVar "serializeList" `hsApp` mkVar "bo") $ hsParen $
           accessField name lname
 serField name (SField fname _typ) -- serialize bo <field>
-        = return $ HsApp (mkVar "serialize" `HsApp` mkVar "bo") $ HsParen $
+        = return $ hsApp (mkVar "serialize" `hsApp` mkVar "bo") $ hsParen $
           accessField name fname
 serField name (ExprField fname typ _exp)  = serField name (SField fname typ)
 serField name (ValueParam _ mname Nothing _) -- serialize bo <field>
-        = return $ HsApp (mkVar "serialize" `HsApp` mkVar "bo") $ HsParen $
+        = return $ hsApp (mkVar "serialize" `hsApp` mkVar "bo") $ hsParen $
           accessField name $ valueParamName mname
 serField name (ValueParam typ mname (Just pad) lname)
-        = return $ HsApp (mkVar "serializeValueParam" `HsApp`
-                          mkNumLit pad `HsApp`
-                          mkVar "bo") $ HsParen $
+        = return $ hsApp (mkVar "serializeValueParam" `hsApp`
+                          mkNumLit pad `hsApp`
+                          mkVar "bo") $ hsParen $
           accessField name $ valueParamName mname
 
 addExp :: HsExp -> HsExp -> HsExp
 addExp = expBinop "+"
 
-expBinop op lhs rhs = HsInfixApp lhs (HsQVarOp . UnQual $ HsSymbol op) rhs
+expBinop op lhs rhs = hsInfixApp lhs (mkQOpSymbol op) rhs
 
 accessField name fieldName =
-        mkVar (accessor fieldName name) `HsApp` mkVar "x"
+        mkVar (accessor fieldName name) `hsApp` mkVar "x"
 
-sizeOfMember name fname = (mkVar "size" `HsApp`) $ HsParen $
+sizeOfMember name fname = (mkVar "size" `hsApp`) $ hsParen $
                            accessField name fname
 
 toFieldSize :: Name -> StructElem -> [HsExp]
 toFieldSize _ (Pad n) = return $ mkNumLit n
 toFieldSize name (List lname typ _expr) = return $
-        (mkVar "sum" `HsApp`) $ HsParen $
-        ((mkVar "map" `HsApp` mkVar "size") `HsApp`) $ HsParen $
+        (mkVar "sum" `hsApp`) $ hsParen $
+        ((mkVar "map" `hsApp` mkVar "size") `hsApp`) $ hsParen $
         accessField name lname
 toFieldSize name (SField fname _typ) = return $ sizeOfMember name fname
 toFieldSize name (ExprField fname ftyp _) = toFieldSize name (SField fname ftyp)
@@ -835,8 +832,8 @@ simpleNewtype name typ cls =
      []
      name
      []
-     (mkCon (conPrefix name) [HsUnBangedTy . HsTyCon $ mkUnQName typ])
-     (map (UnQual . HsIdent) cls)
+     (mkCon (conPrefix name) [hsUnBangedTy . tyCon $ mkUnQName typ])
+     (map mkUnQName cls)
 
 -- |Export the named type without exporting constructors.
 -- Should be usable for type synonyms as well.
@@ -849,7 +846,7 @@ exportType = addExport . mkExportAll
 
 -- |Export the named variable
 exportVar :: String -> (HsModule -> HsModule)
-exportVar = addExport . HsEVar . mkUnQName
+exportVar = addExport . mkExportVar
 
 -- |Like mapMaybe, but for any Alternative.
 -- Never returns 'empty', instead returns 'pure []'

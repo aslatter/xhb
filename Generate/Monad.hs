@@ -15,7 +15,6 @@ import qualified Data.List as L
 import Control.Monad.Reader
 import Data.Maybe
 import Control.Applicative
-import Language.Haskell.Syntax
 
 data ReaderData = ReaderData
     {readerData_current :: XHeader
@@ -66,7 +65,7 @@ toHsType :: MonadReader ReaderData m => Type -> m HsType
 toHsType (UnQualType name) = return $ mkTyCon $ mapTyNames name
 toHsType (QualType qual name) = do
   qname <- fancyName qual
-  return $ HsTyCon $ mkQName (typesModuleName qname) name
+  return $ tyCon $ mkQName (typesModuleName qname) name
 
 -- | Some types in the X modules are given using C types.
 -- This function maps those strings to the appropriate Haskell

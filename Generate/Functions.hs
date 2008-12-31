@@ -8,7 +8,6 @@ import Control.Applicative
 import Control.Exception(assert)
 
 import Data.XCB
-import Language.Haskell.Syntax
 
 import HaskellCombinators
 import Generate(valueParamName,mapAlt,xImport,mapIdents)
@@ -137,31 +136,31 @@ makeReceipt req | hasReply req = return $
                 | otherwise = empty
 
 sendRequest :: RequestInfo -> [HsStmt]
-sendRequest req | hasReply req = map HsQualifier
-                   [foldl1 HsApp $ map mkVar $
+sendRequest req | hasReply req = map hsQualifier
+                   [foldl1 hsApp $ map mkVar $
                     ["sendRequestWithReply"
                     ,"c"
                     ,"chunk"
                     ,"receipt"
                     ]
-                   ,mkVar "return" `HsApp` mkVar "receipt"
+                   ,mkVar "return" `hsApp` mkVar "receipt"
                    ]
-                | otherwise = map HsQualifier $
-                    return $ (mkVar "sendRequest" `HsApp` mkVar "c")
-                          `HsApp` mkVar "chunk"
+                | otherwise = map hsQualifier $
+                    return $ (mkVar "sendRequest" `hsApp` mkVar "c")
+                          `hsApp` mkVar "chunk"
 
 getByteOrder :: HsStmt
 getByteOrder = mkLetStmt (mkPVar "bo")
-               (mkVar "byteOrderFromConn" `HsApp` mkVar "c")
+               (mkVar "byteOrderFromConn" `hsApp` mkVar "c")
 
 
 resultType :: RequestInfo -> HsType
-resultType req | hasReply req = foldr1 HsTyApp $
+resultType req | hasReply req = foldr1 hsTyApp $
                                 [mkTyCon "IO"
                                 ,mkTyCon "Receipt"
                                 ,replyType req
                                 ]
-               | otherwise = foldr1 HsTyApp $
+               | otherwise = foldr1 hsTyApp $
                              [mkTyCon "IO"
                              ,unit_tycon
                              ]
@@ -211,11 +210,11 @@ declareFunction ext req = do
 
        shortTyp = do
          fieldTypes <- fieldsToTypes fields
-         return $ foldr1 HsTyFun $
+         return $ foldr1 hsTyFun $
              (mkTyCon connTyName) : fieldTypes ++ [resultType req]
                                 
 
-       longType = foldr1 HsTyFun $
+       longType = foldr1 hsTyFun $
                   [mkTyCon connTyName
                   ,mkTyCon  $ request_name req
                   ] ++ [resultType req]
@@ -223,11 +222,11 @@ declareFunction ext req = do
 
        shortFnDec = mkSimpleFun fnName
                     (map mkPVar shortArgs)
-                    (HsDo fnBody)
+                    (hsDo fnBody)
 
        longFnDec = mkSimpleFun fnName
                    (map mkPVar ["c", "req"])
-                   (HsDo fnBody)
+                   (hsDo fnBody)
 
        shortArgs = "c" : fieldsToArgNames fields
 
@@ -235,12 +234,12 @@ declareFunction ext req = do
        -- constructor plus args
        shortRequestExpr :: HsExp
        shortRequestExpr = 
-           foldl1 HsApp $ constructor : map mkVar (fieldsToArgNames fields)
+           foldl1 hsApp $ constructor : map mkVar (fieldsToArgNames fields)
 
        -- TODO: share constructor name between
        -- generation condebases.
        constructor :: HsExp
-       constructor = (HsCon . mkUnQName $ "Mk" ++ request_name req)
+       constructor = (hsCon . mkUnQName $ "Mk" ++ request_name req)
 
        fnBody :: [HsStmt]
        fnBody = concat
@@ -257,20 +256,20 @@ declareFunction ext req = do
 
        serializeRequest
            | ext = [ mkGenerator (mkPVar "putAction")
-                           (foldl1 HsApp $ map mkVar $
+                           (foldl1 hsApp $ map mkVar $
                               ["serializeExtensionRequest"
                               ,"c"
                               ,"req"
                               ]
                            )
                    , mkLetStmt (mkPVar "chunk")
-                     (mkVar "runPut" `HsApp` mkVar "putAction")
+                     (mkVar "runPut" `hsApp` mkVar "putAction")
                    ]
            | otherwise = [ getByteOrder
                          , mkLetStmt (mkPVar "chunk")
                               (applyManyExp
                                [mkVar "runPut"
-                               ,mkVar "serialize" `HsApp` mkVar "bo" `HsApp` mkVar "req"
+                               ,mkVar "serialize" `hsApp` mkVar "bo" `hsApp` mkVar "req"
                                ])
                          ]
 
@@ -278,7 +277,7 @@ declareFunction ext req = do
 -- | Fold Haskell expressions together in a right-fold fashion
 applyManyExp [] = undefined
 applyManyExp [x] = x
-applyManyExp (x:xs) = HsApp x $ HsParen $ applyManyExp xs
+applyManyExp (x:xs) = hsApp x $ hsParen $ applyManyExp xs
 
 -- | Maps the fields of a X-struct into argument names to be used
 -- in an arg-list for a Haskell function
@@ -300,9 +299,9 @@ fieldsToTypes elems =
 fieldToType :: StructElem -> MaybeT Generate HsType
 fieldToType (SField _ typ) = toHsType typ
 fieldToType (List _ typ _) = listType <$> toHsType typ
-    where listType t = list_tycon `HsTyApp` t
+    where listType t = list_tycon `hsTyApp` t
 fieldToType (ValueParam typ _ _ _) = vpType <$> toHsType typ
-    where vpType t = mkTyCon "ValueParam" `HsTyApp` t
+    where vpType t = mkTyCon "ValueParam" `hsTyApp` t
 fieldToType _ = empty
 
 {-

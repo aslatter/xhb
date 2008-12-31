@@ -9,6 +9,7 @@ module HaskellCombinators
     ,mkExportAbs
     ,mkExportAll
     ,mkExportModule
+    ,mkExportVar
     ,mkImport
     ,mkSomeImport
     ,mkHidingImport
@@ -22,6 +23,7 @@ module HaskellCombinators
     ,mkConsMatch
     ,mkLitMatch
     ,mkNumLit
+    ,mkStringLit
     ,mkNumPat
     ,mkNewtype
     ,mkInstDecl
@@ -40,7 +42,41 @@ module HaskellCombinators
     ,mkClass
     ,mkGenerator
     ,mkLetStmt
-    ,module Language.Haskell.Syntax
+    ,mkQOpSymbol
+    ,mkQOpIdent
+    -- * Real thin wrappers to hide data constructors
+    ,tyCon
+    ,hsApp
+    ,hsTyApp
+    ,hsTyFun
+    ,hsParen
+    ,hsQualifier
+    ,hsDo
+    ,hsUnBangedTy
+    ,hsFunBind
+    ,hsInfixApp
+    ,hsPWildCard
+    ,hsInt
+    ,hsString
+    ,hsCon
+    ,hsLetStmt
+    ,hsVar
+    -- * Tools for working with abstract syntax
+    ,getHsModName
+    -- * Re-exports of stuff from Langugae.Haskell
+    ,HsType
+    ,HsModule
+    ,HsDecl
+    ,HsExp
+    ,HsStmt
+    ,HsQOp
+    ,HsBangType
+    ,HsConDecl
+    ,HsMatch
+    ,HsImportDecl           
+    ,list_tycon
+    ,unit_tycon
+    ,prettyPrint
     ) where
 
 import Language.Haskell.Syntax
@@ -67,6 +103,14 @@ testDecls = [mkTypeSig "testfun" [] (HsTyFun (mkTyCon "Int") (mkTyCon "Int"))
             ,mkSimpleFun "testfun" [HsPWildCard] (HsLit $ HsInt 5)
             ]
 
+
+
+-- Random tools
+
+getHsModName :: HsModule -> String
+getHsModName (HsModule _ mod _ _ _) = prettyPrint mod
+
+
 -- Wrappers around things in Language.Haskell.Syntax
 -- L.H.S is designed to be used as a result of parsing.
 -- As I'm going in the other direction, I'd like something
@@ -77,6 +121,29 @@ testDecls = [mkTypeSig "testfun" [] (HsTyFun (mkTyCon "Int") (mkTyCon "Int"))
 -- instead of HsNames, and assume them to be for indetifiers.
 
 dummLoc = SrcLoc "dummy location" 0 0
+
+
+-- Wrappers to ease transition to haskell-src-exts
+tyCon = HsTyCon
+hsApp = HsApp
+hsParen = HsParen
+hsTyApp = HsTyApp
+hsTyFun = HsTyFun
+hsUnBangedTy = HsUnBangedTy
+
+hsQualifier = HsQualifier
+hsDo = HsDo
+hsFunBind = HsFunBind
+hsInfixApp = HsInfixApp
+hsPWildCard = HsPWildCard
+hsInt = HsInt
+hsString = HsString
+hsCon = HsCon
+hsLetStmt = HsLetStmt
+hsVar = HsVar
+
+mkQOpSymbol = HsQVarOp . UnQual . HsSymbol
+mkQOpIdent = HsQVarOp . UnQual . HsIdent
 
 
 -- |Statement of the form ([pattern]  <-  [expression]).
@@ -135,6 +202,9 @@ mkExportAll = HsEThingAll . mkUnQName
 mkExportModule :: String -> HsExportSpec
 mkExportModule = HsEModuleContents . Module
 
+mkExportVar :: String -> HsExportSpec
+mkExportVar = HsEVar . mkUnQName
+
 mkTypeDecl :: String -> [String] -> HsType -> HsDecl
 mkTypeDecl nm args ty = HsTypeDecl dummLoc (HsIdent nm) (map HsIdent args) ty
 
@@ -182,6 +252,9 @@ mkLitMatch fName lit res
 
 mkNumLit :: Integral n => n -> HsExp
 mkNumLit = HsLit . HsInt . fromIntegral
+
+mkStringLit :: String -> HsExp
+mkStringLit = HsLit . HsString
 
 mkNumPat :: Integral n => n -> HsPat
 mkNumPat = HsPLit . HsInt . fromIntegral
