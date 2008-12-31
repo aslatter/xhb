@@ -13,7 +13,10 @@ conPrefix = ("Mk" ++)
 
 typesModuleName modName = modulesPrefix ++ "." ++ modName ++ ".Types"
 functionsModuleName modName = modulesPrefix ++ "." ++ modName
+
 extensionsModuleName = modulesPrefix ++ "." ++ "Extension"
+
+otherModuleNames = [extensionsModuleName]
 
 accessor field typ = field ++ "_" ++ typ
 replyName = (++ "Reply")

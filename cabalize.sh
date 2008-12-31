@@ -1,23 +1,18 @@
 #!/usr/bin/env bash
 
-[ -d patched ] || {
-    echo "Could not find generated files!"
-    echo "Maybe they haven't been generated yet?"
-    echo
-    echo "Failed!"
-    exit 1
+OUT_DIR=cabalize
+TEST_PROG=Scripts/Cabal
+
+. shared.sh
+
+OUT_FILE=${OUT_DIR}/cabalize.cabal
+
+[ -f ${OUT_FILE} ] || {
+    echo "Couldn't find generated cabal file: ${OUT_FILE}" 
+    exit ${GENERAL_ERROR}
 }
 
-cd patched
-MODULES=$(find . | grep \.hs$ | sed -e "s|^\./||" -e "s|\(.*\)\.hs|\1|" -e "s|/|.|g")
-cd ..
-
-. version.sh
-
-runghc Scripts/Cabal Templates/cabal.template xhb.cabal patched ${XPROTO_VERSION} ${MODULES} || {
-    echo "Failed!"
-    exit 1
-}
+cp ${OUT_FILE} xhb.cabal
 
 echo "Success!"
 exit 0

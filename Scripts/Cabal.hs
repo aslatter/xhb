@@ -3,12 +3,17 @@ module Cabal where
 import Text.StringTemplate
 
 import System.IO
-import System.Environment (getArgs)
+import System.Environment (getArgs, getEnv)
 import System.Exit
 import System.Locale
+import System.FilePath
 
 import Data.Time
 
+import Generate.Functions (typesModName, functionsModName)
+import Generate.Facts (otherModuleNames)
+
+import qualified Data.XCB as XCB
 
 {-
 
@@ -24,26 +29,34 @@ import Data.Time
  args ! 3    -- xprotot version
  drop 4 args -- names of generated modules
  -}
+
+templateFile = "Templates" </> "cabal.template"
+genDirName = "patched"
+
 main = do
   args <- getArgs
-  if length args < 3 then exitBadArgs else do
-  let templateFile : outFile : genDirName : version : modNames
-          = args
+  if length args < 1 then exitBadArgs else do
+  let outDir : xmlFileNames = args
+      outFile = outDir </> "cabalize.cabal"
 
+  headers <- XCB.fromFiles xmlFileNames
   templateString <- readFile templateFile
   time <- Just `fmap` getCurrentTime
+  version <- getEnv "XPROTO_VERSION"
   let cabalString =
-          applyTemplate time templateString genDirName version modNames
+          applyTemplate time templateString genDirName version headers
   writeFile outFile cabalString
 
 exitBadArgs = do
-  hPutStrLn stderr "Command requires at least three arguments."
+  hPutStrLn stderr "Command requires at least one arguments."
   exitFailure
 
 applyTemplate :: Maybe UTCTime -> String -> String
-              -> String -> [String] -> String
-applyTemplate time template dirName version mods =
-    toString $ setAttribute "Module" mods $
+              -> String -> [XCB.XHeader] -> String
+applyTemplate time template dirName version xhds =
+    toString $ setAttribute "Module" (map functionsModName xhds) $
+               setAttribute "OtherModule" (map typesModName xhds) $
+               setAttribute "OtherModule" otherModuleNames $
                setAttribute "GenDir" dirName $
                setAttribute "DateString" dateString $
                setAttribute "XProtoVersion" version $

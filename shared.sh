@@ -1,5 +1,6 @@
 
 . version.sh
+export XPROTO_VERSION
 
 XPROTO_PACKAGE=xcb-proto-${XPROTO_VERSION}
 

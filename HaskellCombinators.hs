@@ -63,6 +63,9 @@ module HaskellCombinators
     ,hsVar
     -- * Tools for working with abstract syntax
     ,getHsModName
+    ,getExports
+    ,setExports
+    ,isModExport
     -- * Re-exports of stuff from Langugae.Haskell
     ,HsType
     ,HsModule
@@ -110,6 +113,16 @@ testDecls = [mkTypeSig "testfun" [] (HsTyFun (mkTyCon "Int") (mkTyCon "Int"))
 getHsModName :: HsModule -> String
 getHsModName (HsModule _ mod _ _ _) = prettyPrint mod
 
+
+getExports :: HsModule -> Maybe [HsExportSpec]
+getExports (HsModule _ _ exports _ _) = exports
+
+setExports :: Maybe [HsExportSpec] -> HsModule -> HsModule
+setExports exports (HsModule p1 p2 _ p4 p5) = HsModule p1 p2 exports p4 p5
+
+isModExport :: HsExportSpec -> Bool
+isModExport HsEModuleContents{} = True
+isModExport _ = False
 
 -- Wrappers around things in Language.Haskell.Syntax
 -- L.H.S is designed to be used as a result of parsing.

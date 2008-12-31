@@ -13,6 +13,7 @@ import HaskellCombinators
 import Generate(valueParamName,mapAlt,xImport,mapIdents)
 import Generate.Monad
 import Generate.Facts
+import Generate.Util
 
 import Control.Monad.Reader
 import Control.Monad.Maybe
@@ -36,9 +37,6 @@ interCapsName :: XHeader -> String
 interCapsName xhd = case xheader_name xhd of
                       Nothing -> ensureUpper $ xheader_header xhd
                       Just name -> name
-
-ensureUpper [] = []
-ensureUpper (x:xs) = (toUpper x) : xs
 
 ensureLower [] = []
 ensureLower (x:xs) = (toLower x) : xs
@@ -67,7 +65,7 @@ buildExtension xhd = do
         rs = requests xhd
     fns <- declareFunctions rs
     imFns <- doImports xhd
-    return $ applyMany (fns ++ imFns) emptyModule
+    return $ moveExports $ applyMany (fns ++ imFns) emptyModule
 
 doImports :: XHeader -> Generate [HsModule -> HsModule]
 doImports xhd =
@@ -85,7 +83,20 @@ buildCore xhd = do
     let emptyModule = newCoreModule xhd
         rs = requests xhd
     fns <- declareFunctions rs
-    return $ applyMany fns emptyModule
+    return $ moveExports $ applyMany fns emptyModule
+
+-- | moves entire-module exports to end of export list
+moveExports :: HsModule -> HsModule
+moveExports =
+    modifyExports $ \exports ->
+    let (modExports, otherExports) = filterAccum isModExport exports
+    in otherExports ++ modExports
+
+modifyExports f mod =
+    case getExports mod of
+      Nothing -> mod
+      (Just exs) -> setExports (Just $ f exs) mod
+                         
 
 applyMany = foldr (flip (.)) id
 

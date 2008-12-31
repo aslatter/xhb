@@ -43,7 +43,9 @@ Library
    Graphics.XHB.Shared,
    Graphics.XHB.Connection.Auth,
    Graphics.XHB.Connection.Internal,
-   Graphics.XHB.Connection.Types
+   Graphics.XHB.Connection.Types,
+   $OtherModule; separator=",
+   "$
 
  hs-source-dirs: . $GenDir; separator=" "$
 
