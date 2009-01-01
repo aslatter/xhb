@@ -9,6 +9,7 @@ import System.Locale
 import System.FilePath
 
 import Data.Time
+import qualified Data.List as L
 
 import Generate.Functions (typesModName, functionsModName)
 import Generate.Facts (otherModuleNames)
@@ -58,8 +59,18 @@ applyTemplate time template dirName version xhds =
                setAttribute "OtherModule" (map typesModName xhds) $
                setAttribute "OtherModule" otherModuleNames $
                setAttribute "GenDir" dirName $
-               setAttribute "DateString" dateString $
+               setAttribute "DateString" (dateString `fmap` time) $
                setAttribute "XProtoVersion" version $
                newSTMP template
- where dateString = formatTime defaultTimeLocale "%Y.%m.%d" `fmap` time
-                    
+
+dateString :: UTCTime -> String
+dateString time = let
+    format str = formatTime defaultTimeLocale str time
+                 
+    stripZero ('0':xs) = stripZero xs
+    stripZero xs = xs
+
+    yearString = format "%Y"
+    monthString = stripZero $ format "%m"
+    dayString = stripZero $ format "%d"
+ in concat $ L.intersperse "." [yearString, monthString, dayString]
