@@ -64,8 +64,19 @@ buildExtension xhd = do
     let emptyModule = newExtensionModule xhd
         rs = requests xhd
     fns <- declareFunctions rs
+    let extId = declareExtensionId xhd
     imFns <- doImports xhd
-    return $ moveExports $ applyMany (fns ++ imFns) emptyModule
+    return $ moveExports $ applyMany (extId ++ fns ++ imFns) emptyModule
+
+declareExtensionId :: XHeader -> [HsModule -> HsModule]
+declareExtensionId xhd =
+    [addDecl $ mkTypeSig extFnName [] (mkTyCon "ExtensionId")
+    ,addDecl $ mkSimpleFun extFnName [] $
+             mkStringLit $ fromJust $ xheader_xname xhd
+    ,addExport $ mkExportVar extFnName
+    ]
+
+ where extFnName = "extension"
 
 doImports :: XHeader -> Generate [HsModule -> HsModule]
 doImports xhd =
