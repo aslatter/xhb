@@ -25,8 +25,7 @@ To see what the current progress is, try the following:
 
 and then look around in the "patched" directory.
 
-To build the .cabal file to install the library you need to first run
-the generate.sh script as above, and then run:
+To build the .cabal file to install the library run:
 
   chmod +x cabalize.sh
   ./cabalize.sh
@@ -65,5 +64,6 @@ There are three bash scripts that live in the top-level of this project:
 
 ./cabalize.sh
 
-  This crawls the "patched" directory and stuffs everything into the
-  cabal-file template located in "Templates/cabal.template".
+  Creates a .cabal file for the XHB project.  You'd be best running
+  generate.sh before trying anything like "cabal install" or
+  "cabal sdist".

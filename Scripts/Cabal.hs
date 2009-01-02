@@ -23,14 +23,6 @@ import qualified Data.XCB as XCB
 -}
 
 
-{-
- args ! 0    -- cabal file template
- args ! 1    -- output file name
- args ! 2    -- directory containing generated files
- args ! 3    -- xprotot version
- drop 4 args -- names of generated modules
- -}
-
 templateFile = "Templates" </> "cabal.template"
 genDirName = "patched"
 
@@ -42,7 +34,7 @@ main = do
 
   headers <- XCB.fromFiles xmlFileNames
   templateString <- readFile templateFile
-  time <- Just `fmap` getCurrentTime
+  time <- getCurrentTime
   version <- getEnv "XPROTO_VERSION"
   let cabalString =
           applyTemplate time templateString genDirName version headers
@@ -52,14 +44,14 @@ exitBadArgs = do
   hPutStrLn stderr "Command requires at least one arguments."
   exitFailure
 
-applyTemplate :: Maybe UTCTime -> String -> String
+applyTemplate :: UTCTime -> String -> String
               -> String -> [XCB.XHeader] -> String
 applyTemplate time template dirName version xhds =
     toString $ setAttribute "Module" (map functionsModName xhds) $
                setAttribute "OtherModule" (map typesModName xhds) $
                setAttribute "OtherModule" otherModuleNames $
                setAttribute "GenDir" dirName $
-               setAttribute "DateString" (dateString `fmap` time) $
+               setAttribute "DateString" (dateString time) $
                setAttribute "XProtoVersion" version $
                newSTMP template
 
@@ -67,10 +59,9 @@ dateString :: UTCTime -> String
 dateString time = let
     format str = formatTime defaultTimeLocale str time
                  
-    stripZero ('0':xs) = stripZero xs
-    stripZero xs = xs
+    stripZero = dropWhile ('0' ==)
 
     yearString = format "%Y"
     monthString = stripZero $ format "%m"
     dayString = stripZero $ format "%d"
- in concat $ L.intersperse "." [yearString, monthString, dayString]
+ in L.intercalate "." [yearString, monthString, dayString]
