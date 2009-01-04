@@ -28,6 +28,7 @@ import Control.Concurrent
 import Control.Monad
 
 import System.IO
+import System.ByteOrder
 
 import Foreign.C.String
 
@@ -128,15 +129,15 @@ data ResponseType
     | ResponseTypeReply
 
 instance Deserialize GenericReply where
-    deserialize bo = do
-      type_flag <- deserialize bo
+    deserialize = do
+      type_flag <- deserialize
       let rType = case type_flag of
                     0 -> ResponseTypeError
                     1 -> ResponseTypeReply
                     _ -> ResponseTypeEvent type_flag
-      code <- deserialize bo
-      sequence <- deserialize bo
-      reply_length <- deserialize bo
+      code <- deserialize
+      sequence <- deserialize
+      reply_length <- deserialize
       return $ GenericReply rType code sequence reply_length
 
 
@@ -182,38 +183,36 @@ extensionIdFromErrorCode = queryExtMap first_error_QueryExtensionReply
 
 bsToError :: ReadLoop
           -> ByteString -- ^Raw data
-          -> BO -- ^Byte-order
           -> Word8 -- ^Error code
           -> IO SomeError
-bsToError _r chunk bo code | code < 128 = case deserializeError bo code of
+bsToError _r chunk code | code < 128 = case deserializeError code of
      Nothing -> return . toError . UnknownError $ chunk
      Just getAction -> return $ runGet getAction chunk
-bsToError r chunk bo code
+bsToError r chunk code
     = extensionIdFromErrorCode r code >>= \errInfo -> case errInfo of
          Nothing -> return . toError . UnknownError $ chunk
          Just (extId, baseErr) ->
-             case errorDispatch extId bo (code - baseErr) of
+             case errorDispatch extId (code - baseErr) of
                Nothing -> return . toError . UnknownError $ chunk
                Just getAction -> return $ runGet getAction chunk
                  
 
 bsToEvent :: ReadLoop
           -> ByteString -- ^Raw data
-          -> BO -- ^Byte-order
           -> Word8 -- ^Event code
           -> IO SomeEvent
-bsToEvent _r chunk bo code | code < 64 = case deserializeEvent bo code of
+bsToEvent _r chunk code | code < 64 = case deserializeEvent code of
     Nothing -> return . toEvent . UnknownEvent $ chunk
     Just getAction -> return $ runGet getAction chunk
-bsToEvent r chunk bo code
+bsToEvent r chunk code
     = extensionIdFromEventCode r code >>= \evInfo -> case evInfo of
          Nothing -> return . toEvent . UnknownEvent $ chunk
          Just (extId, baseEv) ->
-             case eventDispatch extId bo (code - baseEv) of
+             case eventDispatch extId (code - baseEv) of
                Nothing -> return . toEvent . UnknownEvent $ chunk
                Just getAction -> return $ runGet getAction chunk
 
-deserializeInReadLoop rl = deserialize (conf_byteorder $ read_config $ rl)
+deserializeInReadLoop rl = deserialize
 
 readBytes :: ReadLoop -> Int -> IO ByteString
 readBytes rl n = BS.hGet (read_input_queue rl) n
@@ -224,7 +223,7 @@ readLoop :: ReadLoop -> IO ()
 readLoop rl = do
   chunk <- readBytes rl 32
   let genRep = flip runGet chunk $ deserialize
-               (conf_byteorder $ read_config $ rl)
+               
   case grep_response_type genRep of
     ResponseTypeError -> readLoopError rl genRep chunk
     ResponseTypeReply -> readLoopReply rl genRep chunk
@@ -258,9 +257,8 @@ readLoopReply rl genRep chunk = do
 -- place the error into the pending reply TMVar instead.
 readLoopError rl genRep chunk = do
   let errorCode = grep_error_code genRep
-      bo = conf_byteorder $ read_config $ rl
 
-  err <- bsToError rl chunk bo errorCode
+  err <- bsToError rl chunk errorCode
   atomically $ do
     nextPend <- readTChan $ read_reps rl
     if (pended_sequence nextPend) == (grep_sequence genRep)
@@ -273,12 +271,11 @@ readLoopError rl genRep chunk = do
 -- take the bytes making up the event response, shove it in
 -- a queue
 readLoopEvent rl genRep chunk = do
-    ev <- bsToEvent rl chunk bo eventCode
+    ev <- bsToEvent rl chunk eventCode
     atomically $ writeTChan (read_event_queue rl) ev
 
  where eventCode = case grep_response_type genRep of
                      ResponseTypeEvent w -> w .&. 127
-       bo = conf_byteorder $ read_config $ rl
 
 -- | Connect to the the default display.
 connect :: IO (Maybe Connection)
@@ -353,17 +350,17 @@ data GenericSetup = GenericSetup
                     deriving Show
 
 instance Deserialize GenericSetup where
-    deserialize bo = do
-      status <- deserialize bo
+    deserialize = do
+      status <- deserialize
       skip 5
-      length <- deserialize bo
+      length <- deserialize
       return $ GenericSetup status length 
 
 data SetupStatus = SetupFailed | SetupAuthenticate | SetupSuccess
  deriving Show
 
 instance Deserialize SetupStatus where
-    deserialize bo = wordToStatus `liftM` deserialize bo
+    deserialize = wordToStatus `liftM` deserialize
         where wordToStatus :: Word8 -> SetupStatus
               wordToStatus 0 = SetupFailed
               wordToStatus 1 = SetupSuccess
@@ -376,16 +373,14 @@ instance Deserialize SetupStatus where
 handshake :: Handle -> Maybe Xauth -> IO (Maybe ConnectionConfig)
 handshake hnd auth = do
 
-  let bo = BE
-
   -- send setup request
-  let requestChunk =  runPut $ serialize bo $ setupRequest bo auth
+  let requestChunk =  runPut $ serialize $ setupRequest auth
   BS.hPut hnd $ requestChunk
 
   -- grab an 8-byte chunk to get the response type and size
   firstChunk <- BS.hGet hnd 8
 
-  let genSetup = runGet (deserialize bo) firstChunk
+  let genSetup = runGet deserialize firstChunk
 
   -- grab the rest of the setup response
   secondChunk <- BS.hGet hnd $ fromIntegral $ (4 *) $ setup_length genSetup
@@ -394,27 +389,27 @@ handshake hnd auth = do
   -- handle the response type
   case setup_status genSetup of
     SetupFailed -> do
-       let failed = runGet (deserialize bo) setupBytes
+       let failed = runGet deserialize setupBytes
            failMessage = map castCCharToChar (reason_SetupFailed failed)
        hPutStrLn stderr failMessage
        return Nothing
     SetupAuthenticate -> do
-       let auth = runGet (deserialize bo) setupBytes
+       let auth = runGet deserialize setupBytes
            authMessage = map castCCharToChar (reason_SetupAuthenticate auth)
        hPutStrLn stderr authMessage
        return Nothing
     SetupSuccess -> do
-       let setup = runGet (deserialize bo) setupBytes
-       return . return $ ConnectionConfig bo setup
+       let setup = runGet deserialize setupBytes
+       return . return $ ConnectionConfig setup
        
 padBS n = BS.replicate n 0
 
 initialSequence :: IO (TVar SequenceId)
 initialSequence = newTVarIO 1
 
-setupRequest :: BO -> Maybe Xauth -> SetupRequest
-setupRequest bo auth = MkSetupRequest
-                  (fromIntegral $ byteOrderToNum bo)
+setupRequest :: Maybe Xauth -> SetupRequest
+setupRequest auth = MkSetupRequest
+                  (fromIntegral $ byteOrderToNum byteOrder)
                   11       -- major version
                   0        -- minor version
                   anamelen -- auth name length

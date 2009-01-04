@@ -29,8 +29,7 @@ data Connection = Connection
 type ExtensionMap = Map ExtensionId QueryExtensionReply
 
 data ConnectionConfig = ConnectionConfig
-    {conf_byteorder :: BO
-    ,conf_setup :: Setup
+    { conf_setup :: Setup
     }
 
 type SequenceId = Word16

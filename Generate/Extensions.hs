@@ -65,7 +65,6 @@ dispatchFn event xs = applyMany $ map addDecl $
    defaultMatch = mkMatch fnName [hsPWildCard]
                   (foldr1 (\x y -> x `hsApp` hsParen y)
                       [ mkVar "const"
-                      , mkVar "const"
                       , mkConExp "Nothing"
                       ]
                   )

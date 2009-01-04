@@ -171,11 +171,6 @@ sendRequest req | hasReply req = map hsQualifier
                     return $ (mkVar "sendRequest" `hsApp` mkVar "c")
                           `hsApp` mkVar "chunk"
 
-getByteOrder :: HsStmt
-getByteOrder = mkLetStmt (mkPVar "bo")
-               (mkVar "byteOrderFromConn" `hsApp` mkVar "c")
-
-
 resultType :: RequestInfo -> HsType
 resultType req | hasReply req = foldr1 hsTyApp $
                                 [mkTyCon "IO"
@@ -287,11 +282,10 @@ declareFunction ext req = do
                    , mkLetStmt (mkPVar "chunk")
                      (mkVar "runPut" `hsApp` mkVar "putAction")
                    ]
-           | otherwise = [ getByteOrder
-                         , mkLetStmt (mkPVar "chunk")
+           | otherwise = [mkLetStmt (mkPVar "chunk")
                               (applyManyExp
                                [mkVar "runPut"
-                               ,mkVar "serialize" `hsApp` mkVar "bo" `hsApp` mkVar "req"
+                               ,mkVar "serialize" `hsApp` mkVar "req"
                                ])
                          ]
 

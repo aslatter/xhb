@@ -25,7 +25,7 @@ Extra-source-files: CONTRIBUTORS
 Library
 
  Build-depends: base, stm, Xauth, binary, bytestring, containers,
-      parsec, network
+      parsec, network, byteorder
 
  Extensions: ExistentialQuantification,
              DeriveDataTypeable,

@@ -28,6 +28,8 @@ import Data.ByteString.Lazy (ByteString)
 
 import Control.Concurrent.STM (TMVar)
 
+import System.ByteOrder
+
 -- crazy imports for put/get storable
 import qualified Data.ByteString.Internal as Strict
 import Foreign
@@ -35,15 +37,10 @@ import Foreign.Storable
 import Foreign.Ptr
 import Foreign.ForeignPtr
 
-
--- |Byte-ordering.
-data BO = BE -- ^Big-endian
-        | LE -- ^Little-endian
- deriving (Show, Ord, Eq)
-
-byteOrderToNum :: BO -> Int
-byteOrderToNum BE = fromEnum '\o102' -- B
-byteOrderToNum LE = fromEnum '\o154' -- l
+byteOrderToNum :: ByteOrder -> Int
+byteOrderToNum BigEndian = fromEnum '\o102' -- B
+byteOrderToNum LittleEndian = fromEnum '\o154' -- l
+byteOrderToNum Mixed{} = error "Mixed endian platforms not supported."
 
 type CARD8  = Word8
 type CARD16 = Word16
@@ -117,14 +114,14 @@ stringToCList = map castCharToCChar
 
 
 class Serialize a where
-    serialize :: BO -> a -> Put
+    serialize :: a -> Put
     size :: a -> Int -- Size in bytes
 
 class Deserialize a where
-    deserialize :: BO -> Get a
+    deserialize :: Get a
 
 class ExtensionRequest a where
-    serializeRequest :: a -> RequestOpCode -> BO -> Put
+    serializeRequest :: a -> RequestOpCode -> Put
     extensionId :: a -> ExtensionId
 
 type RequestOpCode = Word8
@@ -174,16 +171,16 @@ instance Event UnknownEvent
 
 
 
-deserializeList :: Deserialize a => BO -> Int -> Get [a]
-deserializeList bo n = go n
+deserializeList :: Deserialize a => Int -> Get [a]
+deserializeList n = go n
     where go 0 = return []
           go n = do
-            x <- deserialize bo
+            x <- deserialize
             xs <- go (n-1)
             return $ x : xs
 
-serializeList :: Serialize a => BO -> [a] -> Put
-serializeList bo = mapM_ $ serialize bo
+serializeList :: Serialize a => [a] -> Put
+serializeList = mapM_ serialize
 
 convertBytesToRequestSize n =
     fromIntegral $ case quotRem n 4 of
@@ -199,69 +196,58 @@ requiredPadding n =
 
 -- Words
 instance Serialize Word8 where
-    serialize _ = putWord8
+    serialize = putWord8
     size _ = 1
 
 instance Deserialize Word8 where
-    deserialize _ = getWord8
+    deserialize = getWord8
 
 instance Serialize Word16 where
-    serialize BE = putWord16be
-    serialize LE = putWord16le
-
+    serialize = putWord16host
     size _ = 2
 
 instance Deserialize Word16 where
-    deserialize BE = getWord16be
-    deserialize LE = getWord16le
-    
+    deserialize = getWord16host
+
 
 instance Serialize Word32 where
-    serialize BE = putWord32be
-    serialize LE = putWord32le
-
+    serialize = putWord32host
     size _ = 4
 
 instance Deserialize Word32 where
-    deserialize BE = getWord32be
-    deserialize LE = getWord32le
+    deserialize = getWord32host
 
 -- Ints
 instance Serialize Int8 where
-    serialize _ = putInt8
+    serialize = putInt8
     size _ = 1
 
 instance Deserialize Int8 where
-    deserialize _ = getInt8
+    deserialize = getInt8
 
 
 instance Serialize Int16 where
-    serialize BE = putInt16be
-    serialize LE = putInt16le
-
+    serialize = putInt16host
     size _ = 2
 
 instance Deserialize Int16 where
-    deserialize BE = getInt16be
-    deserialize LE = getInt16le
+    deserialize = getInt16host
 
 
 instance Serialize Int32 where
-    serialize BE = putInt32be
-    serialize LE = putInt32le
-
+    serialize = putInt32host
     size _ = 4
 
 instance Deserialize Int32 where
-    deserialize BE = getInt32be
-    deserialize LE = getInt32le
+    deserialize = getInt32host
+
 
 instance Serialize CChar where
-    serialize _ = putWord8 . fromIntegral -- assumes a CChar is one word
+    serialize = putWord8 . fromIntegral -- assumes a CChar is one word
     size _ = 1
 
 instance Deserialize CChar where
-    deserialize _ = liftM fromIntegral getWord8
+    deserialize = liftM fromIntegral getWord8
 
 
 
@@ -276,43 +262,30 @@ putInt8 = putWord8 . fromIntegral
 getInt8 :: Get Int8
 getInt8 = liftM fromIntegral getWord8
 
-putInt16be :: Int16 -> Put
-putInt16be = putWord16be . fromIntegral
+putInt16host :: Int16 -> Put
+putInt16host = putWord16host . fromIntegral
 
-putInt16le :: Int16 -> Put
-putInt16le = putWord16le . fromIntegral
+getInt16host :: Get Int16
+getInt16host = liftM fromIntegral getWord16host
 
-getInt16be :: Get Int16
-getInt16be = liftM fromIntegral getWord16be
+putInt32host :: Int32 -> Put
+putInt32host = putWord32host . fromIntegral
 
-getInt16le :: Get Int16
-getInt16le = liftM fromIntegral getWord16le
-
-putInt32be :: Int32 -> Put
-putInt32be = putWord32be . fromIntegral
-
-putInt32le :: Int32 -> Put
-putInt32le = putWord32le . fromIntegral
-
-getInt32be :: Get Int32
-getInt32be = liftM fromIntegral getWord32be
-
-getInt32le :: Get Int32
-getInt32le = liftM fromIntegral getWord32le
+getInt32host :: Get Int32
+getInt32host = liftM fromIntegral getWord32host
 
 -- Fun stuff
 
--- this is wrong because we ignore byte-order.
--- oh well.
+-- I've no idea if this is what the other end expects
 instance Deserialize CFloat where
-    deserialize _ = getStorable
+    deserialize = getStorable
 
 instance Serialize CFloat where
     size x = sizeOf x
-    serialize _ x = putStorable x
+    serialize = putStorable
 
 instance Deserialize CDouble where
-    deserialize _ = getStorable
+    deserialize = getStorable
 
 
 getStorable :: Storable a => Get a
@@ -340,24 +313,24 @@ instance (Serialize a, Bits a) => Serialize (ValueParam a) where
 -- there's one value param which needs funny padding, so it
 -- uses the special function
 serializeValueParam :: (Serialize a, Bits a) =>
-                       Int -> BO -> ValueParam a -> Put
-serializeValueParam pad bo (VP mask xs) = do
-  serialize bo mask
+                       Int -> ValueParam a -> Put
+serializeValueParam pad (VP mask xs) = do
+  serialize mask
   putSkip pad
   assert (length xs == setBits mask) $ return ()
-  serializeList bo xs
+  serializeList xs
   
 
 instance (Deserialize a, Bits a) => Deserialize (ValueParam a) where
     deserialize = deserializeValueParam 0
 
 deserializeValueParam :: (Deserialize a, Bits a) =>
-                         Int -> BO -> Get (ValueParam a)
-deserializeValueParam pad bo = do
-  mask <- deserialize bo
+                         Int -> Get (ValueParam a)
+deserializeValueParam pad = do
+  mask <- deserialize
   skip pad
   let n = setBits mask
-  xs <- deserializeList bo n
+  xs <- deserializeList n
   return $ VP mask xs
 
 -- |Returns the number of bits set in the passed-in

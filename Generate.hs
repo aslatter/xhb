@@ -105,26 +105,24 @@ decodeErrorsOrEvents event = do
 
        matches name code =
            mkMatch fnName
-             [ mkPVar "bo"
-             , mkNumPat code
+             [ mkNumPat code
              ]
            (matchExp name)
 
        matchExp name = foldr1 (\x y -> x `hsApp` hsParen y)
               [ mkVar "return"
               , mkVar "liftM" `hsApp` mkVar wrapper
-              , mkAsExp (mkVar "deserialize" `hsApp` mkVar "bo")
+              , mkAsExp (mkVar "deserialize")
                         (mkTyCon "Get" `hsTyApp` mkTyCon name)
               ]
 
        defaultMatch = mkMatch fnName
-             [hsPWildCard, hsPWildCard]
+             [hsPWildCard]
              (mkConExp "Nothing")
 
 
 decodeFnType fnRetCon = foldr1 hsTyFun
-         [ mkTyCon "BO"
-         , mkTyCon "Word8"
+         [ mkTyCon "Word8"
          , mkTyCon "Maybe" `hsTyApp`
            (mkTyCon "Get" `hsTyApp`
             mkTyCon fnRetCon)
@@ -523,8 +521,7 @@ declareDeserStruct name fields =
      deserFunc :: HsDecl
      deserFunc = mkSimpleFun
                   "deserialize"
-                  [mkPVar "bo"
-                  ]
+                  []
                  (hsDo $ deserIns fields ++ [returnIt name fields])
 
 -- | Declare and instance of 'Deserialize' for a reply to an X request.
@@ -539,7 +536,7 @@ declareDeserReply name fields =
      deserFunc :: HsDecl
      deserFunc = mkSimpleFun
                  "deserialize"
-                 [mkPVar "bo"]
+                 []
                  (hsDo $ deserIns (doFields fields) ++ [declareLengthType, returnIt name fields])
 
      -- the same as the regular fields, except with more padding
@@ -562,7 +559,7 @@ declareDeserError name elems =
          deserFunc =
              mkSimpleFun
              "deserialize"
-             [mkPVar "bo"]
+             []
              (hsDo $ deserIns (makeFields elems) ++ [returnIt name elems])
 
          makeFields :: [StructElem] -> [StructElem]
@@ -576,7 +573,7 @@ declareDeserEvent name code elems special =
          (mkUnQName "Deserialize")
          [mkTyCon name]
          [mkSimpleFun "deserialize"
-                [mkPVar "bo"]
+                []
                 (hsDo $ deserIns (makeFields elems) ++ [returnIt name elems])
          ]
 
@@ -601,22 +598,20 @@ deserIns fields = mapMaybe go fields
      go (List nm _typ (Just exp))
          = return $ mkGenerator (mkPVar $ mapIdents nm) $ hsAppMany
            [mkVar "deserializeList"
-           ,mkVar "bo"
            ,hsParen $ mkVar "fromIntegral" `hsApp` mkExpr Nothing exp
            ]
 
      go (SField nm _typ) = return $ mkGenerator (mkPVar $ mapIdents nm) $
-             mkVar "deserialize" `hsApp` mkVar "bo"
+             mkVar "deserialize"
      go ExprField{} = empty -- this is probbaly wrong, but I'm not sure where we need it
      go v@(ValueParam _ vname Nothing _) =
          let nm = mapIdents $ valueParamName vname
          in return $ mkGenerator (mkPVar nm) $
-            mkVar "deserialize" `hsApp` mkVar "bo"
+            mkVar "deserialize"
      go v@(ValueParam _ vname (Just pad) _) = 
          let nm = mapIdents $ valueParamName vname
          in return $ mkGenerator (mkPVar nm) $
-            mkVar "deserializeValueParam" `hsApp` mkNumLit pad `hsApp`
-                  mkVar "bo"
+            mkVar "deserializeValueParam" `hsApp` mkNumLit pad
      go n = error $ "Pattern match fail in deserIns.go with: " ++ show n
 
 -- | Return and construct the deserialized value.
@@ -654,8 +649,7 @@ declareSerStruct name fields =
 
 
     serializeFunc = mkSimpleFun "serialize"
-          [mkPVar "bo"
-          ,mkPVar "x"]
+          [mkPVar "x"]
           (hsDo $ map hsQualifier $ mapMaybe (serField name) fields)
 
 -- | Declare an instance of "ExtensionRequest".
@@ -688,7 +682,6 @@ declareExtRequest name opCode fields = do
    serializeReqFunc = mkSimpleFun "serializeRequest"
         [mkPVar "x"
         ,mkPVar "extOpCode"
-        ,mkPVar "bo"
         ]
         (hsDo actions)
 
@@ -717,7 +710,7 @@ declareExtRequest name opCode fields = do
 
 
 putIntExp exp = mkVar "putWord8" `hsApp` exp
-serializeExp = mkVar "serialize" `hsApp` mkVar "bo"
+serializeExp = mkVar "serialize"
 
 -- | Declare and instance of 'Serialize' for a request.
 declareSerRequest :: Name -> Int -> [StructElem] -> Generate HsDecl
@@ -752,8 +745,7 @@ declareSerRequest name opCode fields = do
     
 
     serializeFunc = mkSimpleFun "serialize"
-           [mkPVar "bo"
-           ,mkPVar "x"]
+           [mkPVar "x"]
            (hsDo $ map hsQualifier $ leadingActs ++ trailingActs)
 
     serActions = mapMaybe (serField name) fields
@@ -780,21 +772,20 @@ declareSerRequest name opCode fields = do
 serField :: Name -> StructElem -> Maybe HsExp
 serField _ (Pad n) -- "putSkip n"
         = return $ mkVar "putSkip" `hsApp` mkNumLit n
-serField name (List lname _typ _expr) -- serializeList bo <list>
+serField name (List lname _typ _expr) -- serializeList <list>
         = return $ 
-          hsApp (mkVar "serializeList" `hsApp` mkVar "bo") $ hsParen $
+          hsApp (mkVar "serializeList") $ hsParen $
           accessField name lname
-serField name (SField fname _typ) -- serialize bo <field>
-        = return $ hsApp (mkVar "serialize" `hsApp` mkVar "bo") $ hsParen $
+serField name (SField fname _typ) -- serialize <field>
+        = return $ hsApp (mkVar "serialize") $ hsParen $
           accessField name fname
 serField name (ExprField fname typ _exp)  = serField name (SField fname typ)
-serField name (ValueParam _ mname Nothing _) -- serialize bo <field>
-        = return $ hsApp (mkVar "serialize" `hsApp` mkVar "bo") $ hsParen $
+serField name (ValueParam _ mname Nothing _) -- serialize <field>
+        = return $ hsApp (mkVar "serialize") $ hsParen $
           accessField name $ valueParamName mname
 serField name (ValueParam typ mname (Just pad) lname)
         = return $ hsApp (mkVar "serializeValueParam" `hsApp`
-                          mkNumLit pad `hsApp`
-                          mkVar "bo") $ hsParen $
+                          mkNumLit pad) $ hsParen $
           accessField name $ valueParamName mname
 
 addExp :: HsExp -> HsExp -> HsExp

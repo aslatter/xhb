@@ -33,8 +33,7 @@ serializeExtensionRequest c req = do
   let present = _extensionPresent extRep
       opCode = _extensionOpCode extRep
 
-      bo = byteOrderFromConn c
-      putAction = serializeRequest req opCode bo
+      putAction = serializeRequest req opCode
 
   assert present $ return ()
   return putAction

@@ -7,7 +7,6 @@
 module Graphics.XHB.Connection.Internal
     (sendRequest
     ,sendRequestWithReply
-    ,byteOrderFromConn
     ,lookupExtension
     ,cacheExtension
     ,Connection
@@ -53,8 +52,6 @@ sendRequestWithReply c bytes r = withConnectionHandle c $ \h -> do
   atomically $ do
     seq <- nextSequence c
     writeTChan (conn_reps c) $ PendedReply seq $ WrappedReply r
-
-byteOrderFromConn = conf_byteorder . conn_conf 
 
 
 -- Returns the next sequence ID
