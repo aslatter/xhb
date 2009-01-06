@@ -1,6 +1,6 @@
 Name:         xhb
 Version:      0.0$if(DateString)$.$DateString$$else$$endif$
-Cabal-Version:  >= 1.2
+Cabal-Version:  >= 1.2.3
 Synopsis:     X Haskell Bindings
 Description:
   Provides low-level bindings to the X11 protocol.
