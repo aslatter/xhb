@@ -154,7 +154,7 @@ connTyName = packagePrefix ++ ".Connection.Types.Connection"
 makeReceipt :: RequestInfo -> [HsStmt]
 makeReceipt req | hasReply req = return $
                    mkGenerator (mkPVar "receipt")
-                               (mkVar "newEmptyTMVarIO")
+                               (mkVar "newEmptyReceiptIO")
                 | otherwise = empty
 
 sendRequest :: RequestInfo -> [HsStmt]

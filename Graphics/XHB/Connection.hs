@@ -97,10 +97,11 @@ pollTChan tc = do
    else Just `liftM` readTChan tc
 
 getReply :: Receipt a -> IO (Either SomeError a)
-getReply r = atomically $ do
-               a <- takeTMVar r
-               putTMVar r a
-               return a
+getReply (MkReceipt r)
+    = atomically $ do
+        a <- takeTMVar r
+        putTMVar r a
+        return a
 
 
 -- | If you don't feel like writing error handlers, but at least want to know that
@@ -246,7 +247,7 @@ readLoopReply rl genRep chunk = do
      then case pended_reply nextPend of
             WrappedReply replyHole -> 
                 let reply = flip runGet bytes $ deserializeInReadLoop rl
-                in putTMVar replyHole $ Right reply
+                in putReceipt replyHole $ Right reply
      else unGetTChan (read_reps rl) nextPend
 
 
@@ -263,7 +264,7 @@ readLoopError rl genRep chunk = do
     nextPend <- readTChan $ read_reps rl
     if (pended_sequence nextPend) == (grep_sequence genRep)
      then case pended_reply nextPend of
-            WrappedReply replyHole -> putTMVar replyHole (Left err)
+            WrappedReply replyHole -> putReceipt replyHole (Left err)
      else do
        unGetTChan (read_reps rl) nextPend
        writeTChan (read_error_queue rl) err

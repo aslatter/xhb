@@ -26,7 +26,12 @@ import Foreign.C.String
 import qualified Data.ByteString.Lazy as BS
 import Data.ByteString.Lazy (ByteString)
 
-import Control.Concurrent.STM (TMVar)
+import Control.Concurrent.STM
+    ( TMVar
+    , STM
+    , putTMVar
+    , newEmptyTMVarIO
+    )
 
 import System.ByteOrder
 
@@ -131,7 +136,14 @@ type ExtensionId = String -- limited to ASCII
 -- In units of four bytes
 type ReplyLength = Word32
 
-type Receipt a = TMVar (Either SomeError a)
+newtype Receipt a = MkReceipt
+    {unReceipt :: TMVar (Either SomeError a)}
+
+newEmptyReceiptIO :: IO (Receipt a)
+newEmptyReceiptIO = MkReceipt `fmap` newEmptyTMVarIO
+
+putReceipt :: Receipt a -> Either SomeError a -> STM ()
+putReceipt = putTMVar . unReceipt
 
 -- Because new errors and events are introduced with each extension,
 -- I don't want to give the users of this library pattern-match
