@@ -2,6 +2,20 @@
 -- as well as tie together core functionality.
 
 
+{- |
+
+X Haskell Bindings
+This module containes (or re-exports) the core functionality needed to
+communicate with an X server.
+
+No frills.
+
+If you'd like to work with an extension to the X Protocol, you should be
+able to find what you're looking for in one of the Graphics.XHB.Gen.*
+modules.  Also, the module Graphics.XHB.Connection.Extension may be of use.
+
+-}
+
 module Graphics.XHB
     ( module Graphics.XHB.Connection
     , module Graphics.XHB.Gen.Xproto

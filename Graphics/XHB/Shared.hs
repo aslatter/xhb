@@ -31,6 +31,9 @@ import Control.Concurrent.STM
     , STM
     , putTMVar
     , newEmptyTMVarIO
+    , takeTMVar
+    , putTMVar
+    , atomically
     )
 
 import System.ByteOrder
@@ -144,6 +147,15 @@ newEmptyReceiptIO = MkReceipt `fmap` newEmptyTMVarIO
 
 putReceipt :: Receipt a -> Either SomeError a -> STM ()
 putReceipt = putTMVar . unReceipt
+
+-- | Extracts a reply from the receipt from the request.
+-- Blocks until the reply is available.
+getReply :: Receipt a -> IO (Either SomeError a)
+getReply (MkReceipt r)
+    = atomically $ do
+        a <- takeTMVar r
+        putTMVar r a
+        return a
 
 -- Because new errors and events are introduced with each extension,
 -- I don't want to give the users of this library pattern-match

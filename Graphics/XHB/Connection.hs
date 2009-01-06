@@ -1,8 +1,16 @@
+{- |
+
+Basic functions for initiating and working with a connection to an
+X11 server.
+
+-}
+
 module Graphics.XHB.Connection
     (Connection
     ,connect
     ,connectTo
     ,displayInfo
+    ,connectionSetup
     ,mkConnection
     ,newResource
     ,pollForEvent
@@ -10,11 +18,9 @@ module Graphics.XHB.Connection
     ,pollForError
     ,waitForError
     ,setCrashOnError
-    ,connectionSetup
     ,SomeError
     ,SomeEvent
     ,getRoot
-    ,getReply
     )
     where
 
@@ -95,13 +101,6 @@ pollTChan tc = do
   empty <- isEmptyTChan tc
   if empty then return Nothing
    else Just `liftM` readTChan tc
-
-getReply :: Receipt a -> IO (Either SomeError a)
-getReply (MkReceipt r)
-    = atomically $ do
-        a <- takeTMVar r
-        putTMVar r a
-        return a
 
 
 -- | If you don't feel like writing error handlers, but at least want to know that
@@ -427,6 +426,13 @@ setupRequest auth = MkSetupRequest
         Just (Xauth n d) -> (genericLength n, n, genericLength d, d)
 
 
-
+-- | I plan on deprecating this one soon, but until I put together
+-- some sort of 'utils' package, it will live here.
+--
+-- Given a connection, this function returns the root window of the
+-- first screen.
+--
+-- If your display string specifies a screen other than the first,
+-- this probably doesnt do what you want.
 getRoot :: Connection -> WINDOW
 getRoot = root_SCREEN . head . roots_Setup . conf_setup . conn_conf
