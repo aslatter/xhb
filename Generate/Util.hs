@@ -5,7 +5,8 @@ import Data.Char
 
 ensureUpper :: String -> String
 ensureUpper [] = []
-ensureUpper (x:xs) = (toUpper x) : xs
+ensureUpper (x:xs) = toUpper x : xs
+
 
 -- | filterAccum f xs = (filter f xs, filter (not . f) xs)
 filterAccum :: (a -> Bool) -> [a] -> ([a],[a])

@@ -25,12 +25,12 @@ import Control.Monad.Maybe
 -- | Returns the name of the Haskell module containing the type
 -- declarations for a given XCB module.
 typesModName :: XHeader -> String
-typesModName xhd = typesModuleName $ interCapsName xhd
+typesModName = typesModuleName . interCapsName
 
 -- | Returns the name of the Haskell module containing the function
 -- definitions for a given XCB module.
 functionsModName :: XHeader -> String
-functionsModName xhd = functionsModuleName $ interCapsName xhd
+functionsModName = functionsModuleName . interCapsName
 
 -- | Returns the name of an X module in InterCaps.
 interCapsName :: XHeader -> String
@@ -39,7 +39,7 @@ interCapsName xhd = case xheader_name xhd of
                       Just name -> name
 
 ensureLower [] = []
-ensureLower (x:xs) = (toLower x) : xs
+ensureLower (x:xs) = toLower x : xs
 
 -- | Given a list of X modules, returns a list of generated Haskell modules
 -- which contain the developer friendly functions for using XHB.
@@ -183,7 +183,7 @@ resultType req | hasReply req = foldr1 hsTyApp $
                              ]
 
 replyType :: RequestInfo -> HsType
-replyType req = mkTyCon $ replyNameFromInfo req
+replyType = mkTyCon . replyNameFromInfo
 
 
 -- | Declares Haskell functions for an X module.
@@ -228,7 +228,7 @@ declareFunction ext req = do
        shortTyp = do
          fieldTypes <- fieldsToTypes fields
          return $ foldr1 hsTyFun $
-             (mkTyCon connTyName) : fieldTypes ++ [resultType req]
+             mkTyCon connTyName : fieldTypes ++ [resultType req]
                                 
 
        longType = foldr1 hsTyFun $
@@ -256,7 +256,7 @@ declareFunction ext req = do
        -- TODO: share constructor name between
        -- generation condebases.
        constructor :: HsExp
-       constructor = (hsCon . mkUnQName $ "Mk" ++ request_name req)
+       constructor = hsCon . mkUnQName $ "Mk" ++ request_name req
 
        fnBody :: [HsStmt]
        fnBody = concat
