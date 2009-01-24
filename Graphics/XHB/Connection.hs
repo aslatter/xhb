@@ -156,8 +156,8 @@ data ReadLoop = ReadLoop
 
 -- reverse-lookup infrastructure for extensions.  Not pretty or
 -- maybe not even fast. But it is straight-forward.
-queryExtMap :: (QueryExtensionReply -> CARD8)
-            -> ReadLoop -> CARD8 -> IO (Maybe (ExtensionId, CARD8))
+queryExtMap :: (QueryExtensionReply -> Word8)
+            -> ReadLoop -> Word8 -> IO (Maybe (ExtensionId, Word8))
 queryExtMap f r code = do
   ext_map <- atomically . readTVar $ read_extensions r
   return $ findFromCode ext_map
@@ -171,13 +171,13 @@ queryExtMap f r code = do
          where num = f extInfo
 
 -- | Returns the extension id and the base event code
-extensionIdFromEventCode :: ReadLoop -> CARD8
-                         -> IO (Maybe (ExtensionId, CARD8))
+extensionIdFromEventCode :: ReadLoop -> Word8
+                         -> IO (Maybe (ExtensionId, Word8))
 extensionIdFromEventCode = queryExtMap first_event_QueryExtensionReply
 
 -- | Returns the extension id and the base error code
-extensionIdFromErrorCode :: ReadLoop -> CARD8
-                         -> IO (Maybe (ExtensionId, CARD8))
+extensionIdFromErrorCode :: ReadLoop -> Word8
+                         -> IO (Maybe (ExtensionId, Word8))
 extensionIdFromErrorCode = queryExtMap first_error_QueryExtensionReply
 
 

@@ -71,9 +71,20 @@ toHsType (QualType qual name) = do
 -- This function maps those strings to the appropriate Haskell
 -- types.
 mapTyNames :: String -> String
+-- mappings to equivalent CTypes
 mapTyNames "char" = "CChar"
 mapTyNames "void" = "Word8"
 mapTyNames "float" = "CFloat"
 mapTyNames "double" = "CDouble"
+-- mappings to roughly equivalent Haskell types
+mapTyNames "BOOL" = "Bool"
+-- mappings to equivalent Hasekll types
+mapTyNames "CARD8" = "Word8"
+mapTyNames "CARD16" = "Word16"
+mapTyNames "CARD32" = "Word32"
+mapTyNames "INT8" = "Int8"
+mapTyNames "INT16"= "Int16"
+mapTyNames "INT32" = "Int32"
+mapTyNames "BYTE" = "Word8"
 mapTyNames x = x
 

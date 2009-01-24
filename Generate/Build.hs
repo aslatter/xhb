@@ -23,6 +23,7 @@ newXhbTypesModule = addImports . mkModule . typesModuleName
 
     where addStandardImports = appMany $ map (addImport . mkImport)
               ["Data.Word"
+              ,"Data.Int"
               ,"Foreign.C.Types"
               ,"Data.Bits"
               ,"Data.Binary.Put"

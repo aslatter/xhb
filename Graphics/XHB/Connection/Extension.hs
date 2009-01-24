@@ -70,4 +70,4 @@ _extensionOpCode :: QueryExtensionReply -> RequestOpCode
 _extensionOpCode = major_opcode_QueryExtensionReply
 
 _extensionPresent :: QueryExtensionReply -> Bool
-_extensionPresent = (/= 0) . present_QueryExtensionReply
+_extensionPresent = present_QueryExtensionReply

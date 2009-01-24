@@ -699,7 +699,8 @@ declareExtRequest name opCode fields = do
    sizeCalc :: HsExp
    sizeCalc = L.foldl1' addExp $ mkNumLit 4 : sizeActions
 
-   putSize = hsApp serializeExp $ hsParen $ mkAsExp sizeExp $ mkTyCon "INT16"
+   putSize = hsApp serializeExp $ hsParen $ mkAsExp sizeExp
+             $ mkTyCon (mapTyNames "INT16")
 
    sizeExp = hsApp (mkVar "convertBytesToRequestSize") $
              mkVar "size__"
@@ -759,7 +760,8 @@ declareSerRequest name opCode fields = do
     -- 'putSize', 'sizeExp' and 'putPadding' are similar to
     -- but not quite the same as the functions for extension
     -- reqeusts above.
-    putSize = hsApp serializeExp $ hsParen $ mkAsExp sizeExp $ mkTyCon "INT16"
+    putSize = hsApp serializeExp $ hsParen $ mkAsExp sizeExp
+              $ mkTyCon (mapTyNames "INT16")
 
     sizeExp = hsApp (mkVar "convertBytesToRequestSize") $
                 hsParen $ mkVar "size" `hsApp` mkVar "x"

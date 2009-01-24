@@ -38,14 +38,6 @@ module Graphics.XHB
     , Event(..)
     , SomeEvent
     , UnknownEvent(..)
-    , CARD8
-    , CARD16
-    , CARD32
-    , INT8
-    , INT16
-    , INT32
-    , BOOL
-    , BYTE
      ) where
 
 import Graphics.XHB.Connection

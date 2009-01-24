@@ -1,6 +1,6 @@
 diff -u -r generated/1.3/Graphics/XHB/Gen/Damage.hs patched/Graphics/XHB/Gen/Damage.hs
---- generated/1.3/Graphics/XHB/Gen/Damage.hs	2009-01-04 13:43:43.000000000 -0600
-+++ patched/Graphics/XHB/Gen/Damage.hs	2009-01-04 13:43:43.000000000 -0600
+--- generated/1.3/Graphics/XHB/Gen/Damage.hs	2009-01-24 13:37:29.000000000 -0600
++++ patched/Graphics/XHB/Gen/Damage.hs	2009-01-24 13:37:30.000000000 -0600
 @@ -2,6 +2,7 @@
         (extension, queryVersion, create, destroy, subtract, add,
          module Graphics.XHB.Gen.Damage.Types)
@@ -10,8 +10,8 @@ diff -u -r generated/1.3/Graphics/XHB/Gen/Damage.hs patched/Graphics/XHB/Gen/Dam
  import Graphics.XHB.Connection.Internal
  import Graphics.XHB.Connection.Extension
 diff -u -r generated/1.3/Graphics/XHB/Gen/RandR/Types.hs patched/Graphics/XHB/Gen/RandR/Types.hs
---- generated/1.3/Graphics/XHB/Gen/RandR/Types.hs	2009-01-04 13:43:43.000000000 -0600
-+++ patched/Graphics/XHB/Gen/RandR/Types.hs	2009-01-04 13:43:43.000000000 -0600
+--- generated/1.3/Graphics/XHB/Gen/RandR/Types.hs	2009-01-24 13:37:29.000000000 -0600
++++ patched/Graphics/XHB/Gen/RandR/Types.hs	2009-01-24 13:37:30.000000000 -0600
 @@ -17,8 +17,8 @@
          SetCrtcConfigReply(..), GetCrtcGammaSize(..),
          GetCrtcGammaSizeReply(..), GetCrtcGamma(..), GetCrtcGammaReply(..),
@@ -22,8 +22,8 @@ diff -u -r generated/1.3/Graphics/XHB/Gen/RandR/Types.hs patched/Graphics/XHB/Ge
 +        Notify(..),NotifyData(..))
         where
  import Data.Word
- import Foreign.C.Types
-@@ -1167,11 +1167,11 @@
+ import Data.Int
+@@ -1168,11 +1168,11 @@
                      mwidth
                      mheight)
   
@@ -39,10 +39,13 @@ diff -u -r generated/1.3/Graphics/XHB/Gen/RandR/Types.hs patched/Graphics/XHB/Ge
          toValue NotifyCrtcChange{} = 0
          toValue NotifyOutputChange{} = 1
          toValue NotifyOutputProperty{} = 2
-@@ -1305,6 +1305,30 @@
+@@ -1305,7 +1305,33 @@
+                status <- deserialize
                 skip 11
                 return (MkOutputProperty window output atom timestamp status)
-  
+- 
++
++
 +data NotifyData = NotifyDataCrtcChange CrtcChange
 +                | NotifyDataOutputChange OutputChange
 +                | NotifyDataOutputProperty OutputProperty
@@ -62,15 +65,16 @@ diff -u -r generated/1.3/Graphics/XHB/Gen/RandR/Types.hs patched/Graphics/XHB/Ge
 +deserializeNotifyData NotifyOutputChange = NotifyDataOutputChange `liftM` deserialize
 +deserializeNotifyData NotifyOutputProperty = NotifyDataOutputProperty `liftM` deserialize
 +
-+subCodeToNotifyEnum :: CARD8 -> NotifyEnum
++subCodeToNotifyEnum :: Word8 -> NotifyEnum
 +subCodeToNotifyEnum 0 = NotifyCrtcChange
 +subCodeToNotifyEnum 1 = NotifyOutputChange
 +subCodeToNotifyEnum 2 = NotifyOutputProperty
 +
- data Notify = MkNotify{subCode_Notify :: CARD8,
++
+ data Notify = MkNotify{subCode_Notify :: Word8,
                         u_Notify :: NotifyData}
              deriving (Show, Typeable)
-@@ -1316,5 +1340,5 @@
+@@ -1317,5 +1343,5 @@
            = do skip 1
                 subCode <- deserialize
                 skip 2
@@ -79,8 +83,8 @@ diff -u -r generated/1.3/Graphics/XHB/Gen/RandR/Types.hs patched/Graphics/XHB/Ge
                 return (MkNotify subCode u)
 \ No newline at end of file
 diff -u -r generated/1.3/Graphics/XHB/Gen/XFixes/Types.hs patched/Graphics/XHB/Gen/XFixes/Types.hs
---- generated/1.3/Graphics/XHB/Gen/XFixes/Types.hs	2009-01-04 13:43:43.000000000 -0600
-+++ patched/Graphics/XHB/Gen/XFixes/Types.hs	2009-01-04 13:43:43.000000000 -0600
+--- generated/1.3/Graphics/XHB/Gen/XFixes/Types.hs	2009-01-24 13:37:29.000000000 -0600
++++ patched/Graphics/XHB/Gen/XFixes/Types.hs	2009-01-24 13:37:30.000000000 -0600
 @@ -3,7 +3,7 @@
          QueryVersionReply(..), SaveSetMode(..), SaveSetTarget(..),
          SaveSetMapping(..), ChangeSaveSet(..), SelectionEvent(..),
@@ -90,7 +94,7 @@ diff -u -r generated/1.3/Graphics/XHB/Gen/XFixes/Types.hs patched/Graphics/XHB/G
          CursorNotify(..), SelectCursorInput(..), GetCursorImage(..),
          GetCursorImageReply(..), REGION, CreateRegion(..),
          CreateRegionFromBitmap(..), CreateRegionFromWindow(..),
-@@ -208,9 +208,9 @@
+@@ -209,9 +209,9 @@
                 serialize (event_mask_SelectSelectionInput x)
                 putSkip (requiredPadding size__)
   
@@ -103,8 +107,8 @@ diff -u -r generated/1.3/Graphics/XHB/Gen/XFixes/Types.hs patched/Graphics/XHB/G
          fromValue 0 = CursorNotifyDisplayCursor
   
 diff -u -r generated/1.3/Graphics/XHB/Gen/Xproto/Types.hs patched/Graphics/XHB/Gen/Xproto/Types.hs
---- generated/1.3/Graphics/XHB/Gen/Xproto/Types.hs	2009-01-04 13:43:43.000000000 -0600
-+++ patched/Graphics/XHB/Gen/Xproto/Types.hs	2009-01-04 13:43:43.000000000 -0600
+--- generated/1.3/Graphics/XHB/Gen/Xproto/Types.hs	2009-01-24 13:37:29.000000000 -0600
++++ patched/Graphics/XHB/Gen/Xproto/Types.hs	2009-01-24 13:37:30.000000000 -0600
 @@ -16,7 +16,7 @@
          ResizeRequest(..), Place(..), CirculateNotify(..),
          CirculateRequest(..), Property(..), PropertyNotify(..),
@@ -114,7 +118,7 @@ diff -u -r generated/1.3/Graphics/XHB/Gen/Xproto/Types.hs patched/Graphics/XHB/G
          Mapping(..), MappingNotify(..), Request(..), Value(..), Window(..),
          Pixmap(..), Atom(..), Cursor(..), Font(..), Match(..),
          Drawable(..), Access(..), Alloc(..), Colormap(..), GContext(..),
-@@ -547,6 +547,7 @@
+@@ -548,6 +548,7 @@
                 serialize (protocol_minor_version_SetupRequest x)
                 serialize (authorization_protocol_name_len_SetupRequest x)
                 serialize (authorization_protocol_data_len_SetupRequest x)
@@ -122,7 +126,7 @@ diff -u -r generated/1.3/Graphics/XHB/Gen/Xproto/Types.hs patched/Graphics/XHB/G
                 serializeList (authorization_protocol_name_SetupRequest x)
                 serializeList (authorization_protocol_data_SetupRequest x)
          size x
-@@ -555,6 +556,7 @@
+@@ -556,6 +557,7 @@
                + size (protocol_minor_version_SetupRequest x)
                + size (authorization_protocol_name_len_SetupRequest x)
                + size (authorization_protocol_data_len_SetupRequest x)
@@ -130,7 +134,7 @@ diff -u -r generated/1.3/Graphics/XHB/Gen/Xproto/Types.hs patched/Graphics/XHB/G
                + sum (map size (authorization_protocol_name_SetupRequest x))
                + sum (map size (authorization_protocol_data_SetupRequest x))
   
-@@ -566,6 +568,7 @@
+@@ -567,6 +569,7 @@
                 protocol_minor_version <- deserialize
                 authorization_protocol_name_len <- deserialize
                 authorization_protocol_data_len <- deserialize
@@ -138,15 +142,15 @@ diff -u -r generated/1.3/Graphics/XHB/Gen/Xproto/Types.hs patched/Graphics/XHB/G
                 authorization_protocol_name <- deserializeList
                                                  (fromIntegral authorization_protocol_name_len)
                 authorization_protocol_data <- deserializeList
-@@ -1329,6 +1332,51 @@
-                                        y_ReparentNotify :: INT16,
-                                        override_redirect_ReparentNotify :: BOOL}
+@@ -1330,6 +1333,51 @@
+                                        y_ReparentNotify :: Int16,
+                                        override_redirect_ReparentNotify :: Bool}
                      deriving (Show, Typeable)
 +
 + 
-+data ClientMessageData = ClientData8  [CARD8]  -- ^length 20
-+                       | ClientData16 [CARD16] -- ^length 10
-+                       | ClientData32 [CARD32] -- ^length 5
++data ClientMessageData = ClientData8  [Word8]  -- ^length 20
++                       | ClientData16 [Word16] -- ^length 10
++                       | ClientData32 [Word32] -- ^length 5
 +                   deriving (Show, Typeable)
 +
 + 
@@ -181,7 +185,7 @@ diff -u -r generated/1.3/Graphics/XHB/Gen/Xproto/Types.hs patched/Graphics/XHB/G
 +deserializeClientData CDType32
 +    = ClientData32 `liftM` deserializeList 5
 + 
-+clientDataFormatToType :: CARD8 -> ClientMessageDataType
++clientDataFormatToType :: Word8 -> ClientMessageDataType
 +clientDataFormatToType 8 = CDType8
 +clientDataFormatToType 16 = CDType16
 +clientDataFormatToType 32 = CDType32
@@ -190,7 +194,7 @@ diff -u -r generated/1.3/Graphics/XHB/Gen/Xproto/Types.hs patched/Graphics/XHB/G
   
  instance Graphics.XHB.Shared.Event ReparentNotify
   
-@@ -1635,7 +1683,7 @@
+@@ -1636,7 +1684,7 @@
                 skip 2
                 window <- deserialize
                 type_ <- deserialize
@@ -199,19 +203,21 @@ diff -u -r generated/1.3/Graphics/XHB/Gen/Xproto/Types.hs patched/Graphics/XHB/G
                 return (MkClientMessage format window type_ data_)
   
  data Mapping = MappingModifier
-@@ -3604,6 +3652,9 @@
- odd_length_QueryTextExtents :: QueryTextExtents -> BOOL
+@@ -3604,7 +3652,10 @@
+  
+ odd_length_QueryTextExtents :: QueryTextExtents -> Bool
  odd_length_QueryTextExtents x
-   = (fromIntegral (string_len_QueryTextExtents x .&. 1))
+-  = (fromIntegral (string_len_QueryTextExtents x .&. 1))
++  = wordToBool (string_len_QueryTextExtents x .&. 1)
 +
 +string_len_QueryTextExtents :: QueryTextExtents -> Word8
 +string_len_QueryTextExtents x = genericLength $ string_QueryTextExtents x
   
  instance Serialize QueryTextExtents where
          serialize x
-@@ -5362,10 +5413,11 @@
+@@ -5363,10 +5414,11 @@
                 putSkip 1
-                serialize (convertBytesToRequestSize (size x) :: INT16)
+                serialize (convertBytesToRequestSize (size x) :: Int16)
                 serialize (name_len_QueryExtension x)
 +               putSkip 2
                 serializeList (name_QueryExtension x)
@@ -223,13 +229,13 @@ diff -u -r generated/1.3/Graphics/XHB/Gen/Xproto/Types.hs patched/Graphics/XHB/G
   
  data QueryExtensionReply = MkQueryExtensionReply{present_QueryExtensionReply
 diff -u -r generated/1.3/Graphics/XHB/Gen/Xv/Types.hs patched/Graphics/XHB/Gen/Xv/Types.hs
---- generated/1.3/Graphics/XHB/Gen/Xv/Types.hs	2009-01-04 13:43:43.000000000 -0600
-+++ patched/Graphics/XHB/Gen/Xv/Types.hs	2009-01-04 13:43:43.000000000 -0600
+--- generated/1.3/Graphics/XHB/Gen/Xv/Types.hs	2009-01-24 13:37:29.000000000 -0600
++++ patched/Graphics/XHB/Gen/Xv/Types.hs	2009-01-24 13:37:30.000000000 -0600
 @@ -16,6 +16,7 @@
          ListImageFormatsReply(..), QueryImageAttributes(..),
          QueryImageAttributesReply(..), PutImage(..), ShmPutImage(..))
         where
 +import Prelude hiding (Rational)
  import Data.Word
+ import Data.Int
  import Foreign.C.Types
- import Data.Bits

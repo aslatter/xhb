@@ -50,18 +50,6 @@ byteOrderToNum BigEndian = fromEnum '\o102' -- B
 byteOrderToNum LittleEndian = fromEnum '\o154' -- l
 byteOrderToNum Mixed{} = error "Mixed endian platforms not supported."
 
-type CARD8  = Word8
-type CARD16 = Word16
-type CARD32 = Word32
-
-type INT32 = Int32
-type INT16 = Int16
-type INT8  = Int8
-
-type BOOL = Word8
-
-type BYTE = Word8
-
 newtype Xid = MkXid Word32
  deriving (Eq, Ord, Serialize, Deserialize)
 
@@ -218,6 +206,24 @@ requiredPadding n =
 
 --Instances
 
+
+instance Serialize Bool where
+    serialize = serialize `fmap` boolToWord
+    size = size . boolToWord
+
+instance Deserialize Bool where
+    deserialize = wordToBool `fmap` deserialize
+
+boolToWord :: Bool -> Word8
+wordToBool :: Word8 -> Bool
+
+boolToWord True = 1
+boolToWord False = 0
+
+wordToBool 0 = False
+wordToBool _ = True
+
+
 -- Words
 instance Serialize Word8 where
     serialize = putWord8
@@ -369,5 +375,5 @@ putSkip :: Int -> Put
 putSkip 0 = return ()
 putSkip n = replicateM_ n $ putWord8 0
 
-isCard32 :: CARD32 -> a
+isCard32 :: Word32 -> a
 isCard32 = undefined

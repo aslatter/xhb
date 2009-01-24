@@ -125,6 +125,8 @@ newCoreModule xhd =
              ,"Data.Binary.Put"
              ,"Control.Concurrent.STM"
              ,"Foreign.C.Types"
+             ,"Data.Word"
+             ,"Data.Int"
              ]
 
        doQualImports = addImport $ mkQualImport $
@@ -142,6 +144,8 @@ newExtensionModule xhd =
              , packagePrefix ++ ".Connection.Types"
              , "Control.Concurrent.STM"
              , "Foreign.C.Types"
+             , "Data.Word"
+             , "Data.Int"
              ]
 
        doSomeImports = addImport $ mkSomeImport "Data.Binary.Put" ["runPut"]
