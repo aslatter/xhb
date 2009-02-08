@@ -21,6 +21,7 @@ module Graphics.XHB
     , module Graphics.XHB.Gen.Xproto
     , Xid
     , XidLike(..)
+    , xidNone
     , SimpleEnum(..)
     , BitEnum(..)
     , fromMask

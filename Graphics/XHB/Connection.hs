@@ -243,10 +243,7 @@ readLoopReply rl genRep chunk = do
   atomically $ do
     nextPend <- readTChan $ read_reps rl
     if (pended_sequence nextPend) == (grep_sequence genRep)
-     then case pended_reply nextPend of
-            WrappedReply replyHole -> 
-                let reply = flip runGet bytes $ deserializeInReadLoop rl
-                in putReceipt replyHole $ Right reply
+     then putReceipt (pended_reply nextPend) $ Right bytes
      else unGetTChan (read_reps rl) nextPend
 
 
@@ -262,8 +259,7 @@ readLoopError rl genRep chunk = do
   atomically $ do
     nextPend <- readTChan $ read_reps rl
     if (pended_sequence nextPend) == (grep_sequence genRep)
-     then case pended_reply nextPend of
-            WrappedReply replyHole -> putReceipt replyHole (Left err)
+     then putReceipt (pended_reply nextPend) $ Left err 
      else do
        unGetTChan (read_reps rl) nextPend
        writeTChan (read_error_queue rl) err

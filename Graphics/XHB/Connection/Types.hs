@@ -36,7 +36,5 @@ type SequenceId = Word16
 
 data PendedReply = PendedReply
     {pended_sequence :: SequenceId
-    ,pended_reply :: WrappedReply
+    ,pended_reply :: RawReceipt
     }
-
-data WrappedReply = forall a . Deserialize a => WrappedReply (Receipt a)

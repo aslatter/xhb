@@ -10,7 +10,7 @@ import Control.Exception(assert)
 import Data.XCB
 
 import HaskellCombinators
-import Generate(valueParamName,mapAlt,xImport,mapIdents)
+import Generate(valueParamName,mapAlt,xImport,mapIdents,fieldName,fieldType)
 import Generate.Monad
 import Generate.Facts
 import Generate.Util
@@ -127,6 +127,7 @@ newCoreModule xhd =
              ,"Foreign.C.Types"
              ,"Data.Word"
              ,"Data.Int"
+             ,"Data.Binary.Get"
              ]
 
        doQualImports = addImport $ mkQualImport $
@@ -146,6 +147,7 @@ newExtensionModule xhd =
              , "Foreign.C.Types"
              , "Data.Word"
              , "Data.Int"
+             , "Data.Binary.Get"
              ]
 
        doSomeImports = addImport $ mkSomeImport "Data.Binary.Put" ["runPut"]
@@ -155,19 +157,38 @@ exportTypesMod = addExport . mkExportModule . typesModName
 
 connTyName = packagePrefix ++ ".Connection.Types.Connection"
 
-makeReceipt :: RequestInfo -> [HsStmt]
-makeReceipt req | hasReply req = return $
-                   mkGenerator (mkPVar "receipt")
-                               (mkVar "newEmptyReceiptIO")
-                | otherwise = empty
 
+makeReceipt :: RequestInfo -> [HsStmt]
+makeReceipt req
+    | not (hasReply req) = empty
+
+    | unaryReply req = return $ mkBinding $
+       hsApp (mkVar "newEmptyReceipt") $ hsParen $
+       hsApp (mkVar "runGet") $ hsParen $
+       hsInfixApp (mkVar unaryReplyAccessorName)
+                  (mkQOpIdent "fmap")
+                  (mkVar "deserialize")
+
+    | otherwise = return $ mkBinding $
+       mkVar "newDeserReceipt"
+
+ where
+   mkBinding = mkGenerator (hsPTuple [mkPVar "receipt", mkPVar "rReceipt"])
+   
+   unaryReplyAccessorName = accessor elemName name
+    where name = replyName (request_name req)
+          elemName = maybe (error $ "Failure in mkReceiptForReply! " ++ show req) id $
+                     firstReplyElem req >>= fieldName
+
+
+-- send rReceipt, bu still return receipt
 sendRequest :: RequestInfo -> [HsStmt]
 sendRequest req | hasReply req = map hsQualifier
                    [foldl1 hsApp $ map mkVar $
                     ["sendRequestWithReply"
                     ,"c"
                     ,"chunk"
-                    ,"receipt"
+                    ,"rReceipt"
                     ]
                    ,mkVar "return" `hsApp` mkVar "receipt"
                    ]
@@ -175,16 +196,19 @@ sendRequest req | hasReply req = map hsQualifier
                     return $ (mkVar "sendRequest" `hsApp` mkVar "c")
                           `hsApp` mkVar "chunk"
 
+-- account for unary/nullary reply case
 resultType :: RequestInfo -> HsType
-resultType req | hasReply req = foldr1 hsTyApp $
-                                [mkTyCon "IO"
-                                ,mkTyCon "Receipt"
-                                ,replyType req
-                                ]
+resultType req | hasReply req = receiptType $ replyType req
                | otherwise = foldr1 hsTyApp $
                              [mkTyCon "IO"
                              ,unit_tycon
                              ]
+
+receiptType :: HsType -> HsType
+receiptType typ = foldr1 hsTyApp $
+                  [mkTyCon "IO"
+                  ,mkTyCon "Receipt"
+                  ,typ]
 
 replyType :: RequestInfo -> HsType
 replyType = mkTyCon . replyNameFromInfo
@@ -227,18 +251,30 @@ declareFunction ext req = do
 
        shortTypDec, longTypDec :: Generate HsDecl
        shortTypDec = mkTypeSig fnName [] <$> shortTyp
-       longTypDec = return $ mkTypeSig fnName [] longType
+       longTypDec  = mkTypeSig fnName [] <$> longType
+
+       resultTypeM | unaryReply req = do
+                      typM <-
+                         runMaybeT $
+                          fieldType $ fromJust $ firstReplyElem req
+                      return $ receiptType $ fromJust typM
+                   | otherwise  = return $ resultType req
 
        shortTyp = do
          fieldTypes <- fieldsToTypes fields
+         rsTyp <- resultTypeM
          return $ foldr1 hsTyFun $
-             mkTyCon connTyName : fieldTypes ++ [resultType req]
+             mkTyCon connTyName : fieldTypes ++ [rsTyp]
                                 
 
-       longType = foldr1 hsTyFun $
+       longType = do
+         rsTyp <- resultTypeM
+
+         return $ foldr1 hsTyFun $
                   [mkTyCon connTyName
-                  ,mkTyCon  $ request_name req
-                  ] ++ [resultType req]
+                  ,mkTyCon $ request_name req
+                  ,rsTyp
+                  ]
 
 
        shortFnDec = mkSimpleFun fnName
@@ -305,10 +341,7 @@ fieldsToArgNames :: [StructElem] -> [String]
 fieldsToArgNames = map mapIdents . mapMaybe fieldToArgName
 
 fieldToArgName :: StructElem -> Maybe String
-fieldToArgName (List name _ _) = return name
-fieldToArgName (SField name _) = return name
-fieldToArgName (ValueParam _ mname _ _) = return $ valueParamName mname
-fieldToArgName _ = empty
+fieldToArgName = fieldName
 
 -- | The types corresponding to the args from "fieldsToArgNames".
 fieldsToTypes :: [StructElem] -> Generate [HsType]
@@ -317,12 +350,7 @@ fieldsToTypes elems =
      return xs
 
 fieldToType :: StructElem -> MaybeT Generate HsType
-fieldToType (SField _ typ) = toHsType typ
-fieldToType (List _ typ _) = listType <$> toHsType typ
-    where listType t = list_tycon `hsTyApp` t
-fieldToType (ValueParam typ _ _ _) = vpType <$> toHsType typ
-    where vpType t = mkTyCon "ValueParam" `hsTyApp` t
-fieldToType _ = empty
+fieldToType = fieldType
 
 {-
 -- | Converts a 'Type' to a 'String' usable by 'mkTyCon'.
@@ -358,6 +386,27 @@ requestFields = filter go . request_elems
 -- | Returns true if a request has a reply
 hasReply :: RequestInfo -> Bool
 hasReply = not . isNothing . request_reply
+
+
+-- | Return true if the reply is a unary reply - as in, has
+-- on one element
+unaryReply :: RequestInfo -> Bool
+unaryReply RequestInfo{request_reply = Just xs}
+    = 1 == length (filter interestingField xs)
+unaryReply _ = False
+
+-- | Returns the first StructElem in the reply, if there is
+-- one.
+firstReplyElem :: RequestInfo -> Maybe StructElem
+firstReplyElem = listToMaybe . filter interestingField
+                 . maybe [] id . request_reply
+
+
+interestingField :: StructElem -> Bool
+interestingField Pad{} = False
+interestingField ExprField{} = False
+interestingField _ = True
+
 
 -- | For a request, returns what the end-user Haskell function
 -- is to be named

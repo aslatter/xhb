@@ -56,6 +56,7 @@ module HaskellCombinators
     ,hsFunBind
     ,hsInfixApp
     ,hsPWildCard
+    ,hsPTuple
     ,hsInt
     ,hsString
     ,hsCon
@@ -79,6 +80,7 @@ module HaskellCombinators
     ,HsImportDecl           
     ,list_tycon
     ,unit_tycon
+    ,unit_con_name
     ,prettyPrint
     ) where
 
@@ -149,6 +151,7 @@ hsDo = HsDo
 hsFunBind = HsFunBind
 hsInfixApp = HsInfixApp
 hsPWildCard = HsPWildCard
+hsPTuple = HsPTuple
 hsInt = HsInt
 hsString = HsString
 hsCon = HsCon

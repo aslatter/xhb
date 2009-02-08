@@ -2,6 +2,10 @@
 -- Also includes class instance declarations for those types
 -- when appropriate.
 
+{-# LANGUAGE
+    FlexibleContexts  
+ #-}
+
 module Generate where
 
 import Generate.Build
@@ -409,24 +413,28 @@ declareStruct name fields = do
             return $ fromJust ys -- mapAlt never returns Nothing
 
           go :: StructElem -> ReaderT ReaderData Maybe (String, HsBangType)
-          go (Pad {})      = empty
-          go (List nm tp _) = 
-              do hsType <- listType <$> toHsType tp
-                 return $
-                  (accessor nm name, hsUnBangedTy hsType)
-              where listType = hsTyApp list_tycon
-          go (SField nm tp) = do
-              hsType <- toHsType tp
-              return $ (accessor nm name, hsUnBangedTy hsType)
-          go (ValueParam typ mname _mpad _lname) = do
-            hsType <- toHsType typ
-            return $
-             let nme = valueParamName mname
-                 vTyp = hsTyApp (mkTyCon "ValueParam") hsType
-             in (accessor nme name, hsUnBangedTy $ vTyp)
-  
-          go (ExprField{}) = empty -- deal with these separately
-          go selem = selemsToRecPanic selem
+          go elem = do
+            nm <- fieldName elem
+            hTp <- fieldType elem
+            return (accessor nm name, hsUnBangedTy hTp)
+
+fieldName :: Alternative a => StructElem -> a Name
+fieldName Pad{} = empty -- ignored
+fieldName (List nm tp _) = pure nm
+fieldName (SField nm tp) = pure nm
+fieldName (ValueParam _ mname _ _) = pure $ valueParamName mname
+fieldName ExprField{} = empty -- deal with these spearate
+fieldName selem = selemsToRecPanic selem
+
+fieldType :: (Alternative a, MonadReader ReaderData a) =>
+             StructElem -> a HsType
+fieldType Pad{} = empty
+fieldType (List nm tp _) = hsTyApp list_tycon <$> toHsType tp
+fieldType (SField nm tp) = toHsType tp
+fieldType (ValueParam typ _ _ _) = hsTyApp (mkTyCon "ValueParam")
+                                   <$> toHsType typ
+fieldType ExprField{} = empty
+fieldType selem = selemsToRecPanic selem
 
 valueParamName :: Name -> Name
 valueParamName mname = 
@@ -622,13 +630,6 @@ returnIt name fields = hsQualifier $ mkVar "return" `hsApp` hsParen (cons name f
 cons :: Name -> [StructElem] -> HsExp
 cons name fields = hsAppMany $
        mkConExp (conPrefix name) : mapMaybe (liftM (mkVar . mapIdents) . fieldName) fields
-
-fieldName :: StructElem -> Maybe Name
-fieldName Pad{} = empty
-fieldName (List name _ _) = Just name
-fieldName (SField name _) = Just name
-fieldName ExprField{} = empty -- has a name, but we don't want it
-fieldName (ValueParam _ name _ _) = return $ valueParamName name
 
 
 -- | Declare an instance of 'Serialize' for an X struct.

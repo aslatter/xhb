@@ -27,14 +27,6 @@ import qualified Data.ByteString.Lazy as BS
 import Data.ByteString.Lazy (ByteString)
 
 import Control.Concurrent.STM
-    ( TMVar
-    , STM
-    , putTMVar
-    , newEmptyTMVarIO
-    , takeTMVar
-    , putTMVar
-    , atomically
-    )
 
 import System.ByteOrder
 
@@ -63,6 +55,9 @@ class XidLike a where
 instance XidLike Xid where
     fromXid = id
     toXid   = id
+
+xidNone :: Xid
+xidNone = MkXid 0
 
 -- Enums and ValueParams
 
@@ -127,23 +122,40 @@ type ExtensionId = String -- limited to ASCII
 -- In units of four bytes
 type ReplyLength = Word32
 
-newtype Receipt a = MkReceipt
-    {unReceipt :: TMVar (Either SomeError a)}
+-- The Receipt type allows the sender of the request
+-- to arbitrarily munge the result before handing
+-- it back to the caller
+newtype Receipt a = MkReceipt (TVar (InnerReceipt a))
 
-newEmptyReceiptIO :: IO (Receipt a)
-newEmptyReceiptIO = MkReceipt `fmap` newEmptyTMVarIO
+type RawReceipt = TMVar (Either SomeError ByteString)
 
-putReceipt :: Receipt a -> Either SomeError a -> STM ()
-putReceipt = putTMVar . unReceipt
+data InnerReceipt a
+    = Item (Either SomeError a)
+    | Result RawReceipt (ByteString -> a)
+
+newEmptyReceipt :: (ByteString -> a) -> IO (Receipt a, RawReceipt)
+newEmptyReceipt f = do
+  rawReceipt <- newEmptyTMVarIO
+  ref <- newTVarIO $ Result rawReceipt f
+  return $ (MkReceipt ref, rawReceipt)
+
+newDeserReceipt :: Deserialize a => IO (Receipt a, RawReceipt)
+newDeserReceipt = newEmptyReceipt $ runGet deserialize
+
+putReceipt :: RawReceipt -> Either SomeError ByteString -> STM ()
+putReceipt = putTMVar
 
 -- | Extracts a reply from the receipt from the request.
 -- Blocks until the reply is available.
 getReply :: Receipt a -> IO (Either SomeError a)
-getReply (MkReceipt r)
-    = atomically $ do
-        a <- takeTMVar r
-        putTMVar r a
-        return a
+getReply (MkReceipt ref) = atomically $
+    readTVar ref >>= \ircpt -> case ircpt of
+       Item a -> return a
+       Result rrcpt f -> do
+         res <- takeTMVar rrcpt
+         let ret = either Left (Right . f) res
+         writeTVar ref $ Item ret
+         return ret
 
 -- Because new errors and events are introduced with each extension,
 -- I don't want to give the users of this library pattern-match

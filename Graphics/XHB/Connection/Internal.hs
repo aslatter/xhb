@@ -44,14 +44,14 @@ sendRequest c bytes = withConnectionHandle c $ \h -> do
 
   return ()
 
-sendRequestWithReply :: Deserialize a => Connection -> ByteString -> Receipt a -> IO ()
+sendRequestWithReply :: Connection -> ByteString -> RawReceipt -> IO ()
 sendRequestWithReply c bytes r = withConnectionHandle c $ \h -> do
 
   BS.hPut h bytes
 
   atomically $ do
     seq <- nextSequence c
-    writeTChan (conn_reps c) $ PendedReply seq $ WrappedReply r
+    writeTChan (conn_reps c) $ PendedReply seq r
 
 
 -- Returns the next sequence ID

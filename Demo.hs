@@ -60,7 +60,7 @@ demo c = do
   getChar
   putStrLn ""
 
-printIsActive rep | Xinerama.state_IsActiveReply rep == 0 = do
+printIsActive rep | rep == 0 = do
                           putStrLn ""
                           putStrLn "Xinerama is not active"
                   | otherwise = do
