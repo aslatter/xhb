@@ -1,6 +1,6 @@
-diff -u -r generated/1.3/Graphics/XHB/Gen/Damage.hs patched/Graphics/XHB/Gen/Damage.hs
---- generated/1.3/Graphics/XHB/Gen/Damage.hs	2009-01-24 13:37:29.000000000 -0600
-+++ patched/Graphics/XHB/Gen/Damage.hs	2009-01-24 13:37:30.000000000 -0600
+diff -u -r generated/1.4/Graphics/XHB/Gen/Damage.hs patched/Graphics/XHB/Gen/Damage.hs
+--- generated/1.4/Graphics/XHB/Gen/Damage.hs	2009-02-17 06:53:37.000000000 -0600
++++ patched/Graphics/XHB/Gen/Damage.hs	2009-02-17 06:53:37.000000000 -0600
 @@ -2,6 +2,7 @@
         (extension, queryVersion, create, destroy, subtract, add,
          module Graphics.XHB.Gen.Damage.Types)
@@ -9,9 +9,9 @@ diff -u -r generated/1.3/Graphics/XHB/Gen/Damage.hs patched/Graphics/XHB/Gen/Dam
  import Graphics.XHB.Gen.Damage.Types
  import Graphics.XHB.Connection.Internal
  import Graphics.XHB.Connection.Extension
-diff -u -r generated/1.3/Graphics/XHB/Gen/RandR/Types.hs patched/Graphics/XHB/Gen/RandR/Types.hs
---- generated/1.3/Graphics/XHB/Gen/RandR/Types.hs	2009-01-24 13:37:29.000000000 -0600
-+++ patched/Graphics/XHB/Gen/RandR/Types.hs	2009-01-24 13:37:30.000000000 -0600
+diff -u -r generated/1.4/Graphics/XHB/Gen/RandR/Types.hs patched/Graphics/XHB/Gen/RandR/Types.hs
+--- generated/1.4/Graphics/XHB/Gen/RandR/Types.hs	2009-02-17 06:53:37.000000000 -0600
++++ patched/Graphics/XHB/Gen/RandR/Types.hs	2009-02-17 06:53:37.000000000 -0600
 @@ -17,8 +17,8 @@
          SetCrtcConfigReply(..), GetCrtcGammaSize(..),
          GetCrtcGammaSizeReply(..), GetCrtcGamma(..), GetCrtcGammaReply(..),
@@ -82,9 +82,9 @@ diff -u -r generated/1.3/Graphics/XHB/Gen/RandR/Types.hs patched/Graphics/XHB/Ge
 +               u <- deserializeNotifyData (subCodeToNotifyEnum subCode)
                 return (MkNotify subCode u)
 \ No newline at end of file
-diff -u -r generated/1.3/Graphics/XHB/Gen/XFixes/Types.hs patched/Graphics/XHB/Gen/XFixes/Types.hs
---- generated/1.3/Graphics/XHB/Gen/XFixes/Types.hs	2009-01-24 13:37:29.000000000 -0600
-+++ patched/Graphics/XHB/Gen/XFixes/Types.hs	2009-01-24 13:37:30.000000000 -0600
+diff -u -r generated/1.4/Graphics/XHB/Gen/XFixes/Types.hs patched/Graphics/XHB/Gen/XFixes/Types.hs
+--- generated/1.4/Graphics/XHB/Gen/XFixes/Types.hs	2009-02-17 06:53:37.000000000 -0600
++++ patched/Graphics/XHB/Gen/XFixes/Types.hs	2009-02-17 06:53:37.000000000 -0600
 @@ -3,7 +3,7 @@
          QueryVersionReply(..), SaveSetMode(..), SaveSetTarget(..),
          SaveSetMapping(..), ChangeSaveSet(..), SelectionEvent(..),
@@ -106,9 +106,9 @@ diff -u -r generated/1.3/Graphics/XHB/Gen/XFixes/Types.hs patched/Graphics/XHB/G
          toValue CursorNotifyDisplayCursor{} = 0
          fromValue 0 = CursorNotifyDisplayCursor
   
-diff -u -r generated/1.3/Graphics/XHB/Gen/Xproto/Types.hs patched/Graphics/XHB/Gen/Xproto/Types.hs
---- generated/1.3/Graphics/XHB/Gen/Xproto/Types.hs	2009-01-24 13:37:29.000000000 -0600
-+++ patched/Graphics/XHB/Gen/Xproto/Types.hs	2009-01-24 13:37:30.000000000 -0600
+diff -u -r generated/1.4/Graphics/XHB/Gen/Xproto/Types.hs patched/Graphics/XHB/Gen/Xproto/Types.hs
+--- generated/1.4/Graphics/XHB/Gen/Xproto/Types.hs	2009-02-17 06:53:37.000000000 -0600
++++ patched/Graphics/XHB/Gen/Xproto/Types.hs	2009-02-17 06:53:37.000000000 -0600
 @@ -16,7 +16,7 @@
          ResizeRequest(..), Place(..), CirculateNotify(..),
          CirculateRequest(..), Property(..), PropertyNotify(..),
@@ -118,31 +118,7 @@ diff -u -r generated/1.3/Graphics/XHB/Gen/Xproto/Types.hs patched/Graphics/XHB/G
          Mapping(..), MappingNotify(..), Request(..), Value(..), Window(..),
          Pixmap(..), Atom(..), Cursor(..), Font(..), Match(..),
          Drawable(..), Access(..), Alloc(..), Colormap(..), GContext(..),
-@@ -548,6 +548,7 @@
-                serialize (protocol_minor_version_SetupRequest x)
-                serialize (authorization_protocol_name_len_SetupRequest x)
-                serialize (authorization_protocol_data_len_SetupRequest x)
-+               putSkip 2
-                serializeList (authorization_protocol_name_SetupRequest x)
-                serializeList (authorization_protocol_data_SetupRequest x)
-         size x
-@@ -556,6 +557,7 @@
-               + size (protocol_minor_version_SetupRequest x)
-               + size (authorization_protocol_name_len_SetupRequest x)
-               + size (authorization_protocol_data_len_SetupRequest x)
-+              + 2
-               + sum (map size (authorization_protocol_name_SetupRequest x))
-               + sum (map size (authorization_protocol_data_SetupRequest x))
-  
-@@ -567,6 +569,7 @@
-                protocol_minor_version <- deserialize
-                authorization_protocol_name_len <- deserialize
-                authorization_protocol_data_len <- deserialize
-+               skip 2
-                authorization_protocol_name <- deserializeList
-                                                 (fromIntegral authorization_protocol_name_len)
-                authorization_protocol_data <- deserializeList
-@@ -1330,6 +1333,51 @@
+@@ -1333,6 +1333,51 @@
                                         y_ReparentNotify :: Int16,
                                         override_redirect_ReparentNotify :: Bool}
                      deriving (Show, Typeable)
@@ -194,7 +170,7 @@ diff -u -r generated/1.3/Graphics/XHB/Gen/Xproto/Types.hs patched/Graphics/XHB/G
   
  instance Graphics.XHB.Shared.Event ReparentNotify
   
-@@ -1636,7 +1684,7 @@
+@@ -1639,7 +1684,7 @@
                 skip 2
                 window <- deserialize
                 type_ <- deserialize
@@ -203,7 +179,7 @@ diff -u -r generated/1.3/Graphics/XHB/Gen/Xproto/Types.hs patched/Graphics/XHB/G
                 return (MkClientMessage format window type_ data_)
   
  data Mapping = MappingModifier
-@@ -3604,7 +3652,10 @@
+@@ -3609,7 +3654,10 @@
   
  odd_length_QueryTextExtents :: QueryTextExtents -> Bool
  odd_length_QueryTextExtents x
@@ -215,22 +191,9 @@ diff -u -r generated/1.3/Graphics/XHB/Gen/Xproto/Types.hs patched/Graphics/XHB/G
   
  instance Serialize QueryTextExtents where
          serialize x
-@@ -5363,10 +5414,11 @@
-                putSkip 1
-                serialize (convertBytesToRequestSize (size x) :: Int16)
-                serialize (name_len_QueryExtension x)
-+               putSkip 2
-                serializeList (name_QueryExtension x)
-                putSkip (requiredPadding (size x))
-         size x
--          = 3 + 1 + size (name_len_QueryExtension x) +
-+          = 3 + 1 + size (name_len_QueryExtension x) + 2 +
-               sum (map size (name_QueryExtension x))
-  
- data QueryExtensionReply = MkQueryExtensionReply{present_QueryExtensionReply
-diff -u -r generated/1.3/Graphics/XHB/Gen/Xv/Types.hs patched/Graphics/XHB/Gen/Xv/Types.hs
---- generated/1.3/Graphics/XHB/Gen/Xv/Types.hs	2009-01-24 13:37:29.000000000 -0600
-+++ patched/Graphics/XHB/Gen/Xv/Types.hs	2009-01-24 13:37:30.000000000 -0600
+diff -u -r generated/1.4/Graphics/XHB/Gen/Xv/Types.hs patched/Graphics/XHB/Gen/Xv/Types.hs
+--- generated/1.4/Graphics/XHB/Gen/Xv/Types.hs	2009-02-17 06:53:37.000000000 -0600
++++ patched/Graphics/XHB/Gen/Xv/Types.hs	2009-02-17 06:53:37.000000000 -0600
 @@ -16,6 +16,7 @@
          ListImageFormatsReply(..), QueryImageAttributes(..),
          QueryImageAttributesReply(..), PutImage(..), ShmPutImage(..))
