@@ -10,16 +10,20 @@ ensureUpper (x:xs) = toUpper x : xs
 
 -- | filterAccum f xs = (filter f xs, filter (not . f) xs)
 filterAccum :: (a -> Bool) -> [a] -> ([a],[a])
-filterAccum _ [] = ([],[])
-filterAccum f (x:xs) =
-    let (passes, fails) = filterAccum f xs
+filterAccum f xs = go xs
+ where
+   go xs =
+       let done = null xs           
+           (y:ys) = xs
+           passed = f y
 
-        passed = f x
+           newPasses | done = []
+                     | passed = y:passes
+                     | otherwise = passes
 
-        newPasses | passed = x:passes
-                  | otherwise = passes
+           newFails | done = []
+                    | passed = fails
+                    | otherwise = y:fails
 
-        newFails | passed = fails
-                 | otherwise = x:fails
-
-    in (newPasses, newFails)
+           (passes, fails) = go ys
+        in (newPasses, newFails)

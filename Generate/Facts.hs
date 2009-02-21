@@ -24,7 +24,7 @@ replyName = (++ "Reply")
 errorDecodeFn = "deserializeError"
 eventDecodeFn = "deserializeEvent"
 
-modName :: XHeader -> Name
+modName :: GenXHeader a -> Name
 modName xhd = case xheader_name xhd of
                 Nothing -> ensureUpper $ xheader_header xhd
                 Just name -> name

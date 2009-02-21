@@ -96,7 +96,7 @@ demoCreateWindowReq c w
       100
       100
       5
-      0
+      X.WindowClassCopyFromParent
       0
       (X.toValueParam [(X.CWEventMask,X.toMask
                              [ X.EventMaskEnterWindow

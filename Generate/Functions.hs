@@ -24,16 +24,16 @@ import Control.Monad.Maybe
 
 -- | Returns the name of the Haskell module containing the type
 -- declarations for a given XCB module.
-typesModName :: XHeader -> String
+typesModName :: GenXHeader a -> String
 typesModName = typesModuleName . interCapsName
 
 -- | Returns the name of the Haskell module containing the function
 -- definitions for a given XCB module.
-functionsModName :: XHeader -> String
+functionsModName :: GenXHeader a -> String
 functionsModName = functionsModuleName . interCapsName
 
 -- | Returns the name of an X module in InterCaps.
-interCapsName :: XHeader -> String
+interCapsName :: GenXHeader a -> String
 interCapsName xhd = case xheader_name xhd of
                       Nothing -> ensureUpper $ xheader_header xhd
                       Just name -> name
@@ -44,31 +44,32 @@ ensureLower (x:xs) = toLower x : xs
 -- | Given a list of X modules, returns a list of generated Haskell modules
 -- which contain the developer friendly functions for using XHB.
 functionsModules :: [XHeader] -> [HsModule]
-functionsModules xs = map go xs
-    where go :: XHeader -> HsModule
-          go xhd =
-              let rData = ReaderData xhd xs
-              in  runReader (functionsModule xhd) rData
+functionsModules xs = map go resolved
+ 
+    where resolved =  resolveTypes xs
+
+          go :: HXHeader -> HsModule
+          go xhd = functionsModule resolved xhd
 
 -- | Generates the Haskell functions for using the functionality
 -- of the passed in X module.
-functionsModule :: XHeader -> Generate HsModule
-functionsModule xhd | isCoreModule xhd = buildCore xhd
-                    | otherwise = buildExtension xhd
+functionsModule :: [HXHeader] -> HXHeader -> HsModule
+functionsModule xs xhd | isCoreModule xhd = buildCore xhd
+                       | otherwise = buildExtension xs xhd
 
 -- | Retuns 'True' if the X module is NOT for an extension.
 isCoreModule = isNothing . xheader_xname
 
-buildExtension :: XHeader -> Generate HsModule
-buildExtension xhd = do
+buildExtension :: [HXHeader] -> HXHeader -> HsModule
+buildExtension xs xhd = 
     let emptyModule = newExtensionModule xhd
         rs = requests xhd
-    fns <- declareFunctions rs
-    let extId = declareExtensionId xhd
-    imFns <- doImports xhd
-    return $ moveExports $ applyMany (extId ++ fns ++ imFns) emptyModule
+        fns = declareFunctions xhd rs
+        extId = declareExtensionId xhd
+        imFns = doImports xs xhd
+    in moveExports $ applyMany (extId ++ fns ++ imFns) emptyModule
 
-declareExtensionId :: XHeader -> [HsModule -> HsModule]
+declareExtensionId :: HXHeader -> [HsModule -> HsModule]
 declareExtensionId xhd =
     [addDecl $ mkTypeSig extFnName [] (mkTyCon "ExtensionId")
     ,addDecl $ mkSimpleFun extFnName [] $
@@ -78,23 +79,23 @@ declareExtensionId xhd =
 
  where extFnName = "extension"
 
-doImports :: XHeader -> Generate [HsModule -> HsModule]
-doImports xhd =
+doImports :: [HXHeader] -> HXHeader -> [HsModule -> HsModule]
+doImports xs xhd =
     let decs = xheader_decls xhd
-    in sequence $ mapMaybe go decs
+    in mapMaybe go decs
     
-  where go :: XDecl -> Maybe (Generate (HsModule -> HsModule))
-        go (XImport name) = return $ xImport name
+  where go :: HXDecl -> Maybe (HsModule -> HsModule)
+        go (XImport name) = return $ xImport xs xhd name
         go _ = Nothing
 
 -- | Builds a haskel functions module for the passed in xml
 -- description.  Assumes it is not for extension requests.
-buildCore :: XHeader -> Generate HsModule
-buildCore xhd = do
+buildCore :: HXHeader -> HsModule
+buildCore xhd =
     let emptyModule = newCoreModule xhd
         rs = requests xhd
-    fns <- declareFunctions rs
-    return $ moveExports $ applyMany fns emptyModule
+        fns = declareFunctions xhd rs
+    in moveExports $ applyMany fns emptyModule
 
 -- | moves entire-module exports to end of export list
 moveExports :: HsModule -> HsModule
@@ -113,7 +114,7 @@ applyMany = foldr (flip (.)) id
 
 -- Creates a nearly empty Haskell module for the passed-in
 -- X module.  Also inserts standard Haskell imports.
-newCoreModule :: XHeader -> HsModule
+newCoreModule :: HXHeader -> HsModule
 newCoreModule xhd = 
     let name = functionsModName xhd
         mod = mkModule name
@@ -133,7 +134,7 @@ newCoreModule xhd =
        doQualImports = addImport $ mkQualImport $
                          packagePrefix ++ ".Connection.Types"
 
-newExtensionModule :: XHeader -> HsModule
+newExtensionModule :: HXHeader -> HsModule
 newExtensionModule xhd =
     let name = functionsModName xhd
         mod = mkModule name
@@ -198,7 +199,9 @@ sendRequest req | hasReply req = map hsQualifier
 
 -- account for unary/nullary reply case
 resultType :: RequestInfo -> HsType
-resultType req | hasReply req = receiptType $ replyType req
+resultType req | unaryReply req =
+                      receiptType $ fromJust $ fieldType $ fromJust $ firstReplyElem req
+               | hasReply req = receiptType $ replyType req
                | otherwise = foldr1 hsTyApp $
                              [mkTyCon "IO"
                              ,unit_tycon
@@ -215,20 +218,17 @@ replyType = mkTyCon . replyNameFromInfo
 
 
 -- | Declares Haskell functions for an X module.
-declareFunctions :: [RequestInfo] -> Generate [HsModule -> HsModule]
-declareFunctions rInfos = do
-  xhd <- current
-  mapM (declareFunction (not $ isCoreModule xhd)) rInfos
+declareFunctions :: HXHeader -> [RequestInfo] -> [HsModule -> HsModule]
+declareFunctions xhd rInfos =
+  map (declareFunction (not $ isCoreModule xhd)) rInfos
 
 -- for core requests, we can do the short form and long form
 -- because we don't have to import any other modules
 -- | Handles a single request in the core functions module.
-declareFunction :: Bool -> RequestInfo -> Generate (HsModule -> HsModule)
-declareFunction ext req = do
-  tyDec <- typDeclaration
-  
-  return $ applyMany
-   [addDecl tyDec
+declareFunction :: Bool -> RequestInfo -> (HsModule -> HsModule)
+declareFunction ext req =
+  applyMany
+   [addDecl typDeclaration
    ,addDecl fnDeclaration
    ,addExport $ mkExportAbs fnName
    ]
@@ -241,7 +241,7 @@ declareFunction ext req = do
 
        shortMode = fieldCount < bigCount
 
-       typDeclaration :: Generate HsDecl
+       typDeclaration :: HsDecl
        typDeclaration | shortMode = shortTypDec
                       | otherwise = longTypDec
 
@@ -249,32 +249,22 @@ declareFunction ext req = do
        fnDeclaration | shortMode = shortFnDec
                      | otherwise = longFnDec
 
-       shortTypDec, longTypDec :: Generate HsDecl
-       shortTypDec = mkTypeSig fnName [] <$> shortTyp
-       longTypDec  = mkTypeSig fnName [] <$> longType
+       shortTypDec, longTypDec :: HsDecl
+       shortTypDec = mkTypeSig fnName [] shortTyp
+       longTypDec  = mkTypeSig fnName [] longType
 
-       resultTypeM | unaryReply req = do
-                      typM <-
-                         runMaybeT $
-                          fieldType $ fromJust $ firstReplyElem req
-                      return $ receiptType $ fromJust typM
-                   | otherwise  = return $ resultType req
-
-       shortTyp = do
-         fieldTypes <- fieldsToTypes fields
-         rsTyp <- resultTypeM
-         return $ foldr1 hsTyFun $
-             mkTyCon connTyName : fieldTypes ++ [rsTyp]
+       shortTyp = 
+         let fieldTypes = fieldsToTypes fields
+         in foldr1 hsTyFun $
+             mkTyCon connTyName : fieldTypes ++ [resultType req]
                                 
 
-       longType = do
-         rsTyp <- resultTypeM
-
-         return $ foldr1 hsTyFun $
-                  [mkTyCon connTyName
-                  ,mkTyCon $ request_name req
-                  ,rsTyp
-                  ]
+       longType = 
+         foldr1 hsTyFun $
+                [mkTyCon connTyName
+                ,mkTyCon $ request_name req
+                ,resultType req
+                ]
 
 
        shortFnDec = mkSimpleFun fnName
@@ -337,31 +327,19 @@ applyManyExp (x:xs) = hsApp x $ hsParen $ applyManyExp xs
 
 -- | Maps the fields of a X-struct into argument names to be used
 -- in an arg-list for a Haskell function
-fieldsToArgNames :: [StructElem] -> [String]
+fieldsToArgNames :: [HStructElem] -> [String]
 fieldsToArgNames = map mapIdents . mapMaybe fieldToArgName
 
-fieldToArgName :: StructElem -> Maybe String
+fieldToArgName :: HStructElem -> Maybe String
 fieldToArgName = fieldName
 
 -- | The types corresponding to the args from "fieldsToArgNames".
-fieldsToTypes :: [StructElem] -> Generate [HsType]
-fieldsToTypes elems = 
-  do Just xs <- runMaybeT $ mapAlt fieldToType elems
-     return xs
+fieldsToTypes :: [HStructElem] -> [HsType]
+fieldsToTypes = mapMaybe fieldType
 
-fieldToType :: StructElem -> MaybeT Generate HsType
-fieldToType = fieldType
-
-{-
--- | Converts a 'Type' to a 'String' usable by 'mkTyCon'.
--- Currently fails for qualified types.
-simpleType :: Type -> Generate String
-simpleType QualType{} = error "simpleType: Unexpected qualified type"
-simpleType (UnQualType typ) = return $ mapTyNames typ
--}
 
 -- | Extracts the requests from an X module.
-requests :: XHeader -> [RequestInfo]
+requests :: HXHeader -> [RequestInfo]
 requests = mapMaybe go . xheader_decls
  where go (XRequest name code elems reply) = return $
           RequestInfo name code elems reply
@@ -370,13 +348,13 @@ requests = mapMaybe go . xheader_decls
 data RequestInfo = RequestInfo
     {request_name :: Name
     ,request_code :: Int
-    ,request_elems :: [StructElem]
-    ,request_reply :: Maybe XReply
-    }
+    ,request_elems :: [HStructElem]
+    ,request_reply :: Maybe HXReply
+    } deriving Show
 
 -- | Extracts only the fields in a request that must be specified
 -- by the library end-user.  That is, padding and such is excluded.
-requestFields :: RequestInfo -> [StructElem]
+requestFields :: RequestInfo -> [HStructElem]
 requestFields = filter go . request_elems
  where go List{} = True
        go SField{} = True
@@ -397,12 +375,12 @@ unaryReply _ = False
 
 -- | Returns the first StructElem in the reply, if there is
 -- one.
-firstReplyElem :: RequestInfo -> Maybe StructElem
+firstReplyElem :: RequestInfo -> Maybe HStructElem
 firstReplyElem = listToMaybe . filter interestingField
                  . maybe [] id . request_reply
 
 
-interestingField :: StructElem -> Bool
+interestingField :: GenStructElem a -> Bool
 interestingField Pad{} = False
 interestingField ExprField{} = False
 interestingField _ = True

@@ -55,7 +55,7 @@ mkdir -p ${OUT_DIR}
 
 
 #Go!
-runghc -Wall ${TEST_PROG} ${OUT_DIR} ${XML_DIR}/${XML_FILES} || {
+runghc ${TEST_PROG} ${OUT_DIR} ${XML_DIR}/${XML_FILES} || {
     echo "failed!"
     exit ${GENERAL_ERROR}
 }

@@ -33,15 +33,20 @@ allModules = readerData_all `liftM` ask
 -- more advanced functions
 
 -- | are we generating an extension module?
-isExtension :: Generate Bool
+isExtension :: GenXHeader a -> Bool
 isExtension = 
-    (not . isNothing . xheader_xname) <$> current
+    not . isNothing . xheader_xname
 
 lookupModule :: MonadReader ReaderData m =>
                 String -> m (Maybe XHeader)
 lookupModule name = L.find p `liftM` allModules
  where
    p xhd = xheader_header xhd == name
+
+findModule :: String -> [GenXHeader a] -> Maybe (GenXHeader a)
+findModule str xs = L.find p xs
+ where
+   p xhd = xheader_header xhd == str
 
 currentDeclarations :: Generate [XDecl]
 currentDeclarations = xheader_decls <$> current
@@ -56,16 +61,31 @@ fancyName str = do
    mod <- lookupModule str
    case mod of
      Nothing -> error $ "Error resolving module name: " ++ str
-     Just xhd ->
-         case xheader_name xhd of
-           Nothing -> return $ ensureUpper str
-           Just fname -> return fname
+     Just xhd -> return $ formatName xhd
+
+formatName :: GenXHeader a -> String
+formatName xhd
+    = ensureUpper $ case xheader_name xhd of
+        Nothing  -> xheader_header xhd
+        Just str -> str
 
 toHsType :: MonadReader ReaderData m => Type -> m HsType
 toHsType (UnQualType name) = return $ mkTyCon $ mapTyNames name
 toHsType (QualType qual name) = do
   qname <- fancyName qual
   return $ tyCon $ mkQName (typesModuleName qname) name
+
+resolveTypes :: [XHeader] -> [HXHeader]
+resolveTypes xs = map (resolveTypes' xs) xs
+
+resolveTypes' xs x = mapTypes f x
+ where f typ = flip runReader r $ toHsType typ
+       r = ReaderData x xs
+
+type HXHeader = GenXHeader HsType
+type HXDecl = GenXDecl HsType
+type HStructElem = GenStructElem HsType
+type HXReply = GenXReply HsType
 
 -- | Some types in the X modules are given using C types.
 -- This function maps those strings to the appropriate Haskell

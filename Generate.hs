@@ -32,61 +32,59 @@ import Data.Function
 -- All modules which are involved in importing each
 -- other must be converted at the same time.
 toHsModules :: [XHeader] -> [HsModule]
-toHsModules xs = map (toHsModule xs) xs
+toHsModules xs = map (toHsModule resolved) resolved
+  where resolved =  resolveTypes xs
 
 -- | Performs a single step of the 'toHsModules' conversion.
-toHsModule :: [XHeader] -> XHeader -> HsModule
-toHsModule xs xhd =
-    let rdata = ReaderData xhd xs
-    in runGenerate rdata typesModule
+toHsModule :: [HXHeader] -> HXHeader -> HsModule
+toHsModule = typesModule
 
+typesModule :: [HXHeader] -> HXHeader -> HsModule
+typesModule xs xhd =
+    let newModule = newXhbTypesModule (formatName xhd)
 
-typesModule :: Generate HsModule
-typesModule = do
-  newModule <- newXhbTypesModule <$> (currentName >>= fancyName)
+        f = appMany
+            [ decodeErrors xhd
+            , decodeEvents xhd
+            , processDeclarations xs xhd
+            ]
 
-  f <- appMany <$> sequence
-       [ decodeErrors
-       , decodeEvents
-       , processDeclarations
-       ]
-
-  return $ f newModule
+  in f newModule
 
 data ErrorDetail = ErrorDetail Name Int
 data EventDetail = EventDetail Name Int
 
-extractErrors :: XHeader -> [ErrorDetail]
+extractErrors :: GenXHeader a -> [ErrorDetail]
 extractErrors = mapMaybe go . xheader_decls
     where go (XError name code _) = return $ ErrorDetail name code
           go _ = empty
 
-extractEvents :: XHeader -> [EventDetail]
+extractEvents :: GenXHeader a -> [EventDetail]
 extractEvents = mapMaybe go . xheader_decls
     where go (XEvent name code _ _) = return $ EventDetail name code
           go _ = empty
 
-decodeErrors = decodeErrorsOrEvents False
-decodeEvents = decodeErrorsOrEvents True
-
+decodeErrors xhd = decodeErrorsOrEvents False xhd
+decodeEvents xhd = decodeErrorsOrEvents True  xhd
+ 
 -- write a function of type (OpCode -> Maybe (Get SomeError))
-decodeErrorsOrEvents :: Bool -> Generate (HsModule -> HsModule)
-decodeErrorsOrEvents event = do
-  errors <- extractErrors <$> current
-  events <- extractEvents <$> current
+decodeErrorsOrEvents :: Bool -> HXHeader -> (HsModule -> HsModule)
+decodeErrorsOrEvents event xhd =
+    let errors = extractErrors xhd
+        events = extractEvents xhd
 
-  return $ appMany
-    [ -- declare type
-      addDecl $ mkTypeSig fnName [] (decodeFnType fnRetCon) 
+    in appMany
+           [ -- declare type
+             addDecl $ mkTypeSig fnName [] (decodeFnType fnRetCon) 
 
-    , -- declare cases on opcode
-      addDecl $ if event then
-           hsFunBind $ mapMaybe eventMatches events ++ [defaultMatch]
-      else hsFunBind $ mapMaybe errorMatches errors ++ [defaultMatch]
+           , -- declare cases on opcode
+             addDecl $ if event then
+              hsFunBind $ mapMaybe eventMatches events ++ [defaultMatch]
+              else hsFunBind $ mapMaybe errorMatches errors ++ [defaultMatch]
 
-    , -- export the function
-      exportVar fnName
-    ]
+           , -- export the function
+             exportVar fnName
+           ]
 
  where fnName | event = eventDecodeFn
               | otherwise = errorDecodeFn
@@ -135,68 +133,69 @@ decodeFnType fnRetCon = foldr1 hsTyFun
 
 
 -- do something per XDecl in the current module, in order
-processDeclarations :: Generate (HsModule -> HsModule)
-processDeclarations =
-  appMany <$> (currentDeclarations >>= mapM xDecl)
+processDeclarations :: [HXHeader] -> HXHeader -> (HsModule -> HsModule)
+processDeclarations xs xhd =
+  appMany $ map (xDecl (xs, xhd)) $ xheader_decls xhd 
 
 -- |Converts a declaration to a modification on a Haskell module
-xDecl :: XDecl -> Generate (HsModule -> HsModule)
-xDecl (XidType name) = return $ appMany
-  [ addDecl $
-     simpleNewtype name "Xid"
-       ["Eq","Ord","Show","Serialize","Deserialize","XidLike"]
+xDecl :: ([HXHeader], HXHeader) -> HXDecl -> (HsModule -> HsModule)
+xDecl _ (XidType name)
+    = appMany
+      [ addDecl $
+        simpleNewtype name "Xid"
+        ["Eq","Ord","Show","Serialize","Deserialize","XidLike"]
+      , exportTypeAbs name
+      ]
+xDecl x (XidUnion name _fields) =
+            -- Pretend it's a declaration of an Xid Type
+            xDecl x $ XidType name
+xDecl _ (XStruct name fields) = appMany
+  [ declareStruct name fields
+  , addDecl $ declareSerStruct name fields
+  , addDecl $ declareDeserStruct name fields
+  , exportType name
+  ]
+xDecl _ (XTypeDef name typ) = appMany
+  [ addDecl $ typeDecl name typ
   , exportTypeAbs name
   ]
-xDecl (XidUnion name _fields) =
-            -- Pretend it's a declaration of an Xid Type
-            xDecl $ XidType name
-xDecl (XStruct name fields) = appMany <$> sequence
+xDecl (xs, xhd) (XImport name) = xImport xs xhd name
+xDecl (_,xhd) (XRequest name opcode fields resp) = appMany
   [ declareStruct name fields
-  , return . addDecl $ declareSerStruct name fields
-  , return . addDecl $ declareDeserStruct name fields
-  , return $ exportType name
-  ]
-xDecl (XTypeDef name typ) = appMany <$> sequence
-  [ addDecl <$> typeDecl name typ
-  , return $ exportTypeAbs name
-  ]
-xDecl (XImport name) = xImport name
-xDecl (XRequest name opcode fields resp) = appMany <$> sequence
-  [ declareStruct name fields
-  , return $ exportType name
-  , addDecl <$> declareSerRequest name opcode fields
+  , exportType name
+  , addDecl $ declareSerRequest xhd name opcode fields
   , case resp of
-      Nothing -> return id -- empty
+      Nothing -> id -- empty
       Just rFields -> 
          let rName = replyName name
-         in appMany <$> sequence
+         in appMany
                 [ declareStruct rName rFields
-                , return $ exportType rName
-                , return . addDecl $ declareDeserReply rName rFields
+                , exportType rName
+                , addDecl $ declareDeserReply rName rFields
                 ]
   ]
-xDecl (XEvent name opcode fields special) = appMany <$> sequence
+xDecl _ (XEvent name opcode fields special) = appMany
   [ declareStruct name fields
-  , return . addDecl $ declareEventInst name
-  , return . addDecl $ declareDeserEvent name opcode fields special
-  , return $ exportType name
+  , addDecl $ declareEventInst name
+  , addDecl $ declareDeserEvent name opcode fields special
+  , exportType name
   ]
-xDecl (XError name opcode fields) = appMany <$> sequence
+xDecl _ (XError name opcode fields) = appMany
   [ declareStruct name fields
-  , return . addDecl $ declareErrorInst name
-  , return . addDecl $ declareDeserError name fields
-  , return $ exportType name
+  , addDecl $ declareErrorInst name
+  , addDecl $ declareDeserError name fields
+  , exportType name
   ]
-xDecl dec@(XEnum nm elems') =
+xDecl _ dec@(XEnum nm elems') =
   let elems = cleanEnum . fillEnum $ elems'
       typ = verifyEnum dec elems
-  in return $ appMany
+  in appMany
       [ addDecl $ declareEnumTycon nm elems
       , addDecl $ declareEnumInstance typ nm elems
       , exportType nm
       ]
-xDecl (XUnion _ _) = return id -- Unions are currently unhandled
-xDecl x = error $ "Pattern match failed in \"xDecl\" with argument:\n" ++ (show $ toDoc x)
+xDecl _ (XUnion _ _) = id -- Unions are currently unhandled
+xDecl _ x = error $ "Pattern match failed in \"xDecl\" with argument:\n" ++ "blah" -- (show $ toDoc x)
 
 declareEventInst :: Name -> HsDecl
 declareEventInst name = mkInstDecl
@@ -252,7 +251,7 @@ declareEnumTycon name elems =
             name
             []
             (map (mkEnumCon name) elems)
-            [] -- derving
+            [mkUnQName "Show"] -- derving
 
 -- | For an element of an X enum, declares a clause in the Haskell data constructor
 mkEnumCon :: Name -> EnumElem -> HsConDecl
@@ -280,7 +279,7 @@ cleanEnum xs =
 --
 -- In particular, we disallow enums with both regular numbers
 -- and bit-field numbers.
-verifyEnum :: XDecl -> [EnumElem] -> EnumType
+verifyEnum :: GenXDecl a -> [EnumElem] -> EnumType
 verifyEnum dec elems = case enumType elems of
         ETypeError -> enumTypPanic dec
         x -> x
@@ -301,10 +300,10 @@ enumType xs = case L.foldl' (flip go) Nothing xs of
           etyp (EnumElem _ (Just (Bit {})))   = ETypeBit
           etyp _                       = ETypeError
 
-enumTypPanic :: XDecl -> a
+enumTypPanic :: GenXDecl a -> b
 enumTypPanic dec = error $
                    ("Error in enum:\n\n" ++) $
-                   show $ toDoc dec
+                   "blah" -- show $ toDoc dec
 
 -- |If an enum doesn't have defined values fill them in
 fillEnum :: [EnumElem] -> [EnumElem]
@@ -317,38 +316,26 @@ fillEnum x = x
 --
 -- Conflicting declarations are imported qualified.
 -- Non-conflicted declarations are imported normally.
-xImport :: String -> Generate (HsModule -> HsModule)
-xImport str = do
-  cur <- current
-  impMod <- fromJust `liftM` lookupModule str -- bad error message
+xImport :: [HXHeader] -> HXHeader -> String -> (HsModule -> HsModule)
+xImport xs cur str =
   let 
+      impMod = fromJust $ findModule str xs -- bad error message
       shared_types = (L.intersect `on` declaredTypes) cur impMod
 
-      {--
-      vars_to_hide = concat
-           [ if hasErrorDecs impMod
-             then return errorDecodeFn
-             else empty
-
-           , if hasEventDecs impMod
-             then return eventDecodeFn
-             else empty
-           ]
---}
       vars_to_hide = [errorDecodeFn, eventDecodeFn]
 
       symbols_to_hide = shared_types ++ vars_to_hide
 
       impName = typesModuleName $ modName impMod
-  if null symbols_to_hide
-   then return . addImport . mkImport $ impName
-   else return $ appMany
+  in if null symbols_to_hide
+   then addImport . mkImport $ impName
+   else appMany
     [ addImport $ mkHidingImport impName symbols_to_hide
     , addImport . mkQualImport $ impName
     ]
 
 -- |A list of all of the types defined by a module.
-declaredTypes :: XHeader -> [Name]
+declaredTypes :: GenXHeader a -> [Name]
 declaredTypes xhd =
     let decls = xheader_decls xhd
 
@@ -366,7 +353,7 @@ declaredTypes xhd =
 
     in concatMap tyName decls
 
-hasErrorDecs :: XHeader -> Bool
+hasErrorDecs :: GenXHeader a -> Bool
 hasErrorDecs xhd =
     let decs = xheader_decls xhd
         
@@ -375,7 +362,7 @@ hasErrorDecs xhd =
 
     in or $ map p decs 
 
-hasEventDecs :: XHeader -> Bool
+hasEventDecs :: GenXHeader a -> Bool
 hasEventDecs xhd =
     let decs = xheader_decls xhd
 
@@ -386,19 +373,20 @@ hasEventDecs xhd =
 
 -- | An X type declaration.  Re-written to a Haskell type declaration.
 -- Cross-module lookups of qualified types are handled here.
-typeDecl :: String -> Type -> Generate HsDecl
+typeDecl :: String -> HsType -> HsDecl
 typeDecl nm tp = 
-  mkTypeDecl nm [] <$> toHsType tp
+  mkTypeDecl nm [] tp
 
 -- | Given a type name and a list of X struct elements this declares
 -- a Haskell data type.
 declareStruct :: String
-              -> [StructElem]
-              -> Generate (HsModule -> HsModule)
-declareStruct name fields = do
-         selems <- selemsToRec fields
-         fExprFields <- exprFields name fields
-         return $ appMany
+              -> [HStructElem]
+              -> (HsModule -> HsModule)
+declareStruct name fields =
+     let selems = selemsToRec fields
+         fExprFields = exprFields name fields
+
+     in  appMany
           [ addDecl $ mkDataDecl
              []
              name
@@ -407,32 +395,31 @@ declareStruct name fields = do
              [mkUnQName "Show", mkUnQName "Typeable"]
           , fExprFields
           ]
-    where selemsToRec :: [StructElem] -> Generate [(String,HsBangType)]
-          selemsToRec xs = do
-            ys <- embed $ mapAlt go xs
-            return $ fromJust ys -- mapAlt never returns Nothing
+    where selemsToRec :: [HStructElem] -> [(String,HsBangType)]
+          selemsToRec xs = mapMaybe go xs
 
-          go :: StructElem -> ReaderT ReaderData Maybe (String, HsBangType)
+          go :: HStructElem -> Maybe (String, HsBangType)
           go elem = do
             nm <- fieldName elem
             hTp <- fieldType elem
             return (accessor nm name, hsUnBangedTy hTp)
 
-fieldName :: Alternative a => StructElem -> a Name
+fieldName :: Alternative a => HStructElem -> a Name
 fieldName Pad{} = empty -- ignored
-fieldName (List nm tp _) = pure nm
-fieldName (SField nm tp) = pure nm
+fieldName (List nm tp _ _) = pure nm
+fieldName (SField nm tp _ _) = pure nm
 fieldName (ValueParam _ mname _ _) = pure $ valueParamName mname
 fieldName ExprField{} = empty -- deal with these spearate
 fieldName selem = selemsToRecPanic selem
 
-fieldType :: (Alternative a, MonadReader ReaderData a) =>
-             StructElem -> a HsType
+fieldType :: HStructElem -> Maybe HsType
 fieldType Pad{} = empty
-fieldType (List nm tp _) = hsTyApp list_tycon <$> toHsType tp
-fieldType (SField nm tp) = toHsType tp
-fieldType (ValueParam typ _ _ _) = hsTyApp (mkTyCon "ValueParam")
-                                   <$> toHsType typ
+fieldType (List nm tp _ Nothing) = return $ hsTyApp list_tycon tp
+fieldType (List nm _ _ (Just enum)) = return $ hsTyApp list_tycon enum
+fieldType (SField nm tp Nothing Nothing) = return tp
+fieldType (SField _ _ (Just enum) Nothing) = return enum
+fieldType (SField _ _ _ (Just mask)) = return $ hsTyApp list_tycon mask
+fieldType (ValueParam typ _ _ _) = return $ hsTyApp (mkTyCon "ValueParam") typ
 fieldType ExprField{} = empty
 fieldType selem = selemsToRecPanic selem
 
@@ -445,10 +432,10 @@ valueParamName mname =
         nm = L.findIndex (== '_') rname
     in name
 
-selemsToRecPanic :: StructElem -> a
+selemsToRecPanic :: HStructElem -> a
 selemsToRecPanic x = error $
                      ("I dont know what to do with struct elem: " ++) $
-                     show $ toDoc x
+                     "blah" -- show $ toDoc x
 
 
 -- | Some identifiers clash with Haskell key-words.
@@ -461,17 +448,16 @@ mapIdents x = x
 
 -- |Generates an accesor-like function for each
 -- expression-field in a struct.
-exprFields :: Name -> [StructElem] -> Generate (HsModule -> HsModule)
-exprFields name elems = appMany <$> (sequence $ map go elems)
+exprFields :: Name -> [HStructElem] -> (HsModule -> HsModule)
+exprFields name elems = appMany $ map go elems
                         
-    where go :: StructElem -> Generate (HsModule -> HsModule)
-          go (ExprField nm tp expr) = do
-            retTyp <- toHsType tp
+    where go :: HStructElem -> (HsModule -> HsModule)
+          go (ExprField nm tp expr) =
             let funName = accessor nm name
-                funTyp = hsTyFun (mkTyCon name) retTyp
+                funTyp = hsTyFun (mkTyCon name) tp
                 inVar = "x"
             
-            return . appMany $
+            in appMany $
              [
                 -- Type signature
                addDecl $ mkTypeSig funName [] funTyp
@@ -483,7 +469,7 @@ exprFields name elems = appMany <$> (sequence $ map go elems)
               -- export
              , exportVar funName
              ]
-          go _ = return id
+          go _ = id
 
 
 -- | Convert an 'Expression' to a Haskell expression.
@@ -518,7 +504,7 @@ mkOp RShift = mkQOpIdent $ "shiftR"
 
 -- | Declare a instance of 'Deserialize' for an X struct
 -- declaration.
-declareDeserStruct :: Name -> [StructElem] -> HsDecl
+declareDeserStruct :: Name -> [HStructElem] -> HsDecl
 declareDeserStruct name fields =
     mkInstDecl
       []
@@ -533,7 +519,7 @@ declareDeserStruct name fields =
                  (hsDo $ deserIns fields ++ [returnIt name fields])
 
 -- | Declare and instance of 'Deserialize' for a reply to an X request.
-declareDeserReply :: Name -> [StructElem] -> HsDecl
+declareDeserReply :: Name -> [HStructElem] -> HsDecl
 declareDeserReply name fields =
     mkInstDecl
       []
@@ -549,13 +535,16 @@ declareDeserReply name fields =
 
      -- the same as the regular fields, except with more padding
      -- and the implicit length thrown in
-     doFields (x1 : xs) = Pad 1 : x1 : Pad 2 : SField "length" (UnQualType "CARD32") : xs
+     doFields (x1 : xs)
+         = Pad 1 : x1 : Pad 2
+           : SField "length" (mkTyCon "Word32") Nothing Nothing
+           : xs
 
      declareLengthType :: HsStmt
      declareLengthType = hsLetStmt [mkPatBind hsPWildCard $ mkVar "isCard32" `hsApp` mkVar "length"]
 
 
-declareDeserError :: Name -> [StructElem] -> HsDecl
+declareDeserError :: Name -> [HStructElem] -> HsDecl
 declareDeserError name elems =
     mkInstDecl
     []
@@ -570,10 +559,10 @@ declareDeserError name elems =
              []
              (hsDo $ deserIns (makeFields elems) ++ [returnIt name elems])
 
-         makeFields :: [StructElem] -> [StructElem]
+         makeFields :: [GenStructElem a] -> [GenStructElem a]
          makeFields xs =  Pad 4 : xs
 
-declareDeserEvent :: Name -> Int -> [StructElem] -> Maybe Bool -> HsDecl
+declareDeserEvent :: Name -> Int -> [HStructElem] -> Maybe Bool -> HsDecl
 declareDeserEvent name code elems special =
 
       mkInstDecl
@@ -590,7 +579,7 @@ declareDeserEvent name code elems special =
                          Just True -> True
                          _ -> False
 
-      makeFields :: [StructElem] -> [StructElem]
+      makeFields :: [GenStructElem a] -> [GenStructElem a]
       makeFields xs | isKeymapNotify = Pad 1 : xs
                     | otherwise = case xs of
                            -- assumes the first field is one byte
@@ -598,19 +587,38 @@ declareDeserEvent name code elems special =
                            [] -> []
 
 -- | Declare a statement in the 'do' block of the 'deserialize' function.
-deserIns :: [StructElem] -> [HsStmt]
+deserIns :: [HStructElem] -> [HsStmt]
 deserIns fields = mapMaybe go fields
  where
      go (Pad n) = return $ hsQualifier $ mkVar "skip" `hsApp` mkNumLit n 
-     go (List nm _typ Nothing) = error "cannot deserialize list with no length"
-     go (List nm _typ (Just exp))
+     go (List nm _typ Nothing _)
+         = error "cannot deserialize list with no length"
+     go (List nm _typ (Just exp) Nothing)
          = return $ mkGenerator (mkPVar $ mapIdents nm) $ hsAppMany
            [mkVar "deserializeList"
            ,hsParen $ mkVar "fromIntegral" `hsApp` mkExpr Nothing exp
            ]
+     go (SField nm _typ Nothing Nothing)
+         = return $ mkGenerator (mkPVar $ mapIdents nm) $
+           mkVar "deserialize"
+     go (SField nm typ (Just _enumTyp) Nothing) = return $
+           let deserType = hsTyApp (mkTyCon "Get") typ
+               deserExpr = hsParen $ mkVar "deserialize" `mkAsExp` deserType
 
-     go (SField nm _typ) = return $ mkGenerator (mkPVar $ mapIdents nm) $
-             mkVar "deserialize"
+           in mkGenerator (mkPVar $ mapIdents nm) $
+                  (mkVar "liftM" `hsApp`
+                   mkVar "fromValue") `hsApp`
+                  deserExpr
+       
+     go (SField nm typ Nothing (Just maskTyp)) = return $
+           let deserType = hsTyApp (mkTyCon "Get") typ
+               deserExpr = hsParen $ mkVar "deserialize" `mkAsExp` deserType
+
+           in mkGenerator (mkPVar $ mapIdents nm) $
+                  (mkVar "liftM" `hsApp`
+                   mkVar "fromMask") `hsApp`
+                  deserExpr
+
      go ExprField{} = empty -- this is probbaly wrong, but I'm not sure where we need it
      go v@(ValueParam _ vname Nothing _) =
          let nm = mapIdents $ valueParamName vname
@@ -623,17 +631,17 @@ deserIns fields = mapMaybe go fields
      go n = error $ "Pattern match fail in deserIns.go with: " ++ show n
 
 -- | Return and construct the deserialized value.
-returnIt :: Name -> [StructElem] -> HsStmt
+returnIt :: Name -> [HStructElem] -> HsStmt
 returnIt name fields = hsQualifier $ mkVar "return" `hsApp` hsParen (cons name fields)
 
 -- | Create and fill-in the constructor for the deserialized value.
-cons :: Name -> [StructElem] -> HsExp
+cons :: Name -> [HStructElem] -> HsExp
 cons name fields = hsAppMany $
        mkConExp (conPrefix name) : mapMaybe (liftM (mkVar . mapIdents) . fieldName) fields
 
 
 -- | Declare an instance of 'Serialize' for an X struct.
-declareSerStruct :: Name -> [StructElem] -> HsDecl
+declareSerStruct :: Name -> [HStructElem] -> HsDecl
 declareSerStruct name fields =
     mkInstDecl
       []
@@ -646,7 +654,7 @@ declareSerStruct name fields =
     sizeFunc :: HsDecl
     sizeFunc = mkSimpleFun "size"
                 [mkPVar "x"]
-                (L.foldl1' addExp $ concatMap (toFieldSize name) fields)
+                (L.foldl1' addExp $ map (toFieldSize name) fields)
 
 
     serializeFunc = mkSimpleFun "serialize"
@@ -656,10 +664,10 @@ declareSerStruct name fields =
 -- | Declare an instance of "ExtensionRequest".
 -- May not be called when generating code for a core
 -- module.
-declareExtRequest :: Name -> Int -> [StructElem] -> Generate HsDecl
-declareExtRequest name opCode fields = do
-        extName <- (fromJust . xheader_xname) `liftM` current
-        return $
+declareExtRequest :: HXHeader -> Name -> Int -> [HStructElem] -> HsDecl
+declareExtRequest xhd name opCode fields =
+        let extName = (fromJust . xheader_xname) xhd
+        in
          mkInstDecl
          []
          (mkUnQName "ExtensionRequest")
@@ -670,7 +678,7 @@ declareExtRequest name opCode fields = do
  where
 
    serActions = mapMaybe (serField name) fields
-   sizeActions = concatMap (toFieldSize name) fields
+   sizeActions = map (toFieldSize name) fields
 
    extensionIdFunc :: Name -> HsDecl
    extensionIdFunc name =
@@ -715,18 +723,16 @@ putIntExp exp = mkVar "putWord8" `hsApp` exp
 serializeExp = mkVar "serialize"
 
 -- | Declare and instance of 'Serialize' for a request.
-declareSerRequest :: Name -> Int -> [StructElem] -> Generate HsDecl
-declareSerRequest name opCode fields = do
-  ext <- isExtension
-  if ext
+declareSerRequest :: HXHeader -> Name -> Int -> [HStructElem] -> HsDecl
+declareSerRequest xhd name opCode fields = do
+  if isExtension xhd
    then
       -- extension request case:
       -- declare instance of "ExtensionRequest"
       -- instead of "Serialize"
-      declareExtRequest name opCode fields
+      declareExtRequest xhd name opCode fields
    else
       -- Core request
-      return $
         mkInstDecl
         []
         (mkUnQName "Serialize")
@@ -743,7 +749,7 @@ declareSerRequest name opCode fields = do
     sizeExps :: [HsExp]
     sizeExps = case serActions of
                  [] -> [mkNumLit 4]
-                 _ -> mkNumLit 3 : concatMap (toFieldSize name) fields
+                 _ -> mkNumLit 3 : map (toFieldSize name) fields
     
 
     serializeFunc = mkSimpleFun "serialize"
@@ -771,28 +777,55 @@ declareSerRequest name opCode fields = do
                  hsApp (mkVar "requiredPadding") $  hsParen $
                  mkVar "size" `hsApp` mkVar "x"
 
+
 -- | A statement in the "do" block for the 'serialize' function.
-serField :: Name -> StructElem -> Maybe HsExp
+serField :: (Alternative m) => 
+            Name -> HStructElem -> m HsExp
 serField _ (Pad n) -- "putSkip n"
-        = return $ mkVar "putSkip" `hsApp` mkNumLit n
-serField name (List lname _typ _expr) -- serializeList <list>
-        = return $ 
+        = pure $ mkVar "putSkip" `hsApp` mkNumLit n
+serField name (List lname _typ _expr Nothing) -- serializeList <list>
+        = pure $ 
           hsApp (mkVar "serializeList") $ hsParen $
           accessField name lname
-serField name (SField fname _typ) -- serialize <field>
-        = return $ hsApp (mkVar "serialize") $ hsParen $
+serField name (List lname typ _expr Just{}) = 
+          let listType = hsTyApp list_tycon typ
+              serExpr = (mkVar "map" `hsApp` mkVar "toValue")
+                        `hsApp` hsParen (accessField name lname)
+
+          in pure $ mkVar "serialize" `hsApp` hsParen
+                     (serExpr `mkAsExp` listType)
+
+serField name (SField fname _typ Nothing Nothing) -- serialize <field>
+        = pure $ hsApp (mkVar "serialize") $ hsParen $
           accessField name fname
-serField name (ExprField fname typ _exp)  = serField name (SField fname typ)
+serField name (SField fname typ (Just _enumTyp) Nothing) =
+          let serType = typ
+              serExpr = mkVar "toValue" `hsApp` hsParen (accessField name fname)
+
+          in pure $ mkVar "serialize" `hsApp` hsParen
+                     (serExpr `mkAsExp` serType)
+
+serField name (SField fname typ Nothing (Just _maskTyp)) =
+          let serType = typ
+              serExpr = mkVar "toMask" `hsApp` hsParen (accessField name fname)
+
+          in pure $ mkVar "serialize" `hsApp` hsParen
+                     (serExpr `mkAsExp` serType)
+ 
+serField name (ExprField fname typ _exp)
+    = serField name (SField fname typ Nothing Nothing)
 serField name (ValueParam _ mname Nothing _) -- serialize <field>
-        = return $ hsApp (mkVar "serialize") $ hsParen $
+        = pure $ hsApp (mkVar "serialize") $ hsParen $
           accessField name $ valueParamName mname
 serField name (ValueParam typ mname (Just pad) lname)
-        = return $ hsApp (mkVar "serializeValueParam" `hsApp`
+        = pure $ hsApp (mkVar "serializeValueParam" `hsApp`
                           mkNumLit pad) $ hsParen $
           accessField name $ valueParamName mname
 
 addExp :: HsExp -> HsExp -> HsExp
 addExp = expBinop "+"
+
+multExp = expBinop "*"
 
 expBinop op lhs rhs = hsInfixApp lhs (mkQOpSymbol op) rhs
 
@@ -802,19 +835,38 @@ accessField name fieldName =
 sizeOfMember name fname = (mkVar "size" `hsApp`) $ hsParen $
                            accessField name fname
 
-toFieldSize :: Name -> StructElem -> [HsExp]
-toFieldSize _ (Pad n) = return $ mkNumLit n
-toFieldSize name (List lname typ _expr) = return $
+toFieldSize :: Name -> HStructElem -> HsExp
+toFieldSize _ (Pad n) = mkNumLit n
+toFieldSize name (List lname typ _expr Nothing) =
         (mkVar "sum" `hsApp`) $ hsParen $
         ((mkVar "map" `hsApp` mkVar "size") `hsApp`) $ hsParen $
         accessField name lname
-toFieldSize name (SField fname _typ) = return $ sizeOfMember name fname
-toFieldSize name (ExprField fname ftyp _) = toFieldSize name (SField fname ftyp)
-toFieldSize name (ValueParam _ vname Nothing _) = return $
+toFieldSize name (List lname typ _expr Just{})
+    = hsParen $ lhs `multExp` rhs
+ where
+   lhs = mkVar "length" `hsApp` accessField name lname
+   rhs = mkVar "size" `hsApp` hsParen (mkVar "undefined" `mkAsExp` typ)
+                                                
+
+  -- length (accessorField name lname) * size (undefined :: Type)
+
+toFieldSize name (SField fname _typ Nothing Nothing)
+    = sizeOfMember name fname
+toFieldSize name (SField fname typ _ _) = 
+    mkVar "size" `hsApp` hsParen (mkVar "undefined" `mkAsExp` typ)
+
+  -- size (undefined :: Type)
+
+
+toFieldSize name (ExprField fname ftyp _)
+    = toFieldSize name (SField fname ftyp Nothing Nothing)
+toFieldSize name (ValueParam _ vname Nothing _) =
                 sizeOfMember name . valueParamName $ vname
-toFieldSize name (ValueParam typ mname (Just pad) lname) = 
-    toFieldSize name (ValueParam typ mname Nothing lname)
-                    ++ toFieldSize name (Pad pad)
+toFieldSize name (ValueParam typ mname (Just pad) lname) =
+    let lhs = toFieldSize name (ValueParam typ mname Nothing lname)
+        rhs = toFieldSize name (Pad pad)
+    in hsParen $ lhs `addExp` rhs
+
 
 -- |Defines a newtype declaration.
 simpleNewtype :: String   -- typename
