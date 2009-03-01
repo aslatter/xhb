@@ -7,6 +7,7 @@ module Generate.Monad where
 import HaskellCombinators
 
 import Data.XCB.Types
+import Data.XCB.Pretty
 
 import Generate.Util
 import Generate.Facts
@@ -86,6 +87,9 @@ type HXHeader = GenXHeader HsType
 type HXDecl = GenXDecl HsType
 type HStructElem = GenStructElem HsType
 type HXReply = GenXReply HsType
+
+instance Pretty HsType where
+    pretty = prettyPrint
 
 -- | Some types in the X modules are given using C types.
 -- This function maps those strings to the appropriate Haskell

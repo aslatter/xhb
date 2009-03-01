@@ -195,7 +195,8 @@ xDecl _ dec@(XEnum nm elems') =
       , exportType nm
       ]
 xDecl _ (XUnion _ _) = id -- Unions are currently unhandled
-xDecl _ x = error $ "Pattern match failed in \"xDecl\" with argument:\n" ++ "blah" -- (show $ toDoc x)
+xDecl _ x = error $ "Pattern match failed in \"xDecl\" with argument:\n"
+            ++ (show $ toDoc x)
 
 declareEventInst :: Name -> HsDecl
 declareEventInst name = mkInstDecl
@@ -279,7 +280,7 @@ cleanEnum xs =
 --
 -- In particular, we disallow enums with both regular numbers
 -- and bit-field numbers.
-verifyEnum :: GenXDecl a -> [EnumElem] -> EnumType
+verifyEnum :: Pretty a => GenXDecl a -> [EnumElem] -> EnumType
 verifyEnum dec elems = case enumType elems of
         ETypeError -> enumTypPanic dec
         x -> x
@@ -300,10 +301,10 @@ enumType xs = case L.foldl' (flip go) Nothing xs of
           etyp (EnumElem _ (Just (Bit {})))   = ETypeBit
           etyp _                       = ETypeError
 
-enumTypPanic :: GenXDecl a -> b
+enumTypPanic :: Pretty a => GenXDecl a -> b
 enumTypPanic dec = error $
                    ("Error in enum:\n\n" ++) $
-                   "blah" -- show $ toDoc dec
+                    show $ toDoc dec
 
 -- |If an enum doesn't have defined values fill them in
 fillEnum :: [EnumElem] -> [EnumElem]
@@ -435,7 +436,7 @@ valueParamName mname =
 selemsToRecPanic :: HStructElem -> a
 selemsToRecPanic x = error $
                      ("I dont know what to do with struct elem: " ++) $
-                     "blah" -- show $ toDoc x
+                     show $ toDoc x
 
 
 -- | Some identifiers clash with Haskell key-words.
