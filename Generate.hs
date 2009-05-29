@@ -599,6 +599,16 @@ deserIns fields = mapMaybe go fields
            [mkVar "deserializeList"
            ,hsParen $ mkVar "fromIntegral" `hsApp` mkExpr Nothing exp
            ]
+     go (List nm baseType (Just exp) (Just enumType))
+         = let deserType = mkTyCon "Get" `hsTyApp` (list_tycon `hsTyApp` baseType)
+               deserExp  = hsParen $ (hsAppMany
+                                      [mkVar "deserializeList"
+                                      ,hsParen $ mkVar "fromIntegral" `hsApp` mkExpr Nothing exp
+                                      ]) `mkAsExp` deserType
+           in return $ mkGenerator (mkPVar $ mapIdents nm) $ hsAppMany
+                  [mkVar "liftM" `hsApp` hsParen (mkVar "liftM" `hsApp` mkVar "fromValue")
+                  ,deserExp
+                  ]
      go (SField nm _typ Nothing Nothing)
          = return $ mkGenerator (mkPVar $ mapIdents nm) $
            mkVar "deserialize"
