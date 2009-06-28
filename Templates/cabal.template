@@ -24,7 +24,7 @@ Extra-source-files: CONTRIBUTORS
 
 Library
 
- Build-depends: base, stm, Xauth, binary, bytestring, containers,
+ Build-depends: base >= 3 && < 5, stm, Xauth, binary, bytestring, containers,
       parsec, network, byteorder
 
  Extensions: ExistentialQuantification,
