@@ -10,7 +10,6 @@ import Data.Maybe
 import qualified Graphics.XHB as X
 
 import qualified Graphics.XHB.Gen.Xinerama as Xinerama
-import qualified Graphics.XHB.Gen.Xinerama.Types as Xinerama
 
 import System.IO
 
@@ -130,9 +129,9 @@ showError serr = tryErrors hs showErrorBase serr
             ]
 
 -- show an error of type Window
-showWindowError :: X.Window -> String
+showWindowError :: X.WindowError -> String
 showWindowError err =
-    let badwindow = X.bad_value_Window err
+    let badwindow = X.bad_value_WindowError err
     in "WindowError: bad window: " ++ show badwindow
 
 -- show an UnknownError
@@ -170,19 +169,19 @@ showEvent = tryEvents hs showEventBase
             ,EventHandler showFocusOut
             ]
 
-showMotionNotify :: X.MotionNotify -> String
+showMotionNotify :: X.MotionNotifyEvent -> String
 showMotionNotify _ = "MotionNotify"
 
-showEnterNotify :: X.EnterNotify -> String
+showEnterNotify :: X.EnterNotifyEvent -> String
 showEnterNotify _ = "EnterNotify" 
 
-showLeaveNotify :: X.LeaveNotify -> String
+showLeaveNotify :: X.LeaveNotifyEvent -> String
 showLeaveNotify _ = "LeaveNotify"
 
-showFocusIn :: X.FocusIn -> String
+showFocusIn :: X.FocusInEvent -> String
 showFocusIn _ = "FocusIn"
 
-showFocusOut :: X.FocusOut -> String
+showFocusOut :: X.FocusOutEvent -> String
 showFocusOut _ = "FocusOut"
 
 showEventBase = "unhandled event"
