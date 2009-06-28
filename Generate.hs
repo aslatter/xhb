@@ -32,8 +32,8 @@ import Data.Function
 -- All modules which are involved in importing each
 -- other must be converted at the same time.
 toHsModules :: [XHeader] -> [HsModule]
-toHsModules xs = map (toHsModule resolved) resolved
-  where resolved =  resolveTypes xs
+toHsModules xs = map (toHsModule transed) transed
+  where transed =  standardTranslations xs
 
 -- | Performs a single step of the 'toHsModules' conversion.
 toHsModule :: [HXHeader] -> HXHeader -> HsModule

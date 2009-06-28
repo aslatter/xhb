@@ -44,12 +44,12 @@ ensureLower (x:xs) = toLower x : xs
 -- | Given a list of X modules, returns a list of generated Haskell modules
 -- which contain the developer friendly functions for using XHB.
 functionsModules :: [XHeader] -> [HsModule]
-functionsModules xs = map go resolved
+functionsModules xs = map go transed
  
-    where resolved =  resolveTypes xs
+    where transed =  standardTranslations xs
 
           go :: HXHeader -> HsModule
-          go xhd = functionsModule resolved xhd
+          go xhd = functionsModule transed xhd
 
 -- | Generates the Haskell functions for using the functionality
 -- of the passed in X module.

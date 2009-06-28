@@ -76,12 +76,37 @@ toHsType (QualType qual name) = do
   qname <- fancyName qual
   return $ tyCon $ mkQName (typesModuleName qname) name
 
+fmapDecls :: (GenXDecl a -> GenXDecl a) -> [GenXHeader a] -> [GenXHeader a]
+fmapDecls f = map mapH
+ where
+   -- mapH :: GenXHeader a -> GenXHeader a
+   mapH xhd = xhd {xheader_decls = map f (xheader_decls xhd)}
+
+renameEvents :: [GenXHeader a] -> [GenXHeader a]
+renameEvents = fmapDecls oneDecl
+ where
+   oneDecl :: GenXDecl a -> GenXDecl a
+   oneDecl (XEvent name code fields s) = XEvent (name ++ "Event") code fields s
+   oneDecl x = x
+
+renameErrors :: [GenXHeader a] -> [GenXHeader a]
+renameErrors = fmapDecls oneDecl
+ where 
+   oneDecl :: GenXDecl a -> GenXDecl a
+   oneDecl (XError name code fields) = XError (name ++ "Error") code fields
+   oneDecl x = x
+
 resolveTypes :: [XHeader] -> [HXHeader]
 resolveTypes xs = map (resolveTypes' xs) xs
 
 resolveTypes' xs x = mapTypes f x
  where f typ = flip runReader r $ toHsType typ
        r = ReaderData x xs
+
+-- | Standard cleanups we do for all 'XHeader's before
+-- any processing.
+standardTranslations :: [XHeader] -> [HXHeader]
+standardTranslations = resolveTypes . renameErrors . renameEvents
 
 type HXHeader = GenXHeader HsType
 type HXDecl = GenXDecl HsType
