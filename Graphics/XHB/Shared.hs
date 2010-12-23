@@ -56,6 +56,10 @@ instance XidLike Xid where
     fromXid = id
     toXid   = id
 
+instance XidLike Word32 where
+    fromXid (MkXid w) = w
+    toXid = MkXid
+
 xidNone :: Xid
 xidNone = MkXid 0
 
