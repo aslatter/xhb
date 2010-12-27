@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 OUT_DIR=cabalize
-TEST_PROG=Scripts/Cabal
+TEST_PROG=xcb-build-cabal
 
 . shared.sh
 

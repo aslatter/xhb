@@ -14,11 +14,21 @@ GENERAL_ERROR=1
 #include the xproto version in the output-dir
 OUT_DIR=${OUT_DIR}/${XPROTO_VERSION}
 
-#Do we have runhaskell?
-[ $(which runhaskell) ] || {
-    echo "runhaskell not found!"
+UTIL_PATH=build-utils/dist/build
+PROG=${UTIL_PATH}/${TEST_PROG}/${TEST_PROG}
+
+#Do we have the test program?
+[ -f ${PROG} ] || {
+    pushd build-utils > /dev/null
+    cabal configure
+    cabal build
+    popd > /dev/null
+}
+[ -f ${PROG} ] || {
+    echo "Unable to build ${PROG}"
     exit ${GENERAL_ERROR}
 }
+
 
 #Do the XML files exist?
 [ -d ${XML_DIR} ] || {
@@ -55,7 +65,7 @@ mkdir -p ${OUT_DIR}
 
 
 #Go!
-runghc ${TEST_PROG} ${OUT_DIR} ${XML_DIR}/${XML_FILES} || {
+${PROG} ${OUT_DIR} ${XML_DIR}/${XML_FILES} || {
     echo "failed!"
     exit ${GENERAL_ERROR}
 }

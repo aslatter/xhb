@@ -922,5 +922,5 @@ mapAlt f xs = go xs
                <|> go ys
 
 embed :: Monad m => ReaderT r m a -> Reader r (m a)
-embed m = Reader $ \r -> runReaderT m r
+embed m = reader $ \r -> runReaderT m r
 

@@ -16,7 +16,7 @@ import Generate.Facts
 import Generate.Util
 
 import Control.Monad.Reader
-import Control.Monad.Maybe
+import Control.Monad.Trans.Maybe
 
 -- Builds a function for every request in the module
 -- Hopefully I'm not duplicating too much between here

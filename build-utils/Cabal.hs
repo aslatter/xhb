@@ -1,4 +1,3 @@
-module Cabal where
 
 import Text.StringTemplate
 

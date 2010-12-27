@@ -11,7 +11,7 @@
 # aslatter@gmail.com
 
 OUT_DIR=generated
-TEST_PROG=Scripts/Generate
+TEST_PROG=xcb-build-generate
 
 . shared.sh
 

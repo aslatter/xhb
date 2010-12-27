@@ -99,7 +99,7 @@ renameErrors = fmapDecls oneDecl
 resolveTypes :: [XHeader] -> [HXHeader]
 resolveTypes xs = map (resolveTypes' xs) xs
 
-resolveTypes' xs x = mapTypes f x
+resolveTypes' xs x = fmap f x
  where f typ = flip runReader r $ toHsType typ
        r = ReaderData x xs
 

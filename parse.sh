@@ -11,7 +11,7 @@
 # aslatter@gmail.com
 
 OUT_DIR=parsed
-TEST_PROG=Scripts/Parse
+TEST_PROG=xcb-build-parse
 
 . shared.sh
 
