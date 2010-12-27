@@ -259,8 +259,14 @@ mkEnumCon :: Name -> EnumElem -> HsConDecl
 mkEnumCon tyname (EnumElem name _) = mkCon (tyname ++ name) []
 
 
-data EnumType = ETypeValue | ETypeBit | ETypeError
- deriving (Eq, Show, Enum, Bounded, Ord)
+data EnumType = ETypeValue | ETypeBit | ETypeError String
+ deriving (Show, Ord)
+
+instance Eq EnumType where
+    ETypeValue == ETypeValue = True
+    ETypeBit == ETypeBit = True
+    ETypeError{} == ETypeError{} = True
+    _ == _ = False
 
 cleanEnum :: [EnumElem] -> [EnumElem]
 cleanEnum xs =
@@ -282,7 +288,7 @@ cleanEnum xs =
 -- and bit-field numbers.
 verifyEnum :: Pretty a => GenXDecl a -> [EnumElem] -> EnumType
 verifyEnum dec elems = case enumType elems of
-        ETypeError -> enumTypPanic dec
+        ETypeError str -> enumTypPanic str dec
         x -> x
 
 -- | Returns the type of the enum elements.
@@ -290,27 +296,29 @@ verifyEnum dec elems = case enumType elems of
 -- This is more strict than the xproto xml schema.
 enumType :: [EnumElem] -> EnumType
 enumType xs = case L.foldl' (flip go) Nothing xs of
-                Nothing -> ETypeError
+                Nothing -> ETypeError "empty enum"
                 Just x -> x
     where go x Nothing = return $ etyp x
-          go _ jr@(Just ETypeError) = jr
+          go _ jr@(Just ETypeError{}) = jr
           go x jr@(Just r) | etyp x == r = jr
-          go _ _ = Just ETypeError
+          go _ _ = Just $ ETypeError "enum has mixed type"
 
           etyp (EnumElem _ (Just (Value {}))) = ETypeValue
           etyp (EnumElem _ (Just (Bit {})))   = ETypeBit
-          etyp _                       = ETypeError
+          etyp _                       = ETypeError "fatal error determining enum type"
 
-enumTypPanic :: Pretty a => GenXDecl a -> b
-enumTypPanic dec = error $
-                   ("Error in enum:\n\n" ++) $
+enumTypPanic :: Pretty a => String -> GenXDecl a -> b
+enumTypPanic str dec = error $
+                   (("Error in enum, " ++ str ++ ":\n\n") ++) $
                     show $ toDoc dec
 
 -- |If an enum doesn't have defined values fill them in
 fillEnum :: [EnumElem] -> [EnumElem]
-fillEnum xs@((EnumElem _ Nothing):_) = map f $ zip xs [0..]
-    where f (EnumElem name _, n) = EnumElem name (Just (Value n))
-fillEnum x = x
+fillEnum = snd . L.mapAccumL go (Just 0)
+    where
+      go _ x@(EnumElem _ (Just (Value n))) = (Just (n+1), x)
+      go (Just n) (EnumElem nm Nothing) = (Just (n+1), EnumElem nm (Just (Value n)))
+      go acc x = (acc, x)
 
 -- | If the X module declares that it imports another X module,
 -- this function imports the corresponding Haskell module.
