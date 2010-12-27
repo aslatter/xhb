@@ -67,3 +67,15 @@ There are three bash scripts that live in the top-level of this project:
   Creates a .cabal file for the XHB project.  You'd be best running
   generate.sh before trying anything like "cabal install" or
   "cabal sdist".
+
+./clean.sh
+
+  Deletes the Haskell programs that drive generate.sh, parse.sh and
+  cabalize.sh. You'll need to run this or the shell scripts won't notice
+  any changes you've made to the underlying Haskell code.
+
+./version.sh
+
+  Defines the xproto version we will attempt to build against. If the XML
+  files for this version are not in the 'resources' directory, they will
+  be downloaded.
