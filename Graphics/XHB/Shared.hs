@@ -66,8 +66,8 @@ xidNone = MkXid 0
 -- Enums and ValueParams
 
 class SimpleEnum a where
-    toValue :: Num n => a -> n
-    fromValue :: Num n => n -> a
+    toValue :: (Eq n, Num n) => a -> n
+    fromValue :: (Eq n, Num n) => n -> a
 
 class BitEnum a where
     toBit :: a -> Int
