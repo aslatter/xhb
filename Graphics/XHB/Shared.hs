@@ -82,13 +82,13 @@ fromMask x = mapMaybe go [0..(bitSize x) - 1]
     where go i | x `testBit` i = return $ fromBit i
                | otherwise = Nothing
 
-toMask :: (Bits b, BitEnum e) => [e] -> b
+toMask :: (Bits b, Num b, BitEnum e) => [e] -> b
 toMask = foldl' (.|.) 0 . map (bit . toBit)
 
 
 data ValueParam a = VP a [Word32]
 
-toValueParam :: (Bits a, BitEnum e) => [(e,Word32)] -> ValueParam a
+toValueParam :: (Bits a, Num a, BitEnum e) => [(e,Word32)] -> ValueParam a
 toValueParam xs = 
     let (es,ws) = unzip $ L.sortBy (compare `on` toBit . fst) xs
     in VP (toMask es) ws
@@ -98,7 +98,7 @@ fromValueParam (VP x ws) =
     let es = fromMask x
     in assert (length es == length ws) $ zip es ws
 
-emptyValueParam :: Bits a => ValueParam a
+emptyValueParam :: Num a => ValueParam a
 emptyValueParam = VP 0 []
 
 instance (Bits a, Show a) => Show (ValueParam a) where
