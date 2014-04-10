@@ -15,7 +15,8 @@ License:      BSD3
 License-file: LICENSE
 Author:       See CONTRIBUTORS file
 Maintainer:   Antoine Latter <aslatter@gmail.com>
-Homepage: http://community.haskell.org/~aslatter/code/xhb
+Homepage: https://github.com/aslatter/xhb
+Bug-reports: https://github.com/aslatter/xhb/issues
 Build-type: Simple
 
 Category: Graphics
