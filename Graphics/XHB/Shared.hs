@@ -32,7 +32,6 @@ import System.ByteOrder
 
 -- crazy imports for put/get storable
 import qualified Data.ByteString.Internal as Strict
-import Foreign
 import Foreign.Storable
 import Foreign.Ptr
 import Foreign.ForeignPtr
