@@ -21,7 +21,7 @@ Build-type: Simple
 
 Category: Graphics
 
-Extra-source-files: CONTRIBUTORS
+Extra-source-files: CONTRIBUTORS, CHANGES
 
 Library
 

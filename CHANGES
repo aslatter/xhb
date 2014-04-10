@@ -1,0 +1,6 @@
+
+0.5.2014.4.10
+
+2014-04-10 Antoine Latter <aslatter@gmail.com>
+
+* Update import for 'unsafePerformIO'.
