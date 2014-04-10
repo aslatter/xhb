@@ -37,6 +37,8 @@ import Foreign.Storable
 import Foreign.Ptr
 import Foreign.ForeignPtr
 
+import System.IO.Unsafe ( unsafePerformIO )
+
 byteOrderToNum :: ByteOrder -> Int
 byteOrderToNum BigEndian = fromEnum '\o102' -- B
 byteOrderToNum LittleEndian = fromEnum '\o154' -- l
