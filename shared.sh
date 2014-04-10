@@ -20,8 +20,14 @@ PROG=${UTIL_PATH}/${TEST_PROG}/${TEST_PROG}
 #Do we have the test program?
 [ -f ${PROG} ] || {
     pushd build-utils > /dev/null
+
+    [ -f cabal.sandbox.config ] || {
+        cabal sandbox init
+        cabal install --dependencies-only
+    }
     cabal configure
     cabal build
+
     popd > /dev/null
 }
 [ -f ${PROG} ] || {
