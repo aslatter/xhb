@@ -7,33 +7,30 @@ with an X server, using XCB as a model.
 The bedrock of the library will be datatypes and serialization code
 automatically generated from the 'xproto' XML files:
 
-The generation requires the "xcb-types" and "haskell-src"
-packages, which can be installed using cabal as follows:
-
-  cabal install xcb-types
-  cabal install haskell-src
-
-The library also requires the "Xauth" package, which can
-also be installed using cabal:
-
-  cabal install Xauth
-
-To see what the current progress is, try the following:
+To build the generated files execute:
 
   chmod +x generate.sh
   ./generate.sh
 
-and then look around in the "patched" directory.
+The generated routines are in the 'patched' directory.
 
 To build the .cabal file to install the library run:
 
   chmod +x cabalize.sh
   ./cabalize.sh
 
-This requires the "HStringTemplate" package, which can be installed using
-cabal as follows:
+To test that the generated files build successfully execute:
 
-  cabal install HStringTemplate
+  cabal configure
+  cabal build
+
+Details
+-------
+
+The tools we use to do the code generation are in the 'build-tools' folder.
+
+We require the packages 'xcb-types', 'haskell-src' and 'HStringTemplate',
+which are installed into a Cabal sandbox in the 'build-tools' folder.
 
 
 How To Hack
