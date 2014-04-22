@@ -252,8 +252,12 @@ declareEnumTycon name elems =
             name
             []
             (map (mkEnumCon name) elems)
-            [mkUnQName "Show"] -- derving
-
+            (mkUnQName <$> -- derving
+              [ "Show"
+              , "Eq"
+              , "Ord"
+              , "Enum"
+              ])
 -- | For an element of an X enum, declares a clause in the Haskell data constructor
 mkEnumCon :: Name -> EnumElem -> HsConDecl
 mkEnumCon tyname (EnumElem name _) = mkCon (tyname ++ name) []
@@ -401,7 +405,7 @@ declareStruct name fields =
              name
              []
              [mkRCon (conPrefix name) (selems)]
-             [mkUnQName "Show", mkUnQName "Typeable"]
+             (mkUnQName <$> ["Show","Typeable","Eq","Ord"])
           , fExprFields
           ]
     where selemsToRec :: [HStructElem] -> [(String,HsBangType)]

@@ -1,4 +1,4 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving, BangPatterns #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving, BangPatterns, DeriveDataTypeable #-}
 
 module Graphics.XHB.Shared where
 
@@ -44,7 +44,7 @@ byteOrderToNum LittleEndian = fromEnum '\o154' -- l
 byteOrderToNum Mixed{} = error "Mixed endian platforms not supported."
 
 newtype Xid = MkXid Word32
- deriving (Eq, Ord, Serialize, Deserialize)
+ deriving (Eq, Ord, Typeable, Serialize, Deserialize)
 
 instance Show Xid where
     show (MkXid x) = show x
@@ -88,6 +88,7 @@ toMask = foldl' (.|.) 0 . map (bit . toBit)
 
 
 data ValueParam a = VP a [Word32]
+  deriving (Eq, Ord, Typeable)
 
 toValueParam :: (Bits a, Num a, BitEnum e) => [(e,Word32)] -> ValueParam a
 toValueParam xs = 

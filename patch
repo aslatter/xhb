@@ -30,7 +30,7 @@ diff -u -r generated/1.5/Graphics/XHB/Gen/RandR/Types.hs patched/Graphics/XHB/Ge
 +data NotifyData = NotifyDataCrtcChange CrtcChange
 +                | NotifyDataOutputChange OutputChange
 +                | NotifyDataOutputProperty OutputProperty
-+     deriving (Show, Typeable)
++     deriving (Show, Typeable, Eq, Ord)
 +
 +instance Serialize NotifyData where
 +    serialize  (NotifyDataCrtcChange x) = serialize x
@@ -53,7 +53,7 @@ diff -u -r generated/1.5/Graphics/XHB/Gen/RandR/Types.hs patched/Graphics/XHB/Ge
   
  data NotifyEvent = MkNotifyEvent{subCode_NotifyEvent :: Notify,
                                   u_NotifyEvent :: NotifyData}
-                  deriving (Show, Typeable)
+                  deriving (Show, Typeable, Eq, Ord)
 - 
 +
  instance Graphics.XHB.Shared.Event NotifyEvent
@@ -82,13 +82,13 @@ diff -u -r generated/1.5/Graphics/XHB/Gen/Xproto/Types.hs patched/Graphics/XHB/G
 @@ -1516,6 +1516,51 @@
                                         window_MapNotifyEvent :: WINDOW,
                                         override_redirect_MapNotifyEvent :: Bool}
-                     deriving (Show, Typeable)
+                     deriving (Show, Typeable, Eq, Ord)
 +
 + 
 +data ClientMessageData = ClientData8  [Word8]  -- ^length 20
 +                       | ClientData16 [Word16] -- ^length 10
 +                       | ClientData32 [Word32] -- ^length 5
-+                   deriving (Show, Typeable)
++                   deriving (Show, Typeable, Eq, Ord)
 +
 + 
 +data ClientMessageDataType = CDType8
