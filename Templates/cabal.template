@@ -1,5 +1,5 @@
 Name:         xhb
-Version:      0.5$if(DateString)$.$DateString$$else$$endif$
+Version:      0.6$if(DateString)$.$DateString$$else$$endif$
 Cabal-Version:  >= 1.2.3
 Synopsis:     X Haskell Bindings
 Description:
