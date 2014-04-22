@@ -1,0 +1,15 @@
+diff -u -r src/xproto.xml patched/xproto.xml
+--- src/xproto.xml	2009-12-02 03:06:59.000000000 -0600
++++ patched/xproto.xml	2014-04-21 21:03:02.000000000 -0500
+@@ -935,10 +935,9 @@
+   <request name="ConfigureWindow" opcode="12">
+     <pad bytes="1" />
+     <field type="WINDOW" name="window" />
+-    <field type="CARD16" name="value_mask" />
+-    <pad bytes="2" />
+     <valueparam value-mask-type="CARD16"
+                 value-mask-name="value_mask"
++                value-mask-pad="2"
+                 value-list-name="value_list" />
+   </request>
+ 

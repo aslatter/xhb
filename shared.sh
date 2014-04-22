@@ -2,12 +2,7 @@
 . version.sh
 export XPROTO_VERSION
 
-XPROTO_PACKAGE=xcb-proto-${XPROTO_VERSION}
-
-DOWNLOAD_PATH=resources
-XML_TARBALL=http://xcb.freedesktop.org/dist/${XPROTO_PACKAGE}.tar.gz
-XML_DIR=${DOWNLOAD_PATH}/${XPROTO_PACKAGE}/src
-XML_FILES=*.xml
+. protodefs.sh
 
 GENERAL_ERROR=1
 
@@ -37,7 +32,7 @@ PROG=${UTIL_PATH}/${TEST_PROG}/${TEST_PROG}
 
 
 #Do the XML files exist?
-[ -d ${XML_DIR} ] || {
+[ -d ${XML_SOURCE_DIR} ] || {
 
     [ $(which curl) ]  || {
 	echo "Cannot find 'curl' in path"
@@ -58,14 +53,30 @@ PROG=${UTIL_PATH}/${TEST_PROG}/${TEST_PROG}
     curl ${XML_TARBALL} | tar -xzC ${DOWNLOAD_PATH}
 }
 
-[ -d ${XML_DIR} ] || {
-    echo "Soething went wrong, I can't find ${XML_DIR}"
+[ -d ${XML_SOURCE_DIR} ] || {
+    echo "Soething went wrong, I can't find ${XML_SOURCE_DIR}"
     exit ${GENERAL_ERROR}
 }
 
+# Re-patch protocol files
+if [ -d ${XML_DIR} ]; then
+    rm -r ${XML_DIR}
+fi
+cp -r ${XML_SOURCE_DIR} ${XML_DIR}
+
+if [ -f xmlpatch ]; then
+    PATCHFILE=${PWD}/xmlpatch
+    pushd ${XML_DIR} > /dev/null
+    patch -u -p 1 < ${PATCHFILE} || {
+	popd > /dev/null
+	exit ${GENERAL_ERROR}
+    }
+    popd > /dev/null
+fi
+
 #Cleanup after prvious run
 if [ -d ${OUT_DIR} ]; then
-    rm -rf ${OUT_DIR}
+    rm -r ${OUT_DIR}
 fi
 mkdir -p ${OUT_DIR}
 
