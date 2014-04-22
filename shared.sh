@@ -23,7 +23,7 @@ PROG=${UTIL_PATH}/${TEST_PROG}/${TEST_PROG}
 
     [ -f cabal.sandbox.config ] || {
         cabal sandbox init
-        cabal install --dependencies-only
+        cabal install -j --dependencies-only
     }
     cabal configure
     cabal build
