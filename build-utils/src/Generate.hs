@@ -257,6 +257,7 @@ declareEnumTycon name elems =
               , "Eq"
               , "Ord"
               , "Enum"
+              , "Typeable"
               ])
 -- | For an element of an X enum, declares a clause in the Haskell data constructor
 mkEnumCon :: Name -> EnumElem -> HsConDecl
