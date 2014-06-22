@@ -193,6 +193,7 @@ class Typeable a => Event a where
     toEvent = SomeEvent
 
 data SomeEvent = forall a . Event a => SomeEvent a
+    deriving (Typeable)
 
 data UnknownEvent = UnknownEvent BS.ByteString deriving (Typeable)
 instance Event UnknownEvent
