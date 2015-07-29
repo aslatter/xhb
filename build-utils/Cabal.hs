@@ -4,7 +4,6 @@ import Text.StringTemplate
 import System.IO
 import System.Environment (getArgs, getEnv)
 import System.Exit
-import System.Locale
 import System.FilePath
 
 import Data.Time

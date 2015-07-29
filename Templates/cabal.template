@@ -30,7 +30,8 @@ Library
 
  Extensions: ExistentialQuantification,
              DeriveDataTypeable,
-             GeneralizedNewtypeDeriving
+             GeneralizedNewtypeDeriving,
+             FlexibleContexts
 
  Exposed-modules:
    Graphics.XHB,
