@@ -215,7 +215,7 @@ declareErrorInst name = mkInstDecl
 
 -- | For an X enum, declares an instance of 'SimpleEnum' of 'BitEnum'
 -- as appropriate.
-declareEnumInstance :: EnumType -> Name -> [EnumElem] -> HsDecl
+declareEnumInstance :: EnumType -> Name -> [EnumElem t] -> HsDecl
 declareEnumInstance _typ _name [] = error $ "declareEnumInstance: " ++
                                     "Enum has no elements"
 declareEnumInstance ETypeValue name els =
@@ -245,7 +245,7 @@ declareEnumInstance ETypeBit name els =
              = mkLitMatch "fromBit" (hsInt (fromIntegral n)) $ hsCon $ mkUnQName $ name++nm
 
 -- | For an X enum, declares a Haskell data type.
-declareEnumTycon :: Name -> [EnumElem] -> HsDecl
+declareEnumTycon :: Name -> [EnumElem t] -> HsDecl
 declareEnumTycon name elems =
             mkDataDecl
             []
@@ -260,7 +260,7 @@ declareEnumTycon name elems =
               , "Typeable"
               ])
 -- | For an element of an X enum, declares a clause in the Haskell data constructor
-mkEnumCon :: Name -> EnumElem -> HsConDecl
+mkEnumCon :: Name -> EnumElem t -> HsConDecl
 mkEnumCon tyname (EnumElem name _) = mkCon (tyname ++ name) []
 
 
@@ -273,7 +273,7 @@ instance Eq EnumType where
     ETypeError{} == ETypeError{} = True
     _ == _ = False
 
-cleanEnum :: [EnumElem] -> [EnumElem]
+cleanEnum :: [EnumElem t] -> [EnumElem t]
 cleanEnum xs =
   let containsBits = not . null $ justBits
 
@@ -291,7 +291,7 @@ cleanEnum xs =
 --
 -- In particular, we disallow enums with both regular numbers
 -- and bit-field numbers.
-verifyEnum :: Pretty a => GenXDecl a -> [EnumElem] -> EnumType
+verifyEnum :: Pretty a => GenXDecl a -> [EnumElem t] -> EnumType
 verifyEnum dec elems = case enumType elems of
         ETypeError str -> enumTypPanic str dec
         x -> x
@@ -299,7 +299,7 @@ verifyEnum dec elems = case enumType elems of
 -- | Returns the type of the enum elements.
 -- An enum is either a 'Value' enum or a 'Bit' enum.
 -- This is more strict than the xproto xml schema.
-enumType :: [EnumElem] -> EnumType
+enumType :: [EnumElem t] -> EnumType
 enumType xs = case L.foldl' (flip go) Nothing xs of
                 Nothing -> ETypeError "empty enum"
                 Just x -> x
@@ -318,7 +318,7 @@ enumTypPanic str dec = error $
                     show $ toDoc dec
 
 -- |If an enum doesn't have defined values fill them in
-fillEnum :: [EnumElem] -> [EnumElem]
+fillEnum :: [EnumElem t] -> [EnumElem t]
 fillEnum = snd . L.mapAccumL go (Just 0)
     where
       go _ x@(EnumElem _ (Just (Value n))) = (Just (n+1), x)
@@ -492,7 +492,7 @@ exprFields name elems = appMany $ map go elems
 -- writing a deserialization function.  The first element of the pair
 -- is the name of the variable which is being deserialized and the second
 -- element is the name of the type being deserialized.
-mkExpr :: Maybe (Name, Name) -> Expression -> HsExp
+mkExpr :: Maybe (Name, Name) -> Expression t -> HsExp
 mkExpr _ (Value n) = mkNumLit n
 mkExpr _ (Bit n) = mkNumLit $ 2^n
 mkExpr (Just (rec, name)) (FieldRef field)
