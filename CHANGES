@@ -1,4 +1,13 @@
 
+0.6.2015.8.1
+
+* Most types should have instances for Show, Eq, Ord and Typeable as
+  appropriate.
+
+* Serialize ConfigureWindow requests properly.
+
+* Update for GHC 7.10.
+
 0.5.2014.4.10
 
 2014-04-10 Antoine Latter <aslatter@gmail.com>
